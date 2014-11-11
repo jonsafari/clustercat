@@ -1,6 +1,6 @@
 /** Induces word categories
  *  By Jon Dehdari, 2014
- *  Usage: ./clustercat [options] < input > output
+ *  Usage: ./clustercat [options] < corpus.tok.txt > classes.tsv
 **/
 
 #include <limits.h>				// UCHAR_MAX, UINT_MAX
@@ -27,12 +27,13 @@ char * restrict class_file = NULL;
 
 
 // Defaults
-unsigned char ngram_order  = 2;
-unsigned int min_count     = 0;
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.max_sents_in_buffer    = 512,
+	.min_count              = 0,
+	.ngram_order            = 3,
 	.num_threads            = 6,
+	.num_classes            = 100,
 	.verbose                = 0,
 };
 
@@ -53,10 +54,13 @@ int main(int argc, char **argv) {
 			cmd_args.num_threads = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--min-count")) {
-			min_count = (unsigned int) atol(argv[arg_i+1]);
+			cmd_args.min_count = (unsigned int) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--num-classes")) {
+			cmd_args.num_classes = (unsigned short) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
-			ngram_order = (unsigned char) atoi(argv[arg_i+1]);
+			cmd_args.ngram_order = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-v") && strcmp(argv[arg_i], "--verbose"))) {
 			cmd_args.verbose++;
@@ -93,9 +97,11 @@ int main(int argc, char **argv) {
 
 	clock_t time_model_built = clock();
 	fprintf(stderr, "%s: Finished loading %lu tokens from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
-	unsigned long word_entries      = map_print_entries(&word_map, "", PRIMARY_SEP_CHAR, 0);
-	unsigned long class_entries     = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
-	unsigned long ngram_entries     = map_print_entries(&ngram_map, "#NG ", PRIMARY_SEP_CHAR, 0);
+	//unsigned long word_entries      = map_print_entries(&word_map, "", PRIMARY_SEP_CHAR, 0);
+	unsigned long word_entries      = 0;
+	//unsigned long class_entries     = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
+	unsigned long class_entries     = 0;
+	unsigned long ngram_entries     = map_print_entries(&ngram_map, "", PRIMARY_SEP_CHAR, 0);
 	unsigned long word_word_entries = 0;
 	word_word_entries = PRINT_ENTRIES_FLOAT(DATA_STRUCT_FLOAT_ADDR DATA_STRUCT_FLOAT_NAME, "", PRIMARY_SEP_CHAR, 0);
 	unsigned long total_entries = word_entries + class_entries + ngram_entries + word_word_entries;
@@ -112,7 +118,7 @@ void get_usage_string(char * restrict usage_string, int usage_len) {
 
 	snprintf(usage_string, usage_len, "ClusterCat  (c) 2014 Jon Dehdari - LGPL v3 or Apache v2\n\
 \n\
-Usage:    clustercat [options] < input > output \n\
+Usage:    clustercat [options] < corpus.tok.txt > classes.tsv \n\
 \n\
 Function: Induces word categories from plaintext\n\
 \n\
@@ -125,7 +131,7 @@ Options:\n\
  -o, --order <i>          Maximum n-gram order in training set to consider for word n-gram model (default: %d-grams)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, min_count, ngram_order );
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.ngram_order );
 }
 
 
@@ -219,10 +225,10 @@ unsigned long process_sent(char * restrict sent_str) {
 	// it's the right-most word in the n-gram. I wrote increment_ngram() earlier using the right-most interpretation of i.
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++) {
-		map_increment_entry(&word_map, sent_info.sent[i]);
+		//map_increment_entry(&word_map, sent_info.sent[i]);
 
-		if (ngram_order) {
-			sentlen_t start_position_ngram = (i >= ngram_order-1) ? i - (ngram_order-1) : 0; // N-grams starting point is 0, for <s>
+		if (cmd_args.ngram_order) {
+			sentlen_t start_position_ngram = (i >= cmd_args.ngram_order-1) ? i - (cmd_args.ngram_order-1) : 0; // N-grams starting point is 0, for <s>
 			increment_ngram(&ngram_map, sent_info.sent, sent_info.word_lengths, start_position_ngram, i);
 		}
 	}

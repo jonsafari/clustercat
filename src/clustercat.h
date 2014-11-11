@@ -58,8 +58,11 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
-	long           max_sents_in_buffer;
+	unsigned long  max_sents_in_buffer;
+	unsigned short num_classes;
+	unsigned short min_count : 10;
 	unsigned short num_threads : 10;
+	unsigned char  ngram_order : 6;
 	char           verbose : 3;    // Negative values increasingly suppress normal output
 	unsigned char  class_algo : 2; // enum class_algos
 };
