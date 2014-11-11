@@ -8,6 +8,7 @@
 #include <libgen.h>			// basename()
 #include <limits.h>			// USHRT_MAX, UINT_MAX
 #include <errno.h>
+#include "clustercat-data.h"
 
 // Defaults
 #define PRIMARY_SEP_CHAR     '\t'
@@ -30,14 +31,6 @@ typedef unsigned short sentlen_t; // Number of words in a sentence
 
 enum class_algos {EXCHANGE, BROWN};
 
-void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer);
-unsigned long process_sent(char * restrict sent_str);
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
-static inline void free_sent_info_local(struct_sent_info sent_info);
-
-char *argv_0_basename; // Allow for global access to filename
-
 typedef struct {
 	sentlen_t length;
 	char **sent;
@@ -56,6 +49,13 @@ typedef struct {
 	unsigned char class_order;
 	unsigned char ngram_order : 5;
 } struct_model_metadata;
+
+void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
+unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer);
+unsigned long process_sent(char * restrict sent_str);
+void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
+
+char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
 	long           max_sents_in_buffer;

@@ -9,12 +9,12 @@
 #include "clustercat.h"				// Model importing/exporting functions
 #include "clustercat-data.h"
 #include "clustercat-io.h"			// fill_sent_buffer()
-#include "clustercat-math.h"			// get_decays(), dot_product()
 
 #define USAGE_LEN 10000
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
+void free_sent_info_local(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
 struct_map *word_map       = NULL;	// Must initialize to NULL
@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
 			printf("%s", usage);
 			return -1;
+		}
 	}
 	//const char *file_name = argv[1];
 	//printf("KEYLEN=%d,  sizeof(struct_map)=%lu\n", KEYLEN, sizeof(struct_map)); return 0;
@@ -118,14 +119,13 @@ Function: Induces word categories from plaintext\n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
      --class-file <file>  Use word class tab-separated file (word\\tclass)\n\
-     --class-order <i>    Maximum n-gram order to consider for class model (default: %d-grams)\n\
  -h, --help               Print this usage\n\
  -j, --jobs <i>           Set number of threads to run simultaneously (default: %d)\n\
      --min-count <i>      Minimum count of entries in training set to consider (default: %d)\n\
  -o, --order <i>          Maximum n-gram order in training set to consider for word n-gram model (default: %d-grams)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", class_order, cmd_args.num_threads, min_count, ngram_order );
+", cmd_args.num_threads, min_count, ngram_order );
 }
 
 
@@ -225,11 +225,6 @@ unsigned long process_sent(char * restrict sent_str) {
 			sentlen_t start_position_ngram = (i >= ngram_order-1) ? i - (ngram_order-1) : 0; // N-grams starting point is 0, for <s>
 			increment_ngram(&ngram_map, sent_info.sent, sent_info.word_lengths, start_position_ngram, i);
 		}
-
-		if (class_order) {
-			sentlen_t start_position_class = (i >= class_order-1) ? i - (class_order-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram(&class_map, sent_info.class_sent, sent_info.class_lengths, start_position_class, i);
-		}
 	}
 
 	free_sent_info_local(sent_info);
@@ -284,7 +279,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 }
 
 // Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
-static inline void free_sent_info_local(struct_sent_info sent_info) {
+void free_sent_info_local(struct_sent_info sent_info) {
 	sentlen_t i = 1;
 	for (; i < sent_info.length-1; ++i) // Assumes word_0 is <s> and word_sentlen is </s>, which weren't malloc'd
 		free(sent_info.class_sent[i]);
