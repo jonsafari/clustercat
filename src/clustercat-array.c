@@ -1,5 +1,8 @@
 #include <stdarg.h>		// variadic functions for arrncat
-#include "dklm.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "clustercat.h"	// macros
 
 // Returns 0 if all values in array are 0.0; returns 1 otherwise
 int any(const double array[], unsigned int arr_len) {

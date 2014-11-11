@@ -1,8 +1,8 @@
-#ifndef INCLUDE_DKLM_DATA_HEADER
-#define INCLUDE_DKLM_DATA_HEADER
+#ifndef INCLUDE_CLUSTERCAT_DATA_HEADER
+#define INCLUDE_CLUSTERCAT_DATA_HEADER
 
-#include "dklm-map.h"
-#include "dklm-tree.h"
+#include "clustercat-map.h"
+//#include "clustercat-tree.h"
 
 // Thanks Dipstick
 #define STR(x) #x
@@ -11,43 +11,7 @@
 
 // Default to storing word-word entries in hash table using uthash
 // You can change this by compiling with -DATA_STORE_TREE_LCRS or -DATA_STORE_TRIE
-#ifdef ATA_STORE_TRIE_LCRS
- #define DATA_STRUCT_FLOAT_HUMAN_NAME "hybrid_trie_lcrs"
- #define DATA_STRUCT_FLOAT_NAME word_word_float_trie_lcrs
- #define DATA_STRUCT_FLOAT_ADDR 
- #define DATA_STRUCT_FLOAT_SIZE sizeof(struct_tree_lcrs_float)
- #define DATA_STRUCT_FLOAT_TYPE struct_trie_lcrs_float *
- #define DATA_STRUCT_FLOAT_TYPE_IN_STRUCT struct_trie_lcrs_float *
- #define DECLARE_DATA_STRUCT_FLOAT DATA_STRUCT_FLOAT_TYPE DATA_STRUCT_FLOAT_NAME = NULL;
- #define INIT_DATA_STRUCT_FLOAT DATA_STRUCT_FLOAT_NAME = trie_lcrs_new(); // This should only be used once, initially. Hence no args
- #define UPDATE_ENTRY_FLOAT(db,key,val) ( trie_lcrs_update_entry_float((db), (key), (val)))
- #define FIND_ENTRY_FLOAT(db,key) ( trie_lcrs_find_entry_float((db), (key)))
- #define PRINT_ENTRIES_FLOAT(db, prefix, sep_char, min_count) ( trie_lcrs_print_entries_float((db), (prefix), (sep_char), (min_count)))
-#elif ATA_STORE_TREE_LCRS
- #define DATA_STRUCT_FLOAT_HUMAN_NAME "tree_lcrs"
- #define DATA_STRUCT_FLOAT_NAME word_word_float_tree_lcrs
- #define DATA_STRUCT_FLOAT_ADDR 
- #define DATA_STRUCT_FLOAT_SIZE sizeof(struct_tree_lcrs_float)
- #define DATA_STRUCT_FLOAT_TYPE struct_tree_lcrs_float *
- #define DATA_STRUCT_FLOAT_TYPE_IN_STRUCT struct_tree_lcrs_float *
- #define DECLARE_DATA_STRUCT_FLOAT DATA_STRUCT_FLOAT_TYPE DATA_STRUCT_FLOAT_NAME = NULL;
- #define INIT_DATA_STRUCT_FLOAT DATA_STRUCT_FLOAT_NAME = tree_lcrs_new('\0', 0.0, NULL);
- #define UPDATE_ENTRY_FLOAT(db,key,val) ( tree_lcrs_update_entry_float((db), (key), 0, (val)))
- #define FIND_ENTRY_FLOAT(db,key) ( tree_lcrs_find_entry_float((db), (key)))
- #define PRINT_ENTRIES_FLOAT(db, prefix, sep_char, min_count) ( tree_lcrs_print_entries_float((db), (prefix), (sep_char), (min_count)))
-#elif defined ATA_STORE_TRIE
- #define DATA_STRUCT_FLOAT_HUMAN_NAME "trie"
- #define DATA_STRUCT_FLOAT_NAME word_word_float_trie
- #define DATA_STRUCT_FLOAT_ADDR 
- #define DATA_STRUCT_FLOAT_SIZE sizeof(struct_trie_float)
- #define DATA_STRUCT_FLOAT_TYPE struct_trie_float * restrict
- #define DATA_STRUCT_FLOAT_TYPE_IN_STRUCT struct_trie_float *
- #define DECLARE_DATA_STRUCT_FLOAT DATA_STRUCT_FLOAT_TYPE DATA_STRUCT_FLOAT_NAME = NULL;
- #define INIT_DATA_STRUCT_FLOAT DATA_STRUCT_FLOAT_NAME = trie_new('\0');
- #define UPDATE_ENTRY_FLOAT(db,key,val) ( trie_update_entry_float((db), (key), (val)))
- #define FIND_ENTRY_FLOAT(db,key) ( trie_find_entry_float((db), (key)))
- #define PRINT_ENTRIES_FLOAT(db, prefix, sep_char, min_count) ( trie_print_entries_float((db), (prefix), (sep_char), (min_count)))
-#elif defined ATA_STORE_KHASH // https://github.com/attractivechaos/klib
+#if defined ATA_STORE_KHASH // https://github.com/attractivechaos/klib
  #define DATA_STRUCT_FLOAT_HUMAN_NAME "khash_map"
  #define DATA_STRUCT_FLOAT_NAME word_word_float_khash
  #define DATA_STRUCT_FLOAT_ADDR 

@@ -1,5 +1,5 @@
-#ifndef INCLUDE_DKLM_MAP_HEADER
-#define INCLUDE_DKLM_MAP_HEADER
+#ifndef INCLUDE_CLUSTERCAT_MAP_HEADER
+#define INCLUDE_CLUSTERCAT_MAP_HEADER
 
 #include <stdio.h>
 #include "uthash.h"

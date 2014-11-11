@@ -1,5 +1,5 @@
 #include <string.h>
-#include "dklm.h"
+#include "clustercat-tokenize.h"
 
 // Simple threadsafe tokenization for plaintext, copying words into **sent_words
 // Remember to free using tokenize_simple_free()
