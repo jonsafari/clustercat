@@ -23,17 +23,18 @@ struct_map *class_map      = NULL;	// Must initialize to NULL
 struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL
 DECLARE_DATA_STRUCT_FLOAT; // for word_word_float_map
 char usage[USAGE_LEN];
-char * restrict class_file = NULL;
+char * restrict class_algo_string = NULL;
 
 
 // Defaults
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
-	.max_sents_in_buffer    = 512,
+	.max_sents_in_buffer    = 10000,
 	.min_count              = 0,
 	.ngram_order            = 3,
 	.num_threads            = 6,
 	.num_classes            = 100,
+	.tune_cycles            = 50,
 	.verbose                = 0,
 };
 
@@ -50,17 +51,31 @@ int main(int argc, char **argv) {
 		if (!(strcmp(argv[arg_i], "-h") && strcmp(argv[arg_i], "--help"))) {
 			printf("%s", usage);
 			return 0;
+		} else if (!strcmp(argv[arg_i], "--class-algo")) {
+			class_algo_string = argv[arg_i+1];
+			arg_i++;
+			if (!strcmp(class_algo_string, "brown"))
+				cmd_args.class_algo = BROWN;
+			else if (!strcmp(class_algo_string, "exchange"))
+				cmd_args.class_algo = EXCHANGE;
+			else { printf("%s", usage); return 0; }
 		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
 			cmd_args.num_threads = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--min-count")) {
 			cmd_args.min_count = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--num-classes")) {
+		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args.num_classes = (unsigned short) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
 			cmd_args.ngram_order = (unsigned char) atoi(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--sent-buf")) {
+			cmd_args.max_sents_in_buffer = atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--tune-cycles")) {
+			cmd_args.tune_cycles = (unsigned short) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-v") && strcmp(argv[arg_i], "--verbose"))) {
 			cmd_args.verbose++;
@@ -102,14 +117,12 @@ int main(int argc, char **argv) {
 	//unsigned long class_entries     = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
 	unsigned long class_entries     = 0;
 	unsigned long ngram_entries     = map_print_entries(&ngram_map, "", PRIMARY_SEP_CHAR, 0);
-	unsigned long word_word_entries = 0;
-	word_word_entries = PRINT_ENTRIES_FLOAT(DATA_STRUCT_FLOAT_ADDR DATA_STRUCT_FLOAT_NAME, "", PRIMARY_SEP_CHAR, 0);
-	unsigned long total_entries = word_entries + class_entries + ngram_entries + word_word_entries;
+	unsigned long total_entries = word_entries + class_entries + ngram_entries;
 	clock_t time_model_printed = clock();
 	fprintf(stderr, "%s: Finished printing model in %.2f secs;", argv_0_basename, (double)(time_model_printed - time_model_built)/CLOCKS_PER_SEC);
-	fprintf(stderr, "  %lu entries:  %lu types,  %lu class ngrams,  %lu word ngrams,  %lu word-words\n", total_entries, word_entries, class_entries, ngram_entries, word_word_entries);
+	fprintf(stderr, "  %lu entries:  %lu types,  %lu class ngrams,  %lu word ngrams\n", total_entries, word_entries, class_entries, ngram_entries);
 	unsigned long map_entries = word_entries + class_entries + ngram_entries;
-	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; word-word (using %s): %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, DATA_STRUCT_FLOAT_HUMAN_NAME, word_word_entries, DATA_STRUCT_FLOAT_SIZE, DATA_STRUCT_FLOAT_SIZE * word_word_entries, (double)((sizeof(struct_map) * map_entries) + (DATA_STRUCT_FLOAT_SIZE * word_word_entries)) / 1048576);
+	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
 	return 0;
 }
 
@@ -124,14 +137,16 @@ Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
-     --class-file <file>  Use word class tab-separated file (word\\tclass)\n\
  -h, --help               Print this usage\n\
- -j, --jobs <i>           Set number of threads to run simultaneously (default: %d)\n\
-     --min-count <i>      Minimum count of entries in training set to consider (default: %d)\n\
- -o, --order <i>          Maximum n-gram order in training set to consider for word n-gram model (default: %d-grams)\n\
+ -j, --jobs <i>           Set number of threads to run simultaneously (default: %d threads)\n\
+     --min-count <i>      Minimum count of entries in training set to consider (default: %d occurrences)\n\
+ -n, --num-classes <i>    Set number of word classes (default: %d classes)\n\
+ -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
+     --sent-buf <i>       Set size of sentence buffer to tune on (default: %lu sentences)\n\
+     --tune-cycles <i>    Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.ngram_order );
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.ngram_order, cmd_args.max_sents_in_buffer, cmd_args.tune_cycles);
 }
 
 
@@ -225,7 +240,7 @@ unsigned long process_sent(char * restrict sent_str) {
 	// it's the right-most word in the n-gram. I wrote increment_ngram() earlier using the right-most interpretation of i.
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++) {
-		//map_increment_entry(&word_map, sent_info.sent[i]);
+		map_increment_entry(&word_map, sent_info.sent[i]);
 
 		if (cmd_args.ngram_order) {
 			sentlen_t start_position_ngram = (i >= cmd_args.ngram_order-1) ? i - (cmd_args.ngram_order-1) : 0; // N-grams starting point is 0, for <s>
@@ -263,14 +278,6 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 			pch[MAX_WORD_LEN] = '\0';
 			sent_info->word_lengths[w_i] = MAX_WORD_LEN;
 			fprintf(stderr, "%s: Warning: Truncating pathologically-long word '%s'\n", argv_0_basename, pch);
-		}
-
-		if (class_file) {
-			char * restrict class = get_class(&word2class_map, pch, UNKNOWN_WORD_CLASS);
-			unsigned short class_len = strlen(class);
-			sent_info->class_lengths[w_i] = class_len;
-			sent_info->class_sent[w_i] = malloc(class_len + 1);
-			strncpy(sent_info->class_sent[w_i], class, class_len+1);
 		}
 
 		pch = strtok(NULL, TOK_CHARS);
