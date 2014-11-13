@@ -45,10 +45,8 @@ int main(int argc, char **argv) {
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
 
+	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
 	parse_cmd_args(argc, argv, usage, &cmd_args);
-
-	//const char *file_name = argv[1];
-	//printf("KEYLEN=%d,  sizeof(struct_map)=%lu\n", KEYLEN, sizeof(struct_map)); return 0;
 
 	struct_model_metadata global_metadata;
 	global_metadata.token_count = 0;
