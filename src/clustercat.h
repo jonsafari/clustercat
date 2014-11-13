@@ -67,7 +67,7 @@ void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const 
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer);
 unsigned long process_sent(char * restrict sent_str);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
-void init_clusters(const struct cmd_args cmd_args, struct_map **word_map, struct_map_word_class **word2class_map);
+void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, struct_map **word_map, struct_map_word_class **word2class_map);
 void cluster(char * restrict sent_buffer[const], const struct cmd_args cmd_args, struct_map **ngram_map, struct_map **word_map, struct_map_word_class **word2class_map); 
 
 #endif // INCLUDE_HEADER

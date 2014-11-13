@@ -72,19 +72,17 @@ int main(int argc, char **argv) {
 
 	clock_t time_model_built = clock();
 	fprintf(stderr, "%s: Finished loading %lu tokens from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
-	//unsigned long word_entries      = map_print_entries(&word_map, "", PRIMARY_SEP_CHAR, 0);
-	unsigned long word_entries      = 0;
+	unsigned long vocab_size      = map_count(&word_map);
 	//unsigned long class_entries     = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
-	unsigned long class_entries     = 0;
-	unsigned long ngram_entries     = map_print_entries(&ngram_map, "", PRIMARY_SEP_CHAR, 0);
-	unsigned long total_entries = word_entries + class_entries + ngram_entries;
+	unsigned long ngram_entries     = map_count(&ngram_map);
+	unsigned long total_entries = vocab_size + ngram_entries;
 	clock_t time_model_printed = clock();
 	fprintf(stderr, "%s: Finished printing model in %.2f secs;", argv_0_basename, (double)(time_model_printed - time_model_built)/CLOCKS_PER_SEC);
-	fprintf(stderr, "  %lu entries:  %lu types,  %lu class ngrams,  %lu word ngrams\n", total_entries, word_entries, class_entries, ngram_entries);
-	unsigned long map_entries = word_entries + class_entries + ngram_entries;
+	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, vocab_size, ngram_entries);
+	unsigned long map_entries = vocab_size + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
 
-	init_clusters(cmd_args, &word_map, &word2class_map);
+	init_clusters(cmd_args, vocab_size, &word_map, &word2class_map);
 
 	cluster(sent_buffer, cmd_args, &ngram_map, &word_map, &word2class_map);
 
@@ -309,9 +307,17 @@ void free_sent_info_local(struct_sent_info sent_info) {
 	free(sent_info.class_sent);
 }
 
-void init_clusters(const struct cmd_args cmd_args, struct_map **word_map, struct_map_word_class **word2class_map) {
+void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, struct_map **word_map, struct_map_word_class **word2class_map) {
+	register unsigned short class = 0;
+	register unsigned long word_i = 0;
+
+	for (; word_i < vocab_size; word_i++, class++) {
+		if (class >= cmd_args.num_classes)
+			class = 0;
+		printf("class=%u, word_i=%lu, vocab_size=%lu\n", class, word_i, vocab_size);
+	}
 }
 
 void cluster(char * restrict sent_buffer[const], const struct cmd_args cmd_args, struct_map **ngram_map, struct_map **word_map, struct_map_word_class **word2class_map) {
-	printf("hi\n");
+	printf("cluster() goes here...\n");
 }
