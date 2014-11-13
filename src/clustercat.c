@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
 	cluster(sent_buffer, cmd_args, &ngram_map, &word_map, &word2class_map);
 
 	clock_t time_clustered = clock();
-	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_model_built - time_clustered)/CLOCKS_PER_SEC);
+	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
 
 	exit(0);
 }
@@ -135,7 +135,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			cmd_args->min_count = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
-			cmd_args->num_classes = (unsigned short) atol(argv[arg_i+1]);
+			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
 			cmd_args->ngram_order = (unsigned char) atoi(argv[arg_i+1]);
@@ -308,13 +308,17 @@ void free_sent_info_local(struct_sent_info sent_info) {
 }
 
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, struct_map **word_map, struct_map_word_class **word2class_map) {
-	register unsigned short class = 0;
+	register wclass_t class = 0;
 	register unsigned long word_i = 0;
+
+	char **unique_words = (char **)malloc(vocab_size * sizeof(char*));
+	get_keys(word_map, unique_words); // we could combine this step with the assignment of the words to classes into one loop, but would be more dependent on specific hash lib and/or would have to create hackish get_keys_and_assign_classes() function.  It's fast anyways, so no worries.
 
 	for (; word_i < vocab_size; word_i++, class++) {
 		if (class >= cmd_args.num_classes)
 			class = 0;
-		printf("class=%u, word_i=%lu, vocab_size=%lu\n", class, word_i, vocab_size);
+		printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
+		map_update_class(word2class_map, unique_words[word_i], class);
 	}
 }
 

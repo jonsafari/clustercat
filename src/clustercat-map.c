@@ -14,7 +14,7 @@ inline void map_add_entry(struct_map **map, char * restrict entry_key, unsigned 
 	local_s->count = count;
 }
 
-inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const char * restrict entry_class) {
+inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned short entry_class) {
 	struct_map_word_class *local_s;
 
 	//HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
@@ -23,10 +23,10 @@ inline void map_add_class(struct_map_word_class **map, const char * restrict ent
 		strncpy(local_s->key, entry_key, KEYLEN-1);
 		HASH_ADD_STR(*map, key, local_s);
 	//}
-	strncpy(local_s->class, entry_class, CLASSLEN-1);
+	local_s->class = entry_class;
 }
 
-inline void map_update_class(struct_map_word_class **map, const char * restrict entry_key, const char * restrict entry_class) {
+inline void map_update_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned short entry_class) {
 	struct_map_word_class *local_s;
 
 	HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
@@ -35,7 +35,7 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 		strncpy(local_s->key, entry_key, KEYLEN-1);
 		HASH_ADD_STR(*map, key, local_s);
 	}
-	strncpy(local_s->class, entry_class, CLASSLEN-1);
+	local_s->class = entry_class;
 }
 
 inline unsigned int map_increment_entry(struct_map **map, const char * restrict entry_key) { // Based on uthash's docs
@@ -120,7 +120,7 @@ inline float map_find_entry_float(struct_map_float *map[const], const char * res
 	return local_count;
 }
 
-inline char *get_class(struct_map_word_class *map[const], const char * restrict entry_key, char * restrict unk) {
+inline unsigned short get_class(struct_map_word_class *map[const], const char * restrict entry_key, const unsigned short unk) {
 	struct_map_word_class *local_s;
 
 	HASH_FIND_STR(*map, entry_key, local_s);	// local_s: output pointer
@@ -136,9 +136,6 @@ inline unsigned int get_keys(struct_map *map[const], char *keys[]) {
 	unsigned int number_of_keys = 0;
 
 	HASH_ITER(hh, *map, entry, tmp) {
-		if (strncmp(entry->key, "__", 2) == 0) // Filter-out metadata
-			continue;
-
 		// Build-up array of keys
 		unsigned short wlen = strlen(entry->key);
 		keys[number_of_keys] = (char *) malloc(wlen + 1);

@@ -8,7 +8,6 @@
 #include <libgen.h>			// basename()
 #include <limits.h>			// USHRT_MAX, UINT_MAX
 #include <errno.h>
-#include "clustercat-data.h"
 
 // Defaults
 #define PRIMARY_SEP_CHAR     '\t'
@@ -27,9 +26,12 @@
 #define EULER 2.71828182845904523536
 
 typedef unsigned short sentlen_t; // Number of words in a sentence
+typedef unsigned short wclass_t; // Number of possible word classes
 #define SENT_LEN_MAX USHRT_MAX
 
 enum class_algos {EXCHANGE, BROWN};
+
+#include "clustercat-data.h" // bad. chicken-and-egg typedef deps
 
 typedef struct {
 	sentlen_t length;
@@ -54,7 +56,7 @@ char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
 	unsigned long  max_sents_in_buffer;
-	unsigned short num_classes;
+	wclass_t       num_classes;
 	unsigned short tune_cycles : 10;
 	unsigned char  ngram_order : 6;
 	unsigned short num_threads : 10;
