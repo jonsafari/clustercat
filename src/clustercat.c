@@ -314,6 +314,7 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, str
 	char **unique_words = (char **)malloc(vocab_size * sizeof(char*));
 	get_keys(word_map, unique_words); // we could combine this step with the assignment of the words to classes into one loop, but would be more dependent on specific hash lib and/or would have to create hackish get_keys_and_assign_classes() function.  It's fast anyways, so no worries.
 
+	// This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
 	for (; word_i < vocab_size; word_i++, class++) {
 		if (class >= cmd_args.num_classes)
 			class = 0;
