@@ -50,11 +50,6 @@ typedef struct {
 	unsigned char ngram_order : 5;
 } struct_model_metadata;
 
-void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer);
-unsigned long process_sent(char * restrict sent_str);
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
-
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
@@ -67,5 +62,12 @@ struct cmd_args {
 	char           verbose : 3;     // Negative values increasingly suppress normal output
 	unsigned char  class_algo : 2;  // enum class_algos
 };
+
+void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
+unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer);
+unsigned long process_sent(char * restrict sent_str);
+void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
+void init_clusters(const struct cmd_args cmd_args, struct_map **word_map, struct_map_word_class **word2class_map);
+void cluster(char * restrict sent_buffer[const], const struct cmd_args cmd_args, struct_map **ngram_map, struct_map **word_map, struct_map_word_class **word2class_map); 
 
 #endif // INCLUDE_HEADER

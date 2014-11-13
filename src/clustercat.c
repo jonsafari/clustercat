@@ -83,7 +83,15 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "  %lu entries:  %lu types,  %lu class ngrams,  %lu word ngrams\n", total_entries, word_entries, class_entries, ngram_entries);
 	unsigned long map_entries = word_entries + class_entries + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
-	return 0;
+
+	init_clusters(cmd_args, &word_map, &word2class_map);
+
+	cluster(sent_buffer, cmd_args, &ngram_map, &word_map, &word2class_map);
+
+	clock_t time_clustered = clock();
+	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_model_built - time_clustered)/CLOCKS_PER_SEC);
+
+	exit(0);
 }
 
 
@@ -299,4 +307,11 @@ void free_sent_info_local(struct_sent_info sent_info) {
 
 	free(sent_info.sent);
 	free(sent_info.class_sent);
+}
+
+void init_clusters(const struct cmd_args cmd_args, struct_map **word_map, struct_map_word_class **word2class_map) {
+}
+
+void cluster(char * restrict sent_buffer[const], const struct cmd_args cmd_args, struct_map **ngram_map, struct_map **word_map, struct_map_word_class **word2class_map) {
+	printf("hi\n");
 }
