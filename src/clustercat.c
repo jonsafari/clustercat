@@ -14,6 +14,7 @@
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
+void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
 void free_sent_info_local(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
@@ -23,7 +24,6 @@ struct_map *class_map      = NULL;	// Must initialize to NULL
 struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL
 DECLARE_DATA_STRUCT_FLOAT; // for word_word_float_map
 char usage[USAGE_LEN];
-char * restrict class_algo_string = NULL;
 
 
 // Defaults
@@ -44,47 +44,9 @@ int main(int argc, char **argv) {
 	clock_t time_start = clock();
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
-	INIT_DATA_STRUCT_FLOAT;
 
-	int arg_i;
-	for (arg_i = 1; arg_i < argc; arg_i++) {
-		if (!(strcmp(argv[arg_i], "-h") && strcmp(argv[arg_i], "--help"))) {
-			printf("%s", usage);
-			return 0;
-		} else if (!strcmp(argv[arg_i], "--class-algo")) {
-			class_algo_string = argv[arg_i+1];
-			arg_i++;
-			if (!strcmp(class_algo_string, "brown"))
-				cmd_args.class_algo = BROWN;
-			else if (!strcmp(class_algo_string, "exchange"))
-				cmd_args.class_algo = EXCHANGE;
-			else { printf("%s", usage); return 0; }
-		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
-			cmd_args.num_threads = (unsigned int) atol(argv[arg_i+1]);
-			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--min-count")) {
-			cmd_args.min_count = (unsigned int) atol(argv[arg_i+1]);
-			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
-			cmd_args.num_classes = (unsigned short) atol(argv[arg_i+1]);
-			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
-			cmd_args.ngram_order = (unsigned char) atoi(argv[arg_i+1]);
-			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--sent-buf")) {
-			cmd_args.max_sents_in_buffer = atol(argv[arg_i+1]);
-			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--tune-cycles")) {
-			cmd_args.tune_cycles = (unsigned short) atol(argv[arg_i+1]);
-			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "-v") && strcmp(argv[arg_i], "--verbose"))) {
-			cmd_args.verbose++;
-		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
-			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
-			printf("%s", usage);
-			return -1;
-		}
-	}
+	parse_cmd_args(argc, argv, usage, &cmd_args);
+
 	//const char *file_name = argv[1];
 	//printf("KEYLEN=%d,  sizeof(struct_map)=%lu\n", KEYLEN, sizeof(struct_map)); return 0;
 
@@ -149,6 +111,46 @@ Options:\n\
 ", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.ngram_order, cmd_args.max_sents_in_buffer, cmd_args.tune_cycles);
 }
 
+void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args) {
+	for (int arg_i = 1; arg_i < argc; arg_i++) {
+		if (!(strcmp(argv[arg_i], "-h") && strcmp(argv[arg_i], "--help"))) {
+			printf("%s", usage);
+			exit(0);
+		} else if (!strcmp(argv[arg_i], "--class-algo")) {
+			char * restrict class_algo_string = argv[arg_i+1];
+			arg_i++;
+			if (!strcmp(class_algo_string, "brown"))
+				cmd_args->class_algo = BROWN;
+			else if (!strcmp(class_algo_string, "exchange"))
+				cmd_args->class_algo = EXCHANGE;
+			else { printf("%s", usage); exit(0); }
+		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
+			cmd_args->num_threads = (unsigned int) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--min-count")) {
+			cmd_args->min_count = (unsigned int) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
+			cmd_args->num_classes = (unsigned short) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
+			cmd_args->ngram_order = (unsigned char) atoi(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--sent-buf")) {
+			cmd_args->max_sents_in_buffer = atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--tune-cycles")) {
+			cmd_args->tune_cycles = (unsigned short) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "-v") && strcmp(argv[arg_i], "--verbose"))) {
+			cmd_args->verbose++;
+		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
+			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
+			printf("%s", usage);
+			exit(-1);
+		}
+	}
+}
 
 void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
 	short j;
