@@ -5,12 +5,30 @@
 #include "clustercat.h"	// macros
 
 // Returns 0 if all values in array are 0.0; returns 1 otherwise
+int anyf(const float array[], unsigned int arr_len) {
+	while (arr_len--) {
+		if (array[arr_len])
+			return 1;
+	}
+	return 0;
+}
+
+// Returns 0 if all values in array are 0.0; returns 1 otherwise
 int any(const double array[], unsigned int arr_len) {
 	while (arr_len--) {
 		if (array[arr_len])
 			return 1;
 	}
 	return 0;
+}
+
+// Returns 1 if all values in array are non-zero; returns 0 otherwise
+int allf(const float array[], unsigned int arr_len) {
+	while (arr_len--) {
+		if (!array[arr_len])
+			return 0;
+	}
+	return 1;
 }
 
 // Returns 1 if all values in array are non-zero; returns 0 otherwise
@@ -22,6 +40,14 @@ int all(const double array[], unsigned int arr_len) {
 	return 1;
 }
 
+float sumf(const float array[], unsigned int arr_len) {
+	float sum = 0.0;
+	while (arr_len--) {
+		sum += array[arr_len];
+	}
+	return sum;
+}
+
 double sum(const double array[], unsigned int arr_len) {
 	double sum = 0.0;
 	while (arr_len--) {
@@ -30,12 +56,34 @@ double sum(const double array[], unsigned int arr_len) {
 	return sum;
 }
 
+float productf(const float array[], unsigned int arr_len) {
+	float product = 1.0;
+	while (arr_len--) {
+		product *= array[arr_len];
+	}
+	return product;
+}
+
 double product(const double array[], unsigned int arr_len) {
 	double product = 1.0;
 	while (arr_len--) {
 		product *= array[arr_len];
 	}
 	return product;
+}
+
+float minf(const float array[], unsigned int arr_len) {
+	arr_len--;
+	float min = array[arr_len];
+	while (1) {
+		//printf("min=%g, arr_len=%u, val=%g\n", min, arr_len, array[arr_len]); fflush(stdout);
+		if (array[arr_len] < min)
+			min = array[arr_len];
+		if (arr_len == 0)
+			break;
+		arr_len--;
+	}
+	return min;
 }
 
 double min(const double array[], unsigned int arr_len) {
@@ -52,6 +100,19 @@ double min(const double array[], unsigned int arr_len) {
 	return min;
 }
 
+float maxf(const float array[], unsigned int arr_len) {
+	arr_len--;
+	float max = array[arr_len];
+	while (1) {
+		if (array[arr_len] > max)
+			max = array[arr_len];
+		if (arr_len == 0)
+			break;
+		arr_len--;
+	}
+	return max;
+}
+
 double max(const double array[], unsigned int arr_len) {
 	arr_len--;
 	double max = array[arr_len];
@@ -63,6 +124,20 @@ double max(const double array[], unsigned int arr_len) {
 		arr_len--;
 	}
 	return max;
+}
+
+unsigned int which_minf(const float array[], const unsigned int arr_len) {
+	unsigned int which_min = 0;
+	float min = array[0];
+
+	unsigned int i = 1;
+	for (; i < arr_len; i++) {
+		if (array[i] < min) {
+			which_min = i;
+			min = array[i];
+		}
+	}
+	return which_min;
 }
 
 unsigned int which_min(const double array[], const unsigned int arr_len) {
@@ -77,6 +152,20 @@ unsigned int which_min(const double array[], const unsigned int arr_len) {
 		}
 	}
 	return which_min;
+}
+
+unsigned int which_maxf(const float array[], const unsigned int arr_len) {
+	unsigned int which_max = 0;
+	float max = array[0];
+
+	unsigned int i = 1;
+	for (; i < arr_len; i++) {
+		if (array[i] > max) {
+			which_max = i;
+			max = array[i];
+		}
+	}
+	return which_max;
 }
 
 unsigned int which_max(const double array[], const unsigned int arr_len) {
