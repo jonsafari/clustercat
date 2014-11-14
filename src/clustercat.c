@@ -82,13 +82,18 @@ int main(int argc, char **argv) {
 	unsigned long map_entries = vocab_size + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
 
-	init_clusters(cmd_args, vocab_size, &word_map, &word2class_map);
+	// Get list of unique words
+	char **unique_words = (char **)malloc(vocab_size * sizeof(char*));
+	get_keys(&word_map, unique_words);
 
-	cluster(sent_buffer, cmd_args, &ngram_map, &word_map, &word2class_map);
+	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
+
+	cluster(cmd_args, sent_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
 
+	free(unique_words);
 	exit(0);
 }
 
@@ -307,22 +312,31 @@ void free_sent_info_local(struct_sent_info sent_info) {
 	free(sent_info.class_sent);
 }
 
-void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, struct_map **word_map, struct_map_word_class **word2class_map) {
+void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map) {
 	register wclass_t class = 0;
 	register unsigned long word_i = 0;
-
-	char **unique_words = (char **)malloc(vocab_size * sizeof(char*));
-	get_keys(word_map, unique_words); // we could combine this step with the assignment of the words to classes into one loop, but would be more dependent on specific hash lib and/or would have to create hackish get_keys_and_assign_classes() function.  It's fast anyways, so no worries.
 
 	// This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
 	for (; word_i < vocab_size; word_i++, class++) {
 		if (class >= cmd_args.num_classes)
 			class = 0;
-		printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
+		//printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
 		map_update_class(word2class_map, unique_words[word_i], class);
 	}
 }
 
-void cluster(char * restrict sent_buffer[const], const struct cmd_args cmd_args, struct_map **ngram_map, struct_map **word_map, struct_map_word_class **word2class_map) {
-	printf("cluster() goes here...\n");
+void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+	// Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
+
+	unsigned long step = 0;
+	for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
+		for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
+			char * restrict word = unique_words[word_i];
+			//#pragma omp parallel for num_threads(cmd_args.num_threads)
+			for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
+				step++;
+			}
+		}
+	}
+	printf("steps: %lu (%lu words x %u classes x %u cycles)\n", step, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
 }
