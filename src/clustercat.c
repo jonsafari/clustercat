@@ -4,9 +4,11 @@
 **/
 
 #include <limits.h>				// UCHAR_MAX, UINT_MAX
+#include <float.h>				// DBL_MAX, etc.
 #include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC
 
 #include "clustercat.h"				// Model importing/exporting functions
+#include "clustercat-array.h"		// which_maxf()
 #include "clustercat-data.h"
 #include "clustercat-io.h"			// fill_sent_buffer()
 
@@ -328,15 +330,19 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
 	// Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 
-	unsigned long step = 0;
+	unsigned long steps = 0;
 	for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
 		for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
 			char * restrict word = unique_words[word_i];
+			float best_log_prob = FLT_MIN;
+			float log_probs[cmd_args.num_classes];
 			//#pragma omp parallel for num_threads(cmd_args.num_threads)
-			for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
-				step++;
+			for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
+				// Get log prob
+				log_probs[class] = -1 * (class+1); // Dummy predicate
 			}
+			printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
 		}
 	}
-	printf("steps: %lu (%lu words x %u classes x %u cycles)\n", step, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
+	printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
 }
