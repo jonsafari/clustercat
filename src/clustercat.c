@@ -315,34 +315,56 @@ void free_sent_info_local(struct_sent_info sent_info) {
 }
 
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map) {
-	register wclass_t class = 0;
 	register unsigned long word_i = 0;
 
-	// This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
-	for (; word_i < vocab_size; word_i++, class++) {
-		if (class >= cmd_args.num_classes)
-			class = 0;
-		//printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
-		map_update_class(word2class_map, unique_words[word_i], class);
+	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
+		register wclass_t class = 0;
+		for (; word_i < vocab_size; word_i++, class++) {
+			if (class >= cmd_args.num_classes)
+				class = 0;
+			//printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
+			map_update_class(word2class_map, unique_words[word_i], class);
+		}
+
+	} else if (cmd_args.class_algo == BROWN) { // Really simple initialization: one class per word
+		for (unsigned long class = 0; word_i < vocab_size; word_i++, class++)
+			map_update_class(word2class_map, unique_words[word_i], class);
 	}
 }
 
 void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
-	// Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 
 	unsigned long steps = 0;
-	for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
-		for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
-			char * restrict word = unique_words[word_i];
-			float best_log_prob = FLT_MIN;
-			float log_probs[cmd_args.num_classes];
-			//#pragma omp parallel for num_threads(cmd_args.num_threads)
-			for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
-				// Get log prob
-				log_probs[class] = -1 * (class+1); // Dummy predicate
+
+	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
+		for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
+			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
+				char * restrict word = unique_words[word_i];
+				float best_log_prob = FLT_MIN;
+				float log_probs[cmd_args.num_classes];
+				//#pragma omp parallel for num_threads(cmd_args.num_threads)
+				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
+					// Get log prob
+					log_probs[class] = -1 * (class+1); // Dummy predicate
+				}
+				printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
 			}
-			printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
+		}
+		printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
+
+	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
+		for (unsigned long current_num_classes = vocab_size; current_num_classes > cmd_args.num_classes; current_num_classes--) {
+			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
+				char * restrict word = unique_words[word_i];
+				float best_log_prob = FLT_MIN;
+				float log_probs[cmd_args.num_classes];
+				//#pragma omp parallel for num_threads(cmd_args.num_threads)
+				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
+					// Get log prob
+					log_probs[class] = -1 * (class+1); // Dummy predicate
+				}
+				printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
+			}
 		}
 	}
-	printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
 }
