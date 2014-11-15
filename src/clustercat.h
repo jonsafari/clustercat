@@ -70,6 +70,7 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long 
 unsigned long process_sent(char * restrict sent_str);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
-void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map); 
+void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long num_sents_in_buffer, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map);
+float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_word_class **word2class_map);
 
 #endif // INCLUDE_HEADER

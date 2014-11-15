@@ -61,9 +61,10 @@ int main(int argc, char **argv) {
 	map_update_entry(&word_map, "</s>", 0);
 
 	char * restrict sent_buffer[cmd_args.max_sents_in_buffer];
+	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	while (1) {
 		// Fill sentence buffer
-		long num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_sents_in_buffer);
+		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_sents_in_buffer);
 		if (num_sents_in_buffer == 0) // No more sentences in buffer
 			break;
 
@@ -90,7 +91,7 @@ int main(int argc, char **argv) {
 
 	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
 
-	cluster(cmd_args, sent_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
+	cluster(cmd_args, sent_buffer, num_sents_in_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -110,6 +111,7 @@ Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
+     --dev-file <file>    Use separate file to tune on (default: training set, from stdin)\n\
  -h, --help               Print this usage\n\
  -j, --jobs <i>           Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <i>      Minimum count of entries in training set to consider (default: %d occurrences)\n\
@@ -332,7 +334,7 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long num_sents_in_buffer, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
 
 	unsigned long steps = 0;
 
@@ -345,7 +347,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 				//#pragma omp parallel for num_threads(cmd_args.num_threads)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
 					// Get log prob
-					log_probs[class] = -1 * (class+1); // Dummy predicate
+					log_probs[class] = query_sents_in_buffer(cmd_args, sent_buffer, num_sents_in_buffer, ngram_map, word2class_map);
 				}
 				printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
 			}
@@ -367,4 +369,8 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 			}
 		}
 	}
+}
+
+float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+	return 1.0;
 }
