@@ -31,6 +31,7 @@ char usage[USAGE_LEN];
 // Defaults
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
+	.dev_file               = NULL,
 	.max_sents_in_buffer    = 10000,
 	.min_count              = 0,
 	.ngram_order            = 3,
@@ -137,6 +138,11 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			else if (!strcmp(class_algo_string, "exchange"))
 				cmd_args->class_algo = EXCHANGE;
 			else { printf("%s", usage); exit(0); }
+		} else if (!strcmp(argv[arg_i], "--dev-file")) {
+			cmd_args->dev_file = argv[arg_i+1];
+			printf("Bug Jon to implement --dev-file!\n");
+			exit(-1);
+			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
 			cmd_args->num_threads = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;

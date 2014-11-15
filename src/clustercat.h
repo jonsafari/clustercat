@@ -56,6 +56,7 @@ char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
 	unsigned long  max_sents_in_buffer;
+	char*          dev_file;
 	wclass_t       num_classes;
 	unsigned short tune_cycles : 10;
 	unsigned char  ngram_order : 6;
