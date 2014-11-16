@@ -9,7 +9,7 @@ override CFLAGS += -std=c99 -O3 -fopenmp -finline-functions -fno-math-errno -fst
 LDLIBS=-lm -lz #-ltcmalloc_minimal
 BIN=bin/
 SRC=src/
-OBJS=${SRC}/clustercat-array.o ${SRC}/clustercat-io.o ${SRC}/clustercat-map.o ${SRC}/clustercat-ngram-prob.o ${SRC}/clustercat-tokenize.o
+OBJS=${SRC}/clustercat-array.o ${SRC}/clustercat-io.o ${SRC}/clustercat-map.o ${SRC}/clustercat-math.o ${SRC}/clustercat-ngram-prob.o ${SRC}/clustercat-tokenize.o
 includes=${SRC}/$(wildcard *.h)
 date:=$(shell date +%F)
 machine_type:=$(shell uname -m)
@@ -23,7 +23,7 @@ clustercat.h: ${SRC}/clustercat-array.h ${SRC}/clustercat-data.h ${SRC}/clusterc
 ${BIN}/clustercat: ${SRC}/clustercat.c ${OBJS}
 	${CC} $^ -o $@ ${CFLAGS} ${LDLIBS}
 
-clustercat.c: ${SRC}/clustercat.h ${SRC}/clustercat-io.h ${SRC}/clustercat-tokenize.h ${SRC}/clustercat-ngram-prob.h
+clustercat.c: ${SRC}/clustercat.h ${SRC}/clustercat-io.h ${SRC}/clustercat-math.h ${SRC}/clustercat-ngram-prob.h ${SRC}/clustercat-tokenize.h
 
 tar: ${BIN}/clustercat
 	mkdir clustercat-${date} && \
