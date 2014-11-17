@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
 
 	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
 
-	cluster(cmd_args, sent_buffer, num_sents_in_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
+	//cluster(cmd_args, sent_buffer, num_sents_in_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -248,7 +248,6 @@ unsigned long process_sent(char * restrict sent_str) {
 
 	struct_sent_info sent_info;
 	sent_info.sent       = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
-	sent_info.class_sent = (char **)calloc(STDIN_SENT_MAX_WORDS, sizeof(char*)); // We use calloc here to initialize values
 
 	// We could have built up the word n-gram counts directly from sent_str, but it's
 	// the only one out of the three models we're building that we can do this way, and
@@ -269,7 +268,7 @@ unsigned long process_sent(char * restrict sent_str) {
 		}
 	}
 
-	free_sent_info_local(sent_info);
+	//free_sent_info_local(sent_info);
 	return token_count;
 }
 
@@ -278,9 +277,8 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 	// Initialize first element in sentence to <s>
 	sent_info->sent[0] = "<s>";
-	sent_info->class_sent[0] = "<s>";
+	sent_info->class_sent[0] = get_class(&word2class_map, "<s>", UNKNOWN_WORD_CLASS);
 	sent_info->word_lengths[0]  = strlen("<s>");
-	sent_info->class_lengths[0] = strlen("<s>");
 
 	sentlen_t w_i = 1; // Word 0 is <s>
 	char * restrict pch;
@@ -306,9 +304,8 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 	// Initialize last element in sentence to </s>
 	sent_info->sent[w_i] = "</s>";
-	sent_info->class_sent[w_i] = "</s>";
+	sent_info->class_sent[w_i] = get_class(&word2class_map, "</s>", UNKNOWN_WORD_CLASS);
 	sent_info->word_lengths[w_i]  = strlen("</s>");
-	sent_info->class_lengths[w_i] = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
 }
 
@@ -316,10 +313,9 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 void free_sent_info_local(struct_sent_info sent_info) {
 	sentlen_t i = 1;
 	for (; i < sent_info.length-1; ++i) // Assumes word_0 is <s> and word_sentlen is </s>, which weren't malloc'd
-		free(sent_info.class_sent[i]);
+		free(sent_info.sent[i]);
 
 	free(sent_info.sent);
-	free(sent_info.class_sent);
 }
 
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map) {
@@ -377,6 +373,116 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 	}
 }
 
+
+struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
+	struct_sent_info sent_info = sent_info_a;
+	if (cmd_args.num_threads > 1) { // We'll need a local copy if it's running parallel
+		sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
+		sent_info.sent[0] = "<s>";
+		sent_info.class_sent[0] = get_class(&word2class_map, "<s>", UNKNOWN_WORD_CLASS);
+	}
+
+	sentlen_t i;
+	char * restrict pch;
+	char token[1000];
+
+
+	for (i = 1, pch = line_in; i < SENT_LEN_MAX ; i++) { // Tokenize & save sentence input from stdin
+		sentlen_t toklen = strcspn(pch, " \n\t");
+
+		if (toklen == 0) { // End of sentence
+			sent_info.sent[i] = "</s>";
+			sent_info.class_sent[i]   = get_class(&word2class_map, "</s>", UNKNOWN_WORD_CLASS);
+			sent_info.word_lengths[i] = strlen("</s>"); // We'll need this several times later, for memory allocation
+			sent_info.sent_counts[i]  = map_find_entry(ngram_map, "</s>");
+			break;
+		}
+
+		sent_info.sent[i] = malloc(toklen+1);
+		strncpy(sent_info.sent[i], pch, toklen); // Threadsafe copy doesn't touch original
+		sent_info.sent[i][toklen] = '\0';
+
+		sent_info.sent_counts[i] = map_find_entry(ngram_map, sent_info.sent[i]);
+		sent_info.word_lengths[i]  = toklen; // We'll need this several times later, for memory allocation
+
+		unsigned int class = get_class(&word2class_map, sent_info.sent[i], UNKNOWN_WORD_CLASS);
+#if 0
+		class = map_find_entry(&model_maps.class_map, class) ? class : UNKNOWN_WORD_CLASS; // If count of class is 0, then reassign it to the unknown class
+		unsigned short class_len = strlen(class);
+		sent_info.class_sent[i] = malloc(class_len + 1);
+		strncpy(sent_info.class_sent[i], class, class_len+1);
+
+#endif
+		pch += toklen+1;
+
+		if (cmd_args.verbose > 0)
+			printf("w=%s, wlen=%d, sent[i]=%s, i=%d, count=%d\n", sent_info.sent[i], toklen, sent_info.sent[i], i, sent_info.sent_counts[i]);
+	}
+	sent_info.length = i;
+
+	return sent_info;
+}
+
+
 float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+	float sum_log_probs = 0.0; // For perplexity calculation
+
+	unsigned long current_sent_num;
+	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
+	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
+	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
+
+		char * restrict current_sent = sent_buffer[current_sent_num];
+#if 0
+		struct_sent_info sent_info = parse_input_line(current_sent, sent_info_a, model_maps, cmd_args.interpolate_with_stdin);
+
+
+
+		char formatted_sent_scores[KEYLEN * KEYLEN] = "";
+		float sent_score = 0.0; // Initialize with identity element
+
+		sentlen_t i; // Right-most word position of current sentence
+		for (i = 1; i <= sent_info.length; i++) {
+			char * restrict word_i = sent_info.sent[i];
+			char * restrict class_i = sent_info.class_sent[i];
+			unsigned int word_i_count = sent_info.sent_counts[i];
+			unsigned int class_i_count = map_find_entry(&model_maps.class_map, class_i);
+			float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
+			//printf("i=%d, word_i=%s, word_i_count=%u, class_i=%s, class_i_count=%u\n", i, word_i, word_i_count, class_i, class_i_count);
+
+			// Class N-gram Prob
+			float the_class_prob = 0.0;
+			if (weights.interpolation[CLASS] != 0.0) { // Nonexistent class info in model yields nan's, which taints interpolated probs
+				// Class prob is transition prob * emission prob
+				float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
+				float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, cmd_args.ngram_order, weights.class);
+				the_class_prob = transition_prob * emission_prob;
+				//printf("w=%s, w_i_cnt=%g, smooth=%g, class_i=%s, class_i_count=%i, prenorm_ngram_prob=%g, class_prob=%g, token_count=%lu, type_count=%u, line_count=%lu\n", word_i, (float)word_i_count, dklm_params.smooth, class_i, map_find_entry(&model_maps.class_map, class_i), the_ngram_prob, the_class_prob, model_metadata.token_count, model_metadata.type_count, model_metadata.line_count);
+			}
+
+
+			float score_i = the_class_prob;
+
+			if (cmd_args.verbose > 0)
+				printf("  class=%g, log10=%g, i=%i, class_i=%s\n", the_class_prob, log10(the_class_prob), i, class_i);
+
+
+			sent_score += log2f(score_i); // Increment running sentence total
+
+			if (cmd_args.verbose >= 0) {
+				char word_string[KEYLEN];
+				int word_len = sprintf(word_string, "%s=%u %f\t", word_i, word_i_count, log_score_i);
+				strncat(formatted_sent_scores, word_string, word_len);
+			}
+		} // for i loop
+
+		if (cmd_args.normalize)
+			sum_log_probs += sent_score; // Increment running test set total, for perplexity
+
+		if (cmd_args.num_threads > 1) // We had to make a local copy, so we need to free that local copy
+			free_sent_info(sent_info);
+
+#endif
+	} // Done querying current sentence
 	return 1.0;
 }

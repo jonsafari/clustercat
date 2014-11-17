@@ -15,12 +15,12 @@
 #define SECONDARY_SEP_CHAR   ' '
 #define SECONDARY_SEP_STRING " "
 #define TOK_CHARS            " \t\n"
-#define UNKNOWN_WORD_CLASS   "UnK"
+#define UNKNOWN_WORD_CLASS   0
 #define UNKNOWN_WORD         "UnK"
 // Number of characters to read-in for each line
 #define BUFLEN 8192
-#define STDIN_SENT_MAX_CHARS 140000
-#define STDIN_SENT_MAX_WORDS 4096
+#define STDIN_SENT_MAX_CHARS 50000
+#define STDIN_SENT_MAX_WORDS 1024
 #define MAX_HIST_LEN 15
 #define MAX_WORD_LEN 255
 #define EULER 2.71828182845904523536
@@ -34,13 +34,11 @@ enum class_algos {EXCHANGE, BROWN};
 #include "clustercat-data.h" // bad. chicken-and-egg typedef deps
 
 typedef struct {
-	sentlen_t length;
 	char **sent;
-	char **class_sent;
-	short word_lengths[STDIN_SENT_MAX_WORDS];
-	short class_lengths[STDIN_SENT_MAX_WORDS];
+	unsigned int class_sent[STDIN_SENT_MAX_WORDS];
 	unsigned int sent_counts[STDIN_SENT_MAX_WORDS];
-	float ngram_probs[STDIN_SENT_MAX_WORDS];
+	short word_lengths[STDIN_SENT_MAX_WORDS];
+	sentlen_t length;
 } struct_sent_info;
 
 typedef struct {
@@ -72,6 +70,7 @@ unsigned long process_sent(char * restrict sent_str);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
 void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long num_sents_in_buffer, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map);
+struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map);
 float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_word_class **word2class_map);
 
 #endif // INCLUDE_HEADER
