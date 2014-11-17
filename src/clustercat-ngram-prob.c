@@ -87,5 +87,5 @@ float ngram_prob(struct_map *ngram_map[const], const sentlen_t i, const char * r
 	//printf("ngram_prob5: ngram_prob=%g, hist_len_used+1=%i\n", the_dot_product, history_len_used+1);
 	//return the_dot_product;
 
-	return dot_product(order_probs, weights, history_len_used+2);
+	return dot_productf(order_probs, weights, history_len_used+2);
 }
