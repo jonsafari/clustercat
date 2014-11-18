@@ -6,6 +6,7 @@
 #include <limits.h>				// UCHAR_MAX, UINT_MAX
 #include <float.h>				// DBL_MAX, etc.
 #include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC
+#include <stdbool.h>
 
 #include "clustercat.h"				// Model importing/exporting functions
 #include "clustercat-array.h"		// which_maxf()
@@ -17,7 +18,7 @@
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
 void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
-void free_sent_info_local(struct_sent_info sent_info);
+void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
 struct_map *word_map       = NULL;	// Must initialize to NULL
@@ -34,7 +35,7 @@ struct cmd_args cmd_args = {
 	.dev_file               = NULL,
 	.max_sents_in_buffer    = 10000,
 	.min_count              = 0,
-	.ngram_order            = 3,
+	.class_order            = 3,
 	.num_threads            = 6,
 	.num_classes            = 100,
 	.tune_cycles            = 50,
@@ -70,7 +71,7 @@ int main(int argc, char **argv) {
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
-		global_metadata.token_count += process_sents_in_buffer(sent_buffer, num_sents_in_buffer);
+		global_metadata.token_count += process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &word_map, true, false);
 	}
 
 
@@ -122,7 +123,7 @@ Options:\n\
      --tune-cycles <i>    Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.ngram_order, cmd_args.max_sents_in_buffer, cmd_args.tune_cycles);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.class_order, cmd_args.max_sents_in_buffer, cmd_args.tune_cycles);
 }
 
 void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args) {
@@ -153,7 +154,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
-			cmd_args->ngram_order = (unsigned char) atoi(argv[arg_i+1]);
+			cmd_args->class_order = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--sent-buf")) {
 			cmd_args->max_sents_in_buffer = atol(argv[arg_i+1]);
@@ -220,7 +221,7 @@ void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const 
 }
 
 
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer) {
+unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer, struct_map **map, bool count_word_ngrams, bool count_class_ngrams) {
 	unsigned long token_count = 0;
 	long current_sent_num;
 
@@ -229,7 +230,7 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long 
 
 	//#pragma omp parallel for private(current_sent_num) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		token_count += process_sent(sent_buffer[current_sent_num]);
+		token_count += process_sent(sent_buffer[current_sent_num], map, count_word_ngrams, count_class_ngrams);
 		if (cmd_args.verbose > 0 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
 			fprintf(stderr, "%liL/%luW ", current_sent_num, token_count); fflush(stderr);
 	}
@@ -240,7 +241,7 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long 
 	return token_count;
 }
 
-unsigned long process_sent(char * restrict sent_str) {
+unsigned long process_sent(char * restrict sent_str, struct_map **map, bool count_word_ngrams, bool count_class_ngrams) {
 	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
 		return 0;
 
@@ -260,9 +261,11 @@ unsigned long process_sent(char * restrict sent_str) {
 	for (i = 0; i < sent_info.length; i++) {
 		map_increment_entry(&word_map, sent_info.sent[i]);
 
-		if (cmd_args.ngram_order) {
-			sentlen_t start_position_ngram = (i >= cmd_args.ngram_order-1) ? i - (cmd_args.ngram_order-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram(&ngram_map, sent_info.sent, sent_info.word_lengths, start_position_ngram, i);
+		if (count_word_ngrams)
+			increment_ngram(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
+		if (count_class_ngrams && cmd_args.class_order) {
+			sentlen_t start_position_class = (i >= cmd_args.class_order-1) ? i - (cmd_args.class_order-1) : 0; // N-grams starting point is 0, for <s>
+			increment_ngram(&class_map, sent_info.sent, sent_info.word_lengths, start_position_class, i);
 		}
 	}
 
@@ -306,9 +309,8 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 }
 
 // Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
-void free_sent_info_local(struct_sent_info sent_info) {
-	sentlen_t i = 1;
-	for (; i < sent_info.length-1; ++i) // Assumes word_0 is <s> and word_sentlen is </s>, which weren't malloc'd
+void free_sent_info(struct_sent_info sent_info) {
+	for (sentlen_t i = 1; i < sent_info.length-1; ++i) // Assumes word_0 is <s> and word_sentlen is </s>, which weren't malloc'd
 		free(sent_info.sent[i]);
 
 	free(sent_info.sent);
@@ -375,6 +377,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 
 
 struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_map) {
+	// Make local copy of sentence, for threadsafe processing
 	struct_sent_info sent_info;
 	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
 	sent_info.sent[0] = "<s>";
@@ -424,23 +427,20 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
 	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
+		struct_map *class_map = NULL; // Build local counts of classes, for flexibility
 
 		char * restrict current_sent = sent_buffer[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
 		struct_sent_info sent_info = parse_input_line(current_sent, ngram_map);
-#if 0
 
-
-
-		char formatted_sent_scores[KEYLEN * KEYLEN] = "";
 		float sent_score = 0.0; // Initialize with identity element
 
-		sentlen_t i; // Right-most word position of current sentence
-		for (i = 1; i <= sent_info.length; i++) {
+		for (sentlen_t i = 1; i <= sent_info.length; i++) {
 			char * restrict word_i = sent_info.sent[i];
-			char * restrict class_i = sent_info.class_sent[i];
-			unsigned int word_i_count = sent_info.sent_counts[i];
-			unsigned int class_i_count = map_find_entry(&model_maps.class_map, class_i);
+			const unsigned int class_i = sent_info.class_sent[i];
+			const unsigned int word_i_count = sent_info.sent_counts[i];
+#if 0
+			const unsigned int class_i_count = map_find_entry(&model_maps.class_map, class_i);
 			float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			//printf("i=%d, word_i=%s, word_i_count=%u, class_i=%s, class_i_count=%u\n", i, word_i, word_i_count, class_i, class_i_count);
 
@@ -449,7 +449,7 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 			if (weights.interpolation[CLASS] != 0.0) { // Nonexistent class info in model yields nan's, which taints interpolated probs
 				// Class prob is transition prob * emission prob
 				float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-				float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, cmd_args.ngram_order, weights.class);
+				float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, cmd_args.class_order, weights.class);
 				the_class_prob = transition_prob * emission_prob;
 				//printf("w=%s, w_i_cnt=%g, smooth=%g, class_i=%s, class_i_count=%i, prenorm_ngram_prob=%g, class_prob=%g, token_count=%lu, type_count=%u, line_count=%lu\n", word_i, (float)word_i_count, dklm_params.smooth, class_i, map_find_entry(&model_maps.class_map, class_i), the_ngram_prob, the_class_prob, model_metadata.token_count, model_metadata.type_count, model_metadata.line_count);
 			}
@@ -465,18 +465,13 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 
 			if (cmd_args.verbose >= 0) {
 				char word_string[KEYLEN];
-				int word_len = sprintf(word_string, "%s=%u %f\t", word_i, word_i_count, log_score_i);
-				strncat(formatted_sent_scores, word_string, word_len);
+				int word_len = sprintf(word_string, "%s=%u %f\t", word_i, word_i_count, log2f(score_i));
 			}
+#endif
 		} // for i loop
 
-		if (cmd_args.normalize)
-			sum_log_probs += sent_score; // Increment running test set total, for perplexity
-
-		if (cmd_args.num_threads > 1) // We had to make a local copy, so we need to free that local copy
-			free_sent_info(sent_info);
-
-#endif
+		sum_log_probs += sent_score; // Increment running test set total, for perplexity
+		free_sent_info(sent_info);
 	} // Done querying current sentence
-	return 1.0;
+	return sum_log_probs;
 }

@@ -57,7 +57,7 @@ struct cmd_args {
 	char*          dev_file;
 	wclass_t       num_classes;
 	unsigned short tune_cycles : 10;
-	unsigned char  ngram_order : 6;
+	unsigned char  class_order : 6;
 	unsigned short num_threads : 10;
 	unsigned short min_count : 9;
 	char           verbose : 3;     // Negative values increasingly suppress normal output
@@ -65,8 +65,8 @@ struct cmd_args {
 };
 
 void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer);
-unsigned long process_sent(char * restrict sent_str);
+unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer, struct_map **map, bool count_word_ngrams, bool count_class_ngrams);
+unsigned long process_sent(char * restrict sent_str, struct_map **map, bool count_word_ngrams, bool count_class_ngrams);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
 void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long num_sents_in_buffer, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map);
