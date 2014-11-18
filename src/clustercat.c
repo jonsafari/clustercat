@@ -351,7 +351,11 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 					// Get log prob
 					log_probs[class] = query_sents_in_buffer(cmd_args, sent_buffer, num_sents_in_buffer, ngram_map, word2class_map);
 				}
-				printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
+				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
+				if (best_log_prob < maxf(log_probs, cmd_args.num_classes))
+					printf("Moving '%s' to class %u\n", word, best_class);
+				else
+					break; // Moving stuff around didn't help, so we're done
 			}
 		}
 		printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
@@ -360,14 +364,14 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 		for (unsigned long current_num_classes = vocab_size; current_num_classes > cmd_args.num_classes; current_num_classes--) {
 			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
 				char * restrict word = unique_words[word_i];
-				float best_log_prob = FLT_MIN;
 				float log_probs[cmd_args.num_classes];
 				//#pragma omp parallel for num_threads(cmd_args.num_threads)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
 					// Get log prob
 					log_probs[class] = -1 * (class+1); // Dummy predicate
 				}
-				printf("Moving '%s' to class %u\n", word, which_maxf(log_probs, cmd_args.num_classes));
+				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
+				printf("Moving '%s' to class %u\n", word, best_class);
 			}
 		}
 	}
@@ -384,7 +388,7 @@ struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_inf
 
 	sentlen_t i;
 	char * restrict pch;
-	char token[1000];
+	//char token[1000];
 
 
 	for (i = 1, pch = line_in; i < SENT_LEN_MAX ; i++) { // Tokenize & save sentence input from stdin
@@ -405,14 +409,9 @@ struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_inf
 		sent_info.sent_counts[i] = map_find_entry(ngram_map, sent_info.sent[i]);
 		sent_info.word_lengths[i]  = toklen; // We'll need this several times later, for memory allocation
 
-		unsigned int class = get_class(&word2class_map, sent_info.sent[i], UNKNOWN_WORD_CLASS);
-#if 0
-		class = map_find_entry(&model_maps.class_map, class) ? class : UNKNOWN_WORD_CLASS; // If count of class is 0, then reassign it to the unknown class
-		unsigned short class_len = strlen(class);
-		sent_info.class_sent[i] = malloc(class_len + 1);
-		strncpy(sent_info.class_sent[i], class, class_len+1);
+		sent_info.class_sent[i] = get_class(&word2class_map, sent_info.sent[i], UNKNOWN_WORD_CLASS);
+		//class = map_find_entry(&model_maps.class_map, class) ? class : UNKNOWN_WORD_CLASS; // If count of class is 0, then reassign it to the unknown class
 
-#endif
 		pch += toklen+1;
 
 		if (cmd_args.verbose > 0)
