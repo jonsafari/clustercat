@@ -230,14 +230,12 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long 
 	//#pragma omp parallel for private(current_sent_num) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
 		token_count += process_sent(sent_buffer[current_sent_num]);
-		if (cmd_args.verbose > 0 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0)) {
+		if (cmd_args.verbose > 0 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
 			fprintf(stderr, "%liL/%luW ", current_sent_num, token_count); fflush(stderr);
-		}
 	}
 
-	if (cmd_args.verbose > 0) { // Add final newline to verbose notices
+	if (cmd_args.verbose > 0) // Add final newline to verbose notices
 		fprintf(stderr, "\n"); fflush(stderr);
-	}
 
 	return token_count;
 }
@@ -247,7 +245,7 @@ unsigned long process_sent(char * restrict sent_str) {
 		return 0;
 
 	struct_sent_info sent_info;
-	sent_info.sent       = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
+	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
 
 	// We could have built up the word n-gram counts directly from sent_str, but it's
 	// the only one out of the three models we're building that we can do this way, and
@@ -268,7 +266,7 @@ unsigned long process_sent(char * restrict sent_str) {
 		}
 	}
 
-	//free_sent_info_local(sent_info);
+	free(sent_info.sent);
 	return token_count;
 }
 
@@ -281,10 +279,8 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 	sent_info->word_lengths[0]  = strlen("<s>");
 
 	sentlen_t w_i = 1; // Word 0 is <s>
-	char * restrict pch;
-	pch = strtok(sent_str, TOK_CHARS); // First token is treated differently with strtok
 
-	for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
+	for (char * restrict pch = strtok(sent_str, TOK_CHARS); pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
 		if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
 			fprintf(stderr, "%s: Warning: Truncating pathologically-long line starting with: %s %s %s %s %s %s ...\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
 			break;
@@ -378,18 +374,16 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 }
 
 
-struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
-	struct_sent_info sent_info = sent_info_a;
-	if (cmd_args.num_threads > 1) { // We'll need a local copy if it's running parallel
-		sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
-		sent_info.sent[0] = "<s>";
-		sent_info.class_sent[0] = get_class(&word2class_map, "<s>", UNKNOWN_WORD_CLASS);
-	}
+struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_map) {
+	struct_sent_info sent_info;
+	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
+	sent_info.sent[0] = "<s>";
+	sent_info.word_lengths[0] = strlen("<s>");
+	sent_info.sent_counts[0]  = map_find_entry(ngram_map, "<s>");
+	sent_info.class_sent[0]   = get_class(&word2class_map, "<s>", UNKNOWN_WORD_CLASS);
 
 	sentlen_t i;
 	char * restrict pch;
-	//char token[1000];
-
 
 	for (i = 1, pch = line_in; i < SENT_LEN_MAX ; i++) { // Tokenize & save sentence input from stdin
 		sentlen_t toklen = strcspn(pch, " \n\t");
@@ -432,8 +426,9 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
 
 		char * restrict current_sent = sent_buffer[current_sent_num];
+		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
+		struct_sent_info sent_info = parse_input_line(current_sent, ngram_map);
 #if 0
-		struct_sent_info sent_info = parse_input_line(current_sent, sent_info_a, model_maps, cmd_args.interpolate_with_stdin);
 
 
 
