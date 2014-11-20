@@ -36,7 +36,7 @@ enum class_algos {EXCHANGE, BROWN};
 
 typedef struct {
 	char **sent;
-	unsigned int class_sent[STDIN_SENT_MAX_WORDS];
+	wclass_t class_sent[STDIN_SENT_MAX_WORDS];
 	unsigned int sent_counts[STDIN_SENT_MAX_WORDS];
 	short word_lengths[STDIN_SENT_MAX_WORDS];
 	sentlen_t length;
@@ -65,7 +65,8 @@ struct cmd_args {
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
-void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
+void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
+void increment_ngram_fixed_width(struct_map **ngram_map, wclass_t class_sent[const], short start_position, const sentlen_t i);
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer, struct_map **map, bool count_word_ngrams, bool count_class_ngrams);
 unsigned long process_sent(char * restrict sent_str, struct_map **map, bool count_word_ngrams, bool count_class_ngrams);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);

@@ -172,14 +172,13 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
+void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
 	short j;
 	size_t sizeof_char = sizeof(char); // We use this multiple times
 	unsigned char ngram_len = 0; // Terminating char '\0' is same size as joining tab, so we'll just count that later
 
 	// We first build the longest n-gram string, then successively remove the leftmost word
 
-	//for (j = start_position; j <= i ; ++j) { // Determine length of longest n-gram string
 	for (j = i; j >= start_position ; j--) { // Determine length of longest n-gram string, starting with smallest to ensure longest string is less than 255 chars
 		if (ngram_len + sizeof_char + word_lengths[j]  < UCHAR_MAX ) { // Ensure n-gram string is less than 255 chars
 			ngram_len += sizeof_char + word_lengths[j]; // the additional sizeof_char is for either a space for words in the history, or for a \0 for word_i
@@ -217,6 +216,22 @@ void increment_ngram(struct_map **ngram_map, char * restrict sent[const], const 
 		map_increment_entry(ngram_map, jp);
 		//if (diff > 0) // 0 allows for unigrams
 			jp += sizeof_char + word_lengths[j];
+	}
+}
+
+void increment_ngram_fixed_width(struct_map **ngram_map, wclass_t sent[const], short start_position, const sentlen_t i) {
+	size_t sizeof_wclass = sizeof(wclass_t);
+	unsigned char ngram_len = i - start_position;
+
+	wclass_t ngram[ngram_len];
+	memcpy(&ngram, &sent[start_position], ngram_len);
+
+	wclass_t * restrict jp = ngram;
+	for (sentlen_t j = start_position; j <= i; ++j, --ngram_len) { // Traverse longest n-gram string
+		//if (cmd_args.verbose)
+			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>, jp=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram, jp);
+		//map_increment_entry_fixed_width(ngram_map, jp);
+		jp += sizeof_wclass;
 	}
 }
 
@@ -262,10 +277,10 @@ unsigned long process_sent(char * restrict sent_str, struct_map **map, bool coun
 		map_increment_entry(&word_map, sent_info.sent[i]);
 
 		if (count_word_ngrams)
-			increment_ngram(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
+			increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
 		if (count_class_ngrams && cmd_args.class_order) {
 			sentlen_t start_position_class = (i >= cmd_args.class_order-1) ? i - (cmd_args.class_order-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram(&class_map, sent_info.sent, sent_info.word_lengths, start_position_class, i);
+			increment_ngram_fixed_width(&class_map, sent_info.class_sent, start_position_class, i);
 		}
 	}
 
