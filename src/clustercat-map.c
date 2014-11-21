@@ -58,6 +58,25 @@ inline unsigned int map_increment_entry(struct_map **map, const char * restrict 
 	return local_s->count;
 }
 
+inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs
+	struct_map_class *local_s;
+	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
+
+	#pragma omp critical
+	{
+		HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
+		if (local_s == NULL) {
+			local_s = (struct_map_class *)malloc(sizeof(struct_map_class));
+			local_s->count = 0;
+			memcpy(local_s->key, entry_key, sizeof_key);
+			HASH_ADD(hh, *map, key, sizeof_key, local_s);
+		}
+	}
+	#pragma omp atomic
+	++local_s->count;
+	return local_s->count;
+}
+
 inline unsigned int map_update_entry(struct_map **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
 	struct_map *local_s;
 

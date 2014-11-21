@@ -27,7 +27,7 @@
 #define EULER 2.71828182845904523536
 
 typedef unsigned short sentlen_t; // Number of words in a sentence
-typedef unsigned short wclass_t; // Number of possible word classes
+//typedef unsigned short wclass_t; // Defined in clustercat-map.h
 #define SENT_LEN_MAX USHRT_MAX
 
 enum class_algos {EXCHANGE, BROWN};
