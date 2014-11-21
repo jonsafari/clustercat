@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 
 	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
 
-	cluster(cmd_args, sent_buffer, num_sents_in_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
+	cluster(cmd_args, sent_store, num_sents_in_store, vocab_size, unique_words, &ngram_map, &word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -359,7 +359,7 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long num_sents_in_buffer, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
 
 	unsigned long steps = 0;
 
@@ -372,7 +372,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const],
 				//#pragma omp parallel for num_threads(cmd_args.num_threads)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
 					// Get log prob
-					log_probs[class] = query_sents_in_buffer(cmd_args, sent_buffer, num_sents_in_buffer, ngram_map, word2class_map);
+					log_probs[class] = query_sents_in_store(cmd_args, sent_store, num_sents_in_store, ngram_map, word2class_map);
 				}
 				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
 				if (best_log_prob < maxf(log_probs, cmd_args.num_classes))
@@ -445,17 +445,17 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 }
 
 
-float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_word_class **word2class_map) {
 	float sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
 	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
 	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
-	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		printf("query_sents_in_buffer: num_sents_in_buffer=%lu\n", num_sents_in_buffer);
+	for (current_sent_num = 0; current_sent_num < num_sents_in_store; current_sent_num++) {
+		printf("query_sents_in_store: num_sents_in_store=%lu\n", num_sents_in_store);
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 
-		char * restrict current_sent = sent_buffer[current_sent_num];
+		char * restrict current_sent = sent_store[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
 		struct_sent_info sent_info = parse_input_line(current_sent, ngram_map);
 
@@ -465,7 +465,7 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 			char * restrict word_i = sent_info.sent[i];
 			const unsigned int class_i = sent_info.class_sent[i];
 			const unsigned int word_i_count = sent_info.sent_counts[i];
-			process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &word_map, &class_map, false, true); // Get class ngram counts
+			process_sents_in_buffer(sent_store, num_sents_in_store, &word_map, &class_map, false, true); // Get class ngram counts
 #if 0
 			const unsigned int class_i_count = map_find_entry(&model_maps.class_map, class_i);
 			float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
