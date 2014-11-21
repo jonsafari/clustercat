@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 	while (1) {
 		// Fill sentence buffer
 		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, SENT_BUF_LEN);
-		if (num_sents_in_buffer == 0) // No more sentences in buffer
+		if ((num_sents_in_buffer == 0) || ( cmd_args.max_tune_sents <= global_metadata.line_count)) // No more sentences in buffer
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
@@ -452,7 +452,6 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
 	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < num_sents_in_store; current_sent_num++) {
-		printf("query_sents_in_store: num_sents_in_store=%lu\n", num_sents_in_store);
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 
 		char * restrict current_sent = sent_store[current_sent_num];
