@@ -22,9 +22,7 @@
 #define BUFLEN 8192
 #define STDIN_SENT_MAX_CHARS 50000
 #define STDIN_SENT_MAX_WORDS 1024
-#define MAX_HIST_LEN 15
 #define MAX_WORD_LEN 255
-#define EULER 2.71828182845904523536
 
 typedef unsigned short sentlen_t; // Number of words in a sentence
 //typedef unsigned short wclass_t; // Defined in clustercat-map.h
@@ -54,7 +52,7 @@ typedef struct {
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
-	unsigned long  max_sents_in_buffer;
+	unsigned long  max_tune_sents;
 	char*          dev_file;
 	wclass_t       num_classes;
 	unsigned short tune_cycles : 10;
@@ -66,9 +64,10 @@ struct cmd_args {
 };
 
 void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
-void increment_ngram_fixed_width(struct_map **ngram_map, wclass_t class_sent[const], short start_position, const sentlen_t i);
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer, struct_map **map, bool count_word_ngrams, bool count_class_ngrams);
-unsigned long process_sent(char * restrict sent_str, struct_map **map, bool count_word_ngrams, bool count_class_ngrams);
+void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
+unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents);
+unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams);
+unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
 void cluster(const struct cmd_args cmd_args, char * restrict sent_buffer[const], unsigned long num_sents_in_buffer, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map);

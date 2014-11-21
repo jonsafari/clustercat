@@ -11,9 +11,6 @@ long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_
 	unsigned int strlen_line_in = 0;
 
 	while (sent_buffer_num < max_sents_in_buffer) {
-		//line_in = readline(""); // Use GNU Readline; slow
-		//if (! line_in)
-		//	break;
 		if (! fgets(line_in, STDIN_SENT_MAX_CHARS, file))
 			break;
 		else {

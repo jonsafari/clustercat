@@ -14,6 +14,7 @@
 #include "clustercat-io.h"			// fill_sent_buffer()
 
 #define USAGE_LEN 10000
+#define SENT_BUF_LEN 10000 // Not a very interesting value
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
@@ -21,9 +22,9 @@ void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct c
 void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
-struct_map *word_map       = NULL;	// Must initialize to NULL
-struct_map *ngram_map      = NULL;	// Must initialize to NULL
-struct_map *class_map      = NULL;	// Must initialize to NULL
+struct_map *word_map        = NULL;	// Must initialize to NULL
+struct_map *ngram_map       = NULL;	// Must initialize to NULL
+struct_map_class *class_map = NULL;	// Must initialize to NULL
 struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL
 DECLARE_DATA_STRUCT_FLOAT; // for word_word_float_map
 char usage[USAGE_LEN];
@@ -33,7 +34,7 @@ char usage[USAGE_LEN];
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.dev_file               = NULL,
-	.max_sents_in_buffer    = 10000,
+	.max_tune_sents         = 10000,
 	.min_count              = 0,
 	.class_order            = 3,
 	.num_threads            = 6,
@@ -62,26 +63,29 @@ int main(int argc, char **argv) {
 	map_update_entry(&word_map, UNKNOWN_WORD, 0);
 	map_update_entry(&word_map, "</s>", 0);
 
-	char * restrict sent_buffer[cmd_args.max_sents_in_buffer];
+	char * restrict sent_buffer[SENT_BUF_LEN];
+	char * restrict sent_store[cmd_args.max_tune_sents];
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
+	unsigned long num_sents_in_store = 0;
 	while (1) {
 		// Fill sentence buffer
-		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_sents_in_buffer);
+		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, SENT_BUF_LEN);
 		if (num_sents_in_buffer == 0) // No more sentences in buffer
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
-		global_metadata.token_count += process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &word_map, true, false);
+		global_metadata.token_count += process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &word_map, &class_map, true, false);
+		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_sents_in_buffer() since we call that function in two separate contexts
 	}
 
 
 	clock_t time_model_built = clock();
 	fprintf(stderr, "%s: Finished loading %lu tokens from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
 	unsigned long vocab_size      = map_count(&word_map);
-	//unsigned long class_entries     = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
-	unsigned long ngram_entries     = map_count(&ngram_map);
-	unsigned long total_entries = vocab_size + ngram_entries;
-	clock_t time_model_printed = clock();
+	//unsigned long class_entries = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
+	unsigned long ngram_entries   = map_count(&ngram_map);
+	unsigned long total_entries   = vocab_size + ngram_entries;
+	clock_t time_model_printed    = clock();
 	fprintf(stderr, "%s: Finished printing model in %.2f secs;", argv_0_basename, (double)(time_model_printed - time_model_built)/CLOCKS_PER_SEC);
 	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, vocab_size, ngram_entries);
 	unsigned long map_entries = vocab_size + ngram_entries;
@@ -93,7 +97,7 @@ int main(int argc, char **argv) {
 
 	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
 
-	//cluster(cmd_args, sent_buffer, num_sents_in_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
+	cluster(cmd_args, sent_buffer, num_sents_in_buffer, vocab_size, unique_words, &ngram_map, &word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -119,11 +123,11 @@ Options:\n\
      --min-count <i>      Minimum count of entries in training set to consider (default: %d occurrences)\n\
  -n, --num-classes <i>    Set number of word classes (default: %d classes)\n\
  -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
-     --sent-buf <i>       Set size of sentence buffer to tune on (default: %lu sentences)\n\
+     --tune-sents <i>     Set size of sentence store to tune on (default: first %lu sentences)\n\
      --tune-cycles <i>    Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.class_order, cmd_args.max_sents_in_buffer, cmd_args.tune_cycles);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.class_order, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
 
 void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args) {
@@ -156,8 +160,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
 			cmd_args->class_order = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--sent-buf")) {
-			cmd_args->max_sents_in_buffer = atol(argv[arg_i+1]);
+		} else if (!strcmp(argv[arg_i], "--tune-sents")) {
+			cmd_args->max_tune_sents = atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--tune-cycles")) {
 			cmd_args->tune_cycles = (unsigned short) atol(argv[arg_i+1]);
@@ -219,7 +223,7 @@ void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent
 	}
 }
 
-void increment_ngram_fixed_width(struct_map **ngram_map, wclass_t sent[const], short start_position, const sentlen_t i) {
+void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
 	size_t sizeof_wclass = sizeof(wclass_t);
 	unsigned char ngram_len = i - start_position;
 
@@ -230,22 +234,28 @@ void increment_ngram_fixed_width(struct_map **ngram_map, wclass_t sent[const], s
 	for (sentlen_t j = start_position; j <= i; ++j, --ngram_len) { // Traverse longest n-gram string
 		//if (cmd_args.verbose)
 			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>, jp=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram, jp);
-		//map_increment_entry_fixed_width(ngram_map, jp);
+		map_increment_entry_fixed_width(map, jp);
 		jp += sizeof_wclass;
 	}
 }
 
+unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents) {
+	for (unsigned long i = 0; (num_sents_in_store <= max_tune_sents) && (i < num_sents_in_buffer); i++, num_sents_in_store++) {
+		sent_store[i] = sent_buffer[i];
+	}
+	return num_sents_in_store;
+}
 
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long num_sents_in_buffer, struct_map **map, bool count_word_ngrams, bool count_class_ngrams) {
+unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams) {
 	unsigned long token_count = 0;
-	long current_sent_num;
+	unsigned long current_sent_num;
 
 	if (cmd_args.verbose > 0) // Precede program basename to verbose notices
 		fprintf(stderr, "%s: L=lines; W=words\t", argv_0_basename);
 
 	//#pragma omp parallel for private(current_sent_num) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		token_count += process_sent(sent_buffer[current_sent_num], map, count_word_ngrams, count_class_ngrams);
+		token_count += process_sent(sent_buffer[current_sent_num], ngram_map, class_map, count_word_ngrams, count_class_ngrams);
 		if (cmd_args.verbose > 0 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
 			fprintf(stderr, "%liL/%luW ", current_sent_num, token_count); fflush(stderr);
 	}
@@ -256,7 +266,7 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const long 
 	return token_count;
 }
 
-unsigned long process_sent(char * restrict sent_str, struct_map **map, bool count_word_ngrams, bool count_class_ngrams) {
+unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams) {
 	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
 		return 0;
 
@@ -277,10 +287,10 @@ unsigned long process_sent(char * restrict sent_str, struct_map **map, bool coun
 		map_increment_entry(&word_map, sent_info.sent[i]);
 
 		if (count_word_ngrams)
-			increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
+			increment_ngram_variable_width(ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
 		if (count_class_ngrams && cmd_args.class_order) {
 			sentlen_t start_position_class = (i >= cmd_args.class_order-1) ? i - (cmd_args.class_order-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram_fixed_width(&class_map, sent_info.class_sent, start_position_class, i);
+			increment_ngram_fixed_width(class_map, sent_info.class_sent, start_position_class, i);
 		}
 	}
 
@@ -442,7 +452,8 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
 	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		struct_map *class_map = NULL; // Build local counts of classes, for flexibility
+		printf("query_sents_in_buffer: num_sents_in_buffer=%lu\n", num_sents_in_buffer);
+		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 
 		char * restrict current_sent = sent_buffer[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
@@ -454,6 +465,7 @@ float query_sents_in_buffer(const struct cmd_args cmd_args, char * restrict sent
 			char * restrict word_i = sent_info.sent[i];
 			const unsigned int class_i = sent_info.class_sent[i];
 			const unsigned int word_i_count = sent_info.sent_counts[i];
+			process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &word_map, &class_map, false, true); // Get class ngram counts
 #if 0
 			const unsigned int class_i_count = map_find_entry(&model_maps.class_map, class_i);
 			float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
