@@ -96,6 +96,11 @@ int main(int argc, char **argv) {
 	get_keys(&word_map, unique_words);
 
 	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
+	clock_t time_clusters_initialized = clock();
+	if (cmd_args.verbose > 0) {
+		fprintf(stderr, "%s: Finished initializing clusters in %.2f secs\n", argv_0_basename, (double)(time_clusters_initialized - time_model_built)/CLOCKS_PER_SEC);
+		fflush(stderr);
+	}
 
 	cluster(cmd_args, sent_store, num_sents_in_store, vocab_size, unique_words, &ngram_map, &word2class_map);
 
@@ -250,17 +255,17 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 	unsigned long token_count = 0;
 	unsigned long current_sent_num;
 
-	if (cmd_args.verbose > 0) // Precede program basename to verbose notices
+	if (cmd_args.verbose > 1) // Precede program basename to verbose notices
 		fprintf(stderr, "%s: L=lines; W=words\t", argv_0_basename);
 
 	//#pragma omp parallel for private(current_sent_num) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
 		token_count += process_sent(sent_buffer[current_sent_num], ngram_map, class_map, count_word_ngrams, count_class_ngrams);
-		if (cmd_args.verbose > 0 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
+		if (cmd_args.verbose > 1 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
 			fprintf(stderr, "%liL/%luW ", current_sent_num, token_count); fflush(stderr);
 	}
 
-	if (cmd_args.verbose > 0) // Add final newline to verbose notices
+	if (cmd_args.verbose > 1) // Add final newline to verbose notices
 		fprintf(stderr, "\n"); fflush(stderr);
 
 	return token_count;
@@ -440,7 +445,7 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 		pch += toklen+1;
 
 		if (cmd_args.verbose > 0)
-			printf("w=%s, wlen=%d, sent[i]=%s, i=%d, count=%d\n", sent_info.sent[i], toklen, sent_info.sent[i], i, sent_info.sent_counts[i]);
+			printf("line=%u, w=%s, wlen=%d, sent[i]=%s, i=%d, count=%d\n", __LINE__, sent_info.sent[i], toklen, sent_info.sent[i], i, sent_info.sent_counts[i]);
 	}
 	sent_info.length = i;
 
