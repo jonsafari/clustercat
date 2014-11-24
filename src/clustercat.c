@@ -359,7 +359,7 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **word_map, struct_map_word_class **word2class_map) {
 
 	unsigned long steps = 0;
 
@@ -369,10 +369,13 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				char * restrict word = unique_words[word_i];
 				float best_log_prob = FLT_MIN;
 				float log_probs[cmd_args.num_classes];
-				//#pragma omp parallel for num_threads(cmd_args.num_threads)
-				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
+				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
+				for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
+					steps++;
 					// Get log prob
-					log_probs[class] = query_sents_in_store(cmd_args, sent_store, num_sents_in_store, ngram_map, word2class_map);
+					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
+					process_sents_in_buffer(sent_store, num_sents_in_store, word_map, &class_map, false, true); // Get class ngram counts
+					log_probs[class] = query_sents_in_store(cmd_args, sent_store, num_sents_in_store, word_map, &class_map, word2class_map);
 				}
 				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
 				if (best_log_prob < maxf(log_probs, cmd_args.num_classes))
@@ -445,14 +448,13 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 }
 
 
-float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map) {
 	float sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
 	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
-	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
+	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < num_sents_in_store; current_sent_num++) {
-		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 
 		char * restrict current_sent = sent_store[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
@@ -462,14 +464,13 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 
 		for (sentlen_t i = 1; i <= sent_info.length; i++) {
 			char * restrict word_i = sent_info.sent[i];
-			const unsigned int class_i = sent_info.class_sent[i];
+			const wclass_t * class_i = &sent_info.class_sent[i];
 			const unsigned int word_i_count = sent_info.sent_counts[i];
-			process_sents_in_buffer(sent_store, num_sents_in_store, &word_map, &class_map, false, true); // Get class ngram counts
-#if 0
-			const unsigned int class_i_count = map_find_entry(&model_maps.class_map, class_i);
-			float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
-			//printf("i=%d, word_i=%s, word_i_count=%u, class_i=%s, class_i_count=%u\n", i, word_i, word_i_count, class_i, class_i_count);
+			const unsigned int class_i_count = map_find_entry_fixed_width(class_map, class_i);
+			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
+			printf("i=%d, word_i=%s, word_i_count=%u, class_i=%u, class_i_count=%u\n", i, word_i, word_i_count, *class_i, class_i_count);
 
+#if 0
 			// Class N-gram Prob
 			float the_class_prob = 0.0;
 			if (weights.interpolation[CLASS] != 0.0) { // Nonexistent class info in model yields nan's, which taints interpolated probs

@@ -70,8 +70,8 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
-void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map);
+void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **word_map, struct_map_word_class **word2class_map);
 struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_map);
-float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_word_class **word2class_map);
+float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map);
 
 #endif // INCLUDE_HEADER
