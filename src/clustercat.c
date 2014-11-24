@@ -246,6 +246,8 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 
 unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents) {
 	for (unsigned long i = 0; (num_sents_in_store <= max_tune_sents) && (i < num_sents_in_buffer); i++, num_sents_in_store++) {
+		if (sent_buffer[i] == NULL) // The last bit of the buffer might be empty
+			break;
 		sent_store[i] = sent_buffer[i];
 	}
 	return num_sents_in_store;
@@ -289,7 +291,6 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 	// it's the right-most word in the n-gram. I wrote increment_ngram() earlier using the right-most interpretation of i.
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++) {
-		map_increment_entry(&word_map, sent_info.sent[i]);
 
 		if (count_word_ngrams)
 			increment_ngram_variable_width(ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
