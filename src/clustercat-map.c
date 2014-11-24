@@ -77,6 +77,18 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 	return local_s->count;
 }
 
+inline unsigned int map_find_entry_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]) { // Based on uthash's docs
+	struct_map_class *local_s;
+	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
+	unsigned int local_count = 0;
+
+	HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
+	if (local_s != NULL) { // Deal with OOV
+		local_count = local_s->count;
+	}
+	return local_count;
+}
+
 inline unsigned int map_update_entry(struct_map **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
 	struct_map *local_s;
 

@@ -54,6 +54,7 @@ unsigned int map_update_entry(struct_map **map, const char * restrict entry_key,
 unsigned int map_update_entry_float(struct_map_float **map, const char * restrict entry_key, const float frac_count);
 
 unsigned int map_find_entry(struct_map *map[const], const char * restrict entry_key);
+unsigned int map_find_entry_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]);
 float  map_find_entry_float(struct_map_float *map[const], const char * restrict entry_key);
 
 wclass_t get_class(struct_map_word_class *map[const], const char * restrict entry_key, const wclass_t unk);
