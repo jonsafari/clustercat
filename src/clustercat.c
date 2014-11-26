@@ -230,14 +230,15 @@ void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent
 
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
 	size_t sizeof_wclass = sizeof(wclass_t);
-	unsigned char ngram_len = i - start_position;
+	unsigned char ngram_len = i - start_position + 1;
 
-	wclass_t ngram[ngram_len];
+	wclass_t ngram[ngram_len + (CLASSLEN - 1)]; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
+	memset(ngram, 0, ngram_len + (CLASSLEN - 1));
 	memcpy(&ngram, &sent[start_position], ngram_len);
 
 	wclass_t * restrict jp = ngram;
 	for (sentlen_t j = start_position; j <= i; ++j, --ngram_len) { // Traverse longest n-gram string
-		//if (cmd_args.verbose)
+		//if (cmd_args.verbose > 1)
 			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>, jp=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram, jp);
 		map_increment_entry_fixed_width(map, jp);
 		jp += sizeof_wclass;
