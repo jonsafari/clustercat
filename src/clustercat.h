@@ -74,4 +74,5 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_map);
 float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map);
 
+void print_sent_info(struct_sent_info * restrict sent_info);
 #endif // INCLUDE_HEADER

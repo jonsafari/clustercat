@@ -515,3 +515,11 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 	} // Done querying current sentence
 	return sum_log_probs;
 }
+
+void print_sent_info(struct_sent_info * restrict sent_info) {
+	printf("struct sent_info { length = %u\n", sent_info->length);
+	for (sentlen_t i = 0; i < sent_info->length; i++) {
+		printf(" i=%u, w=%s, wlen=%i, wcnt=%u, wcls=%u\n", i, sent_info->sent[i], sent_info->word_lengths[i], sent_info->sent_counts[i], sent_info->class_sent[i]);
+	}
+	printf("}\n");
+}
