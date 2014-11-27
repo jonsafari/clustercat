@@ -290,8 +290,6 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 	// it's simpler to have a more uniform way of building these up.
 
 	tokenize_sent(sent_str, &sent_info, count_word_ngrams);
-	if (count_class_ngrams)
-		printf("3: sent_len=%hu\t", sent_info.length);
 	unsigned long token_count = sent_info.length;
 
 	// In the following loop we interpret i in two different ways.  For word/class n-gram models,
