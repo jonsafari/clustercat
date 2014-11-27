@@ -233,8 +233,9 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 	unsigned char ngram_len = i - start_position + 1;
 
 	wclass_t ngram[ngram_len + (CLASSLEN - 1)]; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
-	memset(ngram, USHRT_MAX, ngram_len + (CLASSLEN - 1));
+	memset(ngram, 0, ngram_len + (CLASSLEN - 1));
 	memcpy(&ngram, &sent[start_position], ngram_len);
+	printf("ngm++: ngmlen=%u, ngram=[%hu,%hu,%hu,%hu,%hu]\n", ngram_len + (CLASSLEN - 1), ngram[0], ngram[1], ngram[2], ngram[3], ngram[4]);
 
 	wclass_t * restrict jp = ngram;
 	for (sentlen_t j = start_position; j <= i; ++j, --ngram_len) { // Traverse longest n-gram string
@@ -258,7 +259,7 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 	unsigned long token_count = 0;
 	unsigned long current_sent_num;
 
-	if (cmd_args.verbose > 1) // Precede program basename to verbose notices
+	if (cmd_args.verbose > 2) // Precede program basename to verbose notices
 		fprintf(stderr, "%s: L=lines; W=words\t", argv_0_basename);
 
 	//#pragma omp parallel for private(current_sent_num) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
@@ -266,13 +267,13 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 		token_count += process_sent(sent_buffer[current_sent_num], ngram_map, class_map, count_word_ngrams, count_class_ngrams);
 		//if (count_class_ngrams)
 			//printf("42: count_word_ngrams: %i; count_class_ngrams: %i\n", count_word_ngrams, count_class_ngrams); fflush(stdout);
-		if (cmd_args.verbose > 1 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
+		if (cmd_args.verbose > 2 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
 			fprintf(stderr, "%liL/%luW ", current_sent_num, token_count); fflush(stderr);
 	}
 	//if (count_class_ngrams)
 		//printf("43\n"); fflush(stdout);
 
-	if (cmd_args.verbose > 1) // Add final newline to verbose notices
+	if (cmd_args.verbose > 2) // Add final newline to verbose notices
 		fprintf(stderr, "\n"); fflush(stderr);
 
 	return token_count;
@@ -374,10 +375,10 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 	register unsigned long word_i = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
-		register wclass_t class = 0;
+		register wclass_t class = 1; // 0 is reserved
 		for (; word_i < vocab_size; word_i++, class++) {
 			if (class >= cmd_args.num_classes)
-				class = 0;
+				class = 1;
 			//printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
 			map_update_class(word2class_map, unique_words[word_i], class);
 		}
@@ -496,11 +497,13 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 		for (sentlen_t i = 1; i <= sent_info.length; i++) {
 			char * restrict word_i = sent_info.sent[i];
 			const wclass_t * class_i = &sent_info.class_sent[i];
+			wclass_t class_i_entry[CLASSLEN] = {USHRT_MAX};
+			class_i_entry[0] = *class_i;
 			const unsigned int word_i_count = sent_info.sent_counts[i];
-			const unsigned int class_i_count = map_find_entry_fixed_width(class_map, class_i);
+			const unsigned int class_i_count = map_find_entry_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 0)
-				printf("line=%u i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw=%s\n", __LINE__, i, word_i_count, sent_info.class_sent[i], class_i_count, word_i);
+				printf("line=%u i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu]\tw=%s\n", __LINE__, i, word_i_count, *class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], word_i);
 
 #if 0
 			// Class N-gram Prob
