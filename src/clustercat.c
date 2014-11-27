@@ -233,13 +233,13 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 	unsigned char ngram_len = i - start_position + 1;
 
 	wclass_t ngram[ngram_len + (CLASSLEN - 1)]; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
-	memset(ngram, 0, ngram_len + (CLASSLEN - 1));
+	memset(ngram, USHRT_MAX, ngram_len + (CLASSLEN - 1));
 	memcpy(&ngram, &sent[start_position], ngram_len);
 
 	wclass_t * restrict jp = ngram;
 	for (sentlen_t j = start_position; j <= i; ++j, --ngram_len) { // Traverse longest n-gram string
 		//if (cmd_args.verbose > 1)
-			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>, jp=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram, jp);
+			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
 		map_increment_entry_fixed_width(map, jp);
 		jp += sizeof_wclass;
 	}
@@ -289,7 +289,9 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 	// the only one out of the three models we're building that we can do this way, and
 	// it's simpler to have a more uniform way of building these up.
 
-	tokenize_sent(sent_str, &sent_info);
+	tokenize_sent(sent_str, &sent_info, count_word_ngrams);
+	if (count_class_ngrams)
+		printf("3: sent_len=%hu\t", sent_info.length);
 	unsigned long token_count = sent_info.length;
 
 	// In the following loop we interpret i in two different ways.  For word/class n-gram models,
@@ -302,6 +304,12 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_entry(ngram_map, sent_info.sent[i]));
 		if (count_class_ngrams && cmd_args.class_order) {
 			sentlen_t start_position_class = (i >= cmd_args.class_order-1) ? i - (cmd_args.class_order-1) : 0; // N-grams starting point is 0, for <s>
+			printf("i: %u, sent_len=%u\t", i, sent_info.length);
+			if (i - start_position_class > 1)
+				printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			if (i - start_position_class > 0)
+				printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
 			increment_ngram_fixed_width(class_map, sent_info.class_sent, start_position_class, i);
 		}
 	}
@@ -311,7 +319,18 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 }
 
 
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
+void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_word_ngrams) {
+	// Stupid strtok is destructive; make backup; have pch point to that instead of the original
+	char * restrict pch = NULL;
+	if (count_word_ngrams) {
+		char backup_sent[STDIN_SENT_MAX_WORDS];
+		strncpy(backup_sent, sent_str, STDIN_SENT_MAX_WORDS-1);
+		pch = strtok(backup_sent, TOK_CHARS);
+		//printf("unclassy sent before: <<%s>>\n", sent_str);
+	} else {
+		pch = strtok(sent_str, TOK_CHARS);
+		//printf("classy sent before: <<%s>>\n", sent_str);
+	}
 
 	// Initialize first element in sentence to <s>
 	sent_info->sent[0] = "<s>";
@@ -320,7 +339,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 	sentlen_t w_i = 1; // Word 0 is <s>
 
-	for (char * restrict pch = strtok(sent_str, TOK_CHARS); pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
+	for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
 		if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
 			fprintf(stderr, "%s: Warning: Truncating pathologically-long line starting with: %s %s %s %s %s %s ...\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
 			break;
@@ -343,6 +362,10 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 	sent_info->class_sent[w_i] = get_class(&word2class_map, "</s>", UNKNOWN_WORD_CLASS);
 	sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
+	if (count_word_ngrams)
+		;//printf("unclassy sent after: <<%s>>\n", sent_str);
+	else
+		print_sent_info(sent_info);
 }
 
 // Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
@@ -471,6 +494,7 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 		char * restrict current_sent = sent_store[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
 		struct_sent_info sent_info = parse_input_line(current_sent, ngram_map);
+		print_sent_info(&sent_info);
 
 		float sent_score = 0.0; // Initialize with identity element
 
