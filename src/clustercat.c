@@ -302,12 +302,12 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_entry(ngram_map, sent_info.sent[i]));
 		if (count_class_ngrams && cmd_args.class_order) {
 			sentlen_t start_position_class = (i >= cmd_args.class_order-1) ? i - (cmd_args.class_order-1) : 0; // N-grams starting point is 0, for <s>
-			printf("i: %u, sent_len=%u\t", i, sent_info.length);
-			if (i - start_position_class > 1)
-				printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			if (i - start_position_class > 0)
-				printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
+			//printf("i: %u, sent_len=%u\t", i, sent_info.length);
+			//if (i - start_position_class > 1)
+			//	printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			//if (i - start_position_class > 0)
+			//	printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			//printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
 			increment_ngram_fixed_width(class_map, sent_info.class_sent, start_position_class, i);
 		}
 	}
@@ -360,10 +360,6 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 	sent_info->class_sent[w_i] = get_class(&word2class_map, "</s>", UNKNOWN_WORD_CLASS);
 	sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
-	if (count_word_ngrams)
-		;//printf("unclassy sent after: <<%s>>\n", sent_str);
-	else
-		print_sent_info(sent_info);
 }
 
 // Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
@@ -492,7 +488,8 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 		char * restrict current_sent = sent_store[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
 		struct_sent_info sent_info = parse_input_line(current_sent, ngram_map);
-		print_sent_info(&sent_info);
+		if (cmd_args.verbose > 2)
+			print_sent_info(&sent_info);
 
 		float sent_score = 0.0; // Initialize with identity element
 
@@ -541,7 +538,7 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 void print_sent_info(struct_sent_info * restrict sent_info) {
 	printf("struct sent_info { length = %u\n", sent_info->length);
 	for (sentlen_t i = 0; i < sent_info->length; i++) {
-		printf(" i=%u, w=%s, wlen=%i, wcnt=%u, wcls=%u\n", i, sent_info->sent[i], sent_info->word_lengths[i], sent_info->sent_counts[i], sent_info->class_sent[i]);
+		printf(" i=%u\twlen=%i\twcnt=%u\twcls=%u\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent_counts[i], sent_info->class_sent[i], sent_info->sent[i]);
 	}
 	printf("}\n");
 }

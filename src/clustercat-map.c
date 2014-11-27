@@ -64,6 +64,7 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 
 	#pragma omp critical
 	{
+		//printf("***41***: sizeof_key=%lu, sizeof(wclass_t)=%lu, CLASSLEN=%u, key=<%u,%u,%u,%u>\n", sizeof_key, sizeof(wclass_t), CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]); fflush(stdout);
 		HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
 		if (local_s == NULL) {
 			local_s = (struct_map_class *)malloc(sizeof(struct_map_class));
@@ -71,6 +72,7 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 			memcpy(local_s->key, entry_key, sizeof_key);
 			HASH_ADD(hh, *map, key, sizeof_key, local_s);
 		}
+		//printf("\t***42***: count: %u\n", local_s->count); fflush(stdout);
 	}
 	#pragma omp atomic
 	++local_s->count;
