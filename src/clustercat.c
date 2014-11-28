@@ -261,13 +261,17 @@ unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const uns
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams) {
 	unsigned long token_count = 0;
 	unsigned long current_sent_num;
+	char local_sent_copy[STDIN_SENT_MAX_CHARS];
+	local_sent_copy[STDIN_SENT_MAX_CHARS-1] = '\0'; // Ensure at least last element of array is terminating character
 
 	if (cmd_args.verbose > 2) // Precede program basename to verbose notices
 		fprintf(stderr, "%s: L=lines; W=words\t", argv_0_basename);
 
-	//#pragma omp parallel for private(current_sent_num) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
+	//#pragma omp parallel for private(current_sent_num) private(local_sent_copy) reduction(+:token_count) num_threads(cmd_args.num_threads) // static < dynamic < runtime <= auto < guided
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		token_count += process_sent(sent_buffer[current_sent_num], ngram_map, class_map, count_word_ngrams, count_class_ngrams);
+		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_WORDS-2); // Strtok, which is used later, is destructive
+
+		token_count += process_sent(local_sent_copy, ngram_map, class_map, count_word_ngrams, count_class_ngrams);
 		//if (count_class_ngrams)
 			//printf("42: count_word_ngrams: %i; count_class_ngrams: %i\n", count_word_ngrams, count_class_ngrams); fflush(stdout);
 		if (cmd_args.verbose > 2 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
@@ -322,20 +326,13 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_word_ngrams) {
 	// Stupid strtok is destructive
 	char * restrict pch = NULL;
-	if (count_word_ngrams) {
-		char backup_sent[STDIN_SENT_MAX_WORDS];
-		strncpy(backup_sent, sent_str, STDIN_SENT_MAX_WORDS-1);
-		pch = strtok(backup_sent, TOK_CHARS);
-		//printf("unclassy sent before: <<%s>>\n", sent_str);
-	} else {
-		pch = strtok(sent_str, TOK_CHARS);
-		//printf("classy sent before: <<%s>>\n", sent_str);
-	}
+	pch = strtok(sent_str, TOK_CHARS);
 
 	// Initialize first element in sentence to <s>
 	sent_info->sent[0] = "<s>";
 	sent_info->class_sent[0] = get_class(&word2class_map, "<s>", UNKNOWN_WORD_CLASS);
-	sent_info->word_lengths[0]  = strlen("<s>");
+	//sent_info->word_lengths[0]  = strlen("<s>");
+	sent_info->sent_counts[0] = map_find_entry(&ngram_map, "<s>");
 
 	sentlen_t w_i = 1; // Word 0 is <s>
 
@@ -346,7 +343,11 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 		}
 
 		sent_info->sent[w_i] = pch;
-		sent_info->word_lengths[w_i] = strlen(pch);
+		if (count_word_ngrams)
+			sent_info->word_lengths[w_i] = strlen(pch);
+			sent_info->sent_counts[w_i] = map_find_entry(&ngram_map, pch);
+		if (!count_word_ngrams)
+			sent_info->class_sent[w_i] =  get_class(&word2class_map, pch, UNKNOWN_WORD_CLASS);
 
 		if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
 			pch[MAX_WORD_LEN] = '\0';
@@ -360,7 +361,8 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 	// Initialize last element in sentence to </s>
 	sent_info->sent[w_i] = "</s>";
 	sent_info->class_sent[w_i] = get_class(&word2class_map, "</s>", UNKNOWN_WORD_CLASS);
-	sent_info->word_lengths[w_i]  = strlen("</s>");
+	sent_info->sent_counts[w_i] = map_find_entry(&ngram_map, "</s>");
+	//sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
 }
 
@@ -440,7 +442,7 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 	struct_sent_info sent_info;
 	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
 	sent_info.sent[0] = "<s>";
-	sent_info.word_lengths[0] = strlen("<s>");
+	//sent_info.word_lengths[0] = strlen("<s>");
 	sent_info.sent_counts[0]  = map_find_entry(ngram_map, "<s>");
 	sent_info.class_sent[0]   = get_class(&word2class_map, "<s>", UNKNOWN_WORD_CLASS);
 
@@ -453,7 +455,7 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 		if (toklen == 0) { // End of sentence
 			sent_info.sent[i] = "</s>";
 			sent_info.class_sent[i]   = get_class(&word2class_map, "</s>", UNKNOWN_WORD_CLASS);
-			sent_info.word_lengths[i] = strlen("</s>"); // We'll need this several times later, for memory allocation
+			//sent_info.word_lengths[i] = strlen("</s>"); // We'll need this several times later, for memory allocation
 			sent_info.sent_counts[i]  = map_find_entry(ngram_map, "</s>");
 			break;
 		}
@@ -463,7 +465,7 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 		sent_info.sent[i][toklen] = '\0';
 
 		sent_info.sent_counts[i] = map_find_entry(ngram_map, sent_info.sent[i]);
-		sent_info.word_lengths[i]  = toklen; // We'll need this several times later, for memory allocation
+		//sent_info.word_lengths[i]  = toklen; // We'll need this several times later, for memory allocation
 
 		sent_info.class_sent[i] = get_class(&word2class_map, sent_info.sent[i], UNKNOWN_WORD_CLASS);
 		//class = map_find_entry(&model_maps.class_map, class) ? class : UNKNOWN_WORD_CLASS; // If count of class is 0, then reassign it to the unknown class
