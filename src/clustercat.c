@@ -85,11 +85,14 @@ int main(int argc, char **argv) {
 	//unsigned long class_entries = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	unsigned long total_entries   = vocab_size + ngram_entries;
-	clock_t time_model_printed    = clock();
-	fprintf(stderr, "%s: Finished printing model in %.2f secs;", argv_0_basename, (double)(time_model_printed - time_model_built)/CLOCKS_PER_SEC);
 	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, vocab_size, ngram_entries);
 	unsigned long map_entries = vocab_size + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
+
+	if (vocab_size <= cmd_args.num_classes) {
+		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, vocab_size);
+		exit(3);
+	}
 
 	// Get list of unique words
 	char **unique_words = (char **)malloc(vocab_size * sizeof(char*));
@@ -151,7 +154,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--dev-file")) {
 			cmd_args->dev_file = argv[arg_i+1];
 			printf("Bug Jon to implement --dev-file!\n");
-			exit(-1);
+			exit(1);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
 			cmd_args->num_threads = (unsigned int) atol(argv[arg_i+1]);
@@ -176,7 +179,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
 			printf("%s", usage);
-			exit(-1);
+			exit(2);
 		}
 	}
 }
@@ -270,8 +273,6 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 		if (cmd_args.verbose > 2 && (current_sent_num % 1000000 == 0) && (current_sent_num > 0))
 			fprintf(stderr, "%liL/%luW ", current_sent_num, token_count); fflush(stderr);
 	}
-	//if (count_class_ngrams)
-		//printf("43\n"); fflush(stdout);
 
 	if (cmd_args.verbose > 2) // Add final newline to verbose notices
 		fprintf(stderr, "\n"); fflush(stderr);
@@ -283,7 +284,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
 		return 0;
 
-	struct_sent_info sent_info;
+	struct_sent_info sent_info = {0};
 	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
 
 	// We could have built up the word n-gram counts directly from sent_str, but it's
@@ -319,7 +320,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 
 
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_word_ngrams) {
-	// Stupid strtok is destructive; make backup; have pch point to that instead of the original
+	// Stupid strtok is destructive
 	char * restrict pch = NULL;
 	if (count_word_ngrams) {
 		char backup_sent[STDIN_SENT_MAX_WORDS];
