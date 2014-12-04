@@ -407,7 +407,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
 				char * restrict word = unique_words[word_i];
 				float best_log_prob = FLT_MIN;
-				float log_probs[cmd_args.num_classes];
+				float log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
 					steps++;
@@ -417,6 +417,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					log_probs[class] = query_sents_in_store(cmd_args, sent_store, num_sents_in_store, ngram_map, &class_map, word2class_map);
 				}
 				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
+				printf("best: %u, logprob=%g\n", best_class, maxf(log_probs, cmd_args.num_classes));
 				if (best_log_prob < maxf(log_probs, cmd_args.num_classes))
 					printf("Moving '%s' to class %u\n", word, best_class);
 				else
@@ -492,7 +493,6 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 	float sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
-	// Ensure that the printf statement for actually printing the final sentence query is preceded by an omp ordered pragma construct
 	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < num_sents_in_store; current_sent_num++) {
 
@@ -512,34 +512,28 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 			const unsigned int word_i_count = sent_info.sent_counts[i];
 			const unsigned int class_i_count = map_find_entry_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
-			if (cmd_args.verbose > 0)
+			if (cmd_args.verbose > 1)
 				printf("line=%u i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu]\tw=%s\n", __LINE__, i, word_i_count, *class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], word_i);
 
-#if 0
 			// Class N-gram Prob
-			float the_class_prob = 0.0;
-			if (weights.interpolation[CLASS] != 0.0) { // Nonexistent class info in model yields nan's, which taints interpolated probs
-				// Class prob is transition prob * emission prob
-				float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-				float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, CLASSLEN, weights.class);
-				the_class_prob = transition_prob * emission_prob;
-				//printf("w=%s, w_i_cnt=%g, smooth=%g, class_i=%s, class_i_count=%i, prenorm_ngram_prob=%g, class_prob=%g, token_count=%lu, type_count=%u, line_count=%lu\n", word_i, (float)word_i_count, dklm_params.smooth, class_i, map_find_entry(&model_maps.class_map, class_i), the_ngram_prob, the_class_prob, model_metadata.token_count, model_metadata.type_count, model_metadata.line_count);
-			}
+			float the_class_prob = 0.5;
+			// Class prob is transition prob * emission prob
+			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
+#if 0
+			float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, CLASSLEN, weights.class);
+			the_class_prob = transition_prob * emission_prob;
+			//printf("w=%s, w_i_cnt=%g, smooth=%g, class_i=%s, class_i_count=%i, prenorm_ngram_prob=%g, class_prob=%g, token_count=%lu, type_count=%u, line_count=%lu\n", word_i, (float)word_i_count, dklm_params.smooth, class_i, map_find_entry(&model_maps.class_map, class_i), the_ngram_prob, the_class_prob, model_metadata.token_count, model_metadata.type_count, model_metadata.line_count);
 
+#endif
 
 			float score_i = the_class_prob;
 
 			if (cmd_args.verbose > 0)
-				printf("  class=%g, log10=%g, i=%i, class_i=%s\n", the_class_prob, log10(the_class_prob), i, class_i);
+				printf("  clsprb=%g, log2=%g, i=%i, class_i=%hu\n", the_class_prob, log2(the_class_prob), i, *class_i);
 
 
 			sent_score += log2f(score_i); // Increment running sentence total
 
-			if (cmd_args.verbose >= 0) {
-				char word_string[KEYLEN];
-				int word_len = sprintf(word_string, "%s=%u %f\t", word_i, word_i_count, log2f(score_i));
-			}
-#endif
 		} // for i loop
 
 		sum_log_probs += sent_score; // Increment running test set total, for perplexity
