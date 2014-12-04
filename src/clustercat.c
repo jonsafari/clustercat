@@ -425,7 +425,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					break; // Moving stuff around didn't help, so we're done
 			}
 		}
-		printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles);
+		printf("steps: %lu (%lu word types x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
@@ -523,6 +523,7 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 			float weights_class[] = {0.1, 0.5, 0.4};
 			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, model_metadata, weights_class);
 			the_class_prob = transition_prob * emission_prob;
+			printf("sizeof(model_metadata)=%zu\n", sizeof(model_metadata));
 			printf("w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob);
 
 			float score_i = the_class_prob;

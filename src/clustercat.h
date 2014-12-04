@@ -44,7 +44,6 @@ typedef struct {
 	unsigned long token_count;
 	unsigned long line_count;
 	unsigned long type_count;
-	unsigned char class_order;
 } struct_model_metadata;
 
 char *argv_0_basename; // Allow for global access to filename
