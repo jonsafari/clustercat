@@ -12,6 +12,7 @@
 #include "clustercat-array.h"		// which_maxf()
 #include "clustercat-data.h"
 #include "clustercat-io.h"			// fill_sent_buffer()
+#include "clustercat-ngram-prob.h"	// class_ngram_prob()
 
 #define USAGE_LEN 10000
 
@@ -519,12 +520,10 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 			float the_class_prob = 0.5;
 			// Class prob is transition prob * emission prob
 			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-#if 0
-			float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, CLASSLEN, weights.class);
+			float weights_class[] = {0.1, 0.5, 0.4};
+			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, weights_class);
 			the_class_prob = transition_prob * emission_prob;
-			//printf("w=%s, w_i_cnt=%g, smooth=%g, class_i=%s, class_i_count=%i, prenorm_ngram_prob=%g, class_prob=%g, token_count=%lu, type_count=%u, line_count=%lu\n", word_i, (float)word_i_count, dklm_params.smooth, class_i, map_find_entry(&model_maps.class_map, class_i), the_ngram_prob, the_class_prob, model_metadata.token_count, model_metadata.type_count, model_metadata.line_count);
-
-#endif
+			printf("w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob);
 
 			float score_i = the_class_prob;
 
