@@ -14,7 +14,6 @@
 #include "clustercat-io.h"			// fill_sent_buffer()
 
 #define USAGE_LEN 10000
-#define SENT_BUF_LEN 10000 // Not a very interesting value
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
@@ -62,13 +61,13 @@ int main(int argc, char **argv) {
 	map_update_entry(&ngram_map, UNKNOWN_WORD, 0);
 	map_update_entry(&ngram_map, "</s>", 0);
 
-	char * restrict sent_buffer[SENT_BUF_LEN];
-	char * restrict sent_store[cmd_args.max_tune_sents];
+	char * restrict sent_buffer[cmd_args.max_tune_sents]; // This will get modified
+	char * restrict sent_store[cmd_args.max_tune_sents];  // This will not get modified
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	unsigned long num_sents_in_store = 0;
 	while (1) {
 		// Fill sentence buffer
-		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, SENT_BUF_LEN);
+		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
 		//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
 		if ((num_sents_in_buffer == 0) || ( cmd_args.max_tune_sents <= global_metadata.line_count)) // No more sentences in buffer
 			break;
@@ -232,7 +231,6 @@ void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent
 }
 
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
-	size_t sizeof_wclass = sizeof(wclass_t);
 	unsigned char ngram_len = i - start_position + 1;
 
 	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
@@ -314,12 +312,12 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_entry(ngram_map, sent_info.sent[i]));
 		if (count_class_ngrams) {
 			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
-			printf("i: %u, sent_len=%u\t", i, sent_info.length);
-			if (i - start_position_class > 1)
-				printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			if (i - start_position_class > 0)
-				printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
+			//printf("i: %u, sent_len=%u\t", i, sent_info.length);
+			//if (i - start_position_class > 1)
+			//	printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			//if (i - start_position_class > 0)
+			//	printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			//printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
 			increment_ngram_fixed_width(class_map, sent_info.class_sent, start_position_class, i);
 		}
 	}
@@ -370,7 +368,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 	sent_info->sent_counts[w_i] = map_find_entry(&ngram_map, "</s>");
 	//sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
-	if (cmd_args.verbose > 1)
+	if (cmd_args.verbose > 2)
 		printf("88sent_str: count_word_ngrams=%i; <<%s>>\n", count_word_ngrams, sent_str);
 }
 
