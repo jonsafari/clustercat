@@ -407,8 +407,8 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 		for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
 			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
-				float best_log_prob = FLT_MIN;
-				float log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+				double best_log_prob = FLT_MIN;
+				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
 					steps++;
@@ -417,15 +417,15 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					process_sents_in_buffer(sent_store, model_metadata.line_count, ngram_map, &class_map, false, true); // Get class ngram counts
 					log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, ngram_map, &class_map, word2class_map);
 				}
-				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
-				printf("best: %u, logprob=%g\n", best_class, maxf(log_probs, cmd_args.num_classes));
-				if (best_log_prob < maxf(log_probs, cmd_args.num_classes))
-					printf("Moving '%s' to class %u\n", word, best_class);
-				else
+				wclass_t best_class = which_max(log_probs, cmd_args.num_classes);
+				printf("best: %u, logprob=%g\n", best_class, max(log_probs, cmd_args.num_classes)); fflush(stdout);
+				if (best_log_prob < max(log_probs, cmd_args.num_classes)) {
+					printf("Moving '%s' to class %u\n", word, best_class); fflush(stdout);
+				} else
 					break; // Moving stuff around didn't help, so we're done
 			}
 		}
-		printf("steps: %lu (%lu word types x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles);
+		printf("steps: %lu (%lu word types x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles); fflush(stdout);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
@@ -490,8 +490,8 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 }
 
 
-float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map) {
-	float sum_log_probs = 0.0; // For perplexity calculation
+double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map) {
+	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
 	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
@@ -523,16 +523,13 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 			float weights_class[] = {0.1, 0.5, 0.4};
 			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, model_metadata, weights_class);
 			the_class_prob = transition_prob * emission_prob;
-			printf("sizeof(model_metadata)=%zu\n", sizeof(model_metadata));
-			printf("w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob);
 
-			float score_i = the_class_prob;
 
 			if (cmd_args.verbose > 0)
-				printf("  clsprb=%g, log2=%g, i=%i, class_i=%hu\n", the_class_prob, log2(the_class_prob), i, *class_i);
+				printf(" w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
 
 
-			sent_score += log2f(score_i); // Increment running sentence total
+			sent_score += log2((double)the_class_prob); // Increment running sentence total;  we can use doubles for global-level scores
 
 		} // for i loop
 
