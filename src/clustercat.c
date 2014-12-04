@@ -130,13 +130,13 @@ Options:\n\
  -j, --jobs <i>           Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <i>      Minimum count of entries in training set to consider (default: %d occurrences)\n\
  -n, --num-classes <i>    Set number of word classes (default: %d classes)\n\
- -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
      --tune-sents <i>     Set size of sentence store to tune on (default: first %lu sentences)\n\
      --tune-cycles <i>    Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.class_order, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
+// -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 
 void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args) {
 	for (int arg_i = 1; arg_i < argc; arg_i++) {
@@ -271,6 +271,8 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
 		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_WORDS-2); // Strtok, which is used later, is destructive
 
+		if (cmd_args.verbose > 1 && count_class_ngrams)
+			printf("sent_buffer[%lu]: <<%s>>\n", current_sent_num, local_sent_copy);
 		token_count += process_sent(local_sent_copy, ngram_map, class_map, count_word_ngrams, count_class_ngrams);
 		//if (count_class_ngrams)
 			//printf("42: count_word_ngrams: %i; count_class_ngrams: %i\n", count_word_ngrams, count_class_ngrams); fflush(stdout);
@@ -297,6 +299,10 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 
 	tokenize_sent(sent_str, &sent_info, count_word_ngrams);
 	unsigned long token_count = sent_info.length;
+	if (cmd_args.verbose > 1 && count_class_ngrams) {
+		printf("sent_str: <<%s>>\n", sent_str);
+		print_sent_info(&sent_info);
+	}
 
 	// In the following loop we interpret i in two different ways.  For word/class n-gram models,
 	// it's the right-most word in the n-gram. I wrote increment_ngram() earlier using the right-most interpretation of i.
@@ -364,6 +370,8 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 	sent_info->sent_counts[w_i] = map_find_entry(&ngram_map, "</s>");
 	//sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
+	if (cmd_args.verbose > 1)
+		printf("88sent_str: count_word_ngrams=%i; <<%s>>\n", count_word_ngrams, sent_str);
 }
 
 // Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
@@ -420,6 +428,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 		printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
+		// "Things equal to nothing else are equal to each other." --Anon
 		for (unsigned long current_num_classes = vocab_size; current_num_classes > cmd_args.num_classes; current_num_classes--) {
 			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
 				char * restrict word = unique_words[word_i];
@@ -514,7 +523,7 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 			if (weights.interpolation[CLASS] != 0.0) { // Nonexistent class info in model yields nan's, which taints interpolated probs
 				// Class prob is transition prob * emission prob
 				float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-				float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, cmd_args.class_order, weights.class);
+				float transition_prob = (weights.interpolation[CLASS] == 0.0) ? 0.1 :  ngram_prob(&model_maps.class_map, i, class_i, class_i_count, model_metadata, sent_info.class_sent, sent_info.class_lengths, CLASSLEN, weights.class);
 				the_class_prob = transition_prob * emission_prob;
 				//printf("w=%s, w_i_cnt=%g, smooth=%g, class_i=%s, class_i_count=%i, prenorm_ngram_prob=%g, class_prob=%g, token_count=%lu, type_count=%u, line_count=%lu\n", word_i, (float)word_i_count, dklm_params.smooth, class_i, map_find_entry(&model_maps.class_map, class_i), the_ngram_prob, the_class_prob, model_metadata.token_count, model_metadata.type_count, model_metadata.line_count);
 			}

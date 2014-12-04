@@ -61,7 +61,7 @@ inline unsigned int map_increment_entry(struct_map **map, const char * restrict 
 inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
-	printf("map++: cls_entry=[%hu,%hu,%hu]\n", entry_key[0], entry_key[1], entry_key[2]);
+	//printf("map++: sizeof_key=%zu, CLASSLEN=%u, cls_entry=[%hu,%hu,%hu,%hu]\n", sizeof_key, CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]);
 
 	#pragma omp critical
 	{
@@ -84,7 +84,7 @@ inline unsigned int map_find_entry_fixed_width(struct_map_class *map[const], con
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
 	unsigned int local_count = 0;
-	printf("map: cls_entry=[%hu,%hu,%hu]\n", entry_key[0], entry_key[1], entry_key[2]);
+	//printf("map: cls_entry=[%hu,%hu,%hu]\n", entry_key[0], entry_key[1], entry_key[2]);
 
 	HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
 	if (local_s != NULL) { // Deal with OOV
