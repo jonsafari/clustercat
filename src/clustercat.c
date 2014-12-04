@@ -81,31 +81,31 @@ int main(int argc, char **argv) {
 
 	clock_t time_model_built = clock();
 	fprintf(stderr, "%s: Finished loading %lu tokens from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
-	unsigned long vocab_size      = map_count(&ngram_map);
+	global_metadata.type_count     = map_count(&ngram_map);
 	//unsigned long class_entries = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
 	unsigned long ngram_entries   = map_count(&ngram_map);
-	unsigned long total_entries   = vocab_size + ngram_entries;
-	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, vocab_size, ngram_entries);
-	unsigned long map_entries = vocab_size + ngram_entries;
+	unsigned long total_entries   = global_metadata.type_count + ngram_entries;
+	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, global_metadata.type_count, ngram_entries);
+	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
 
-	if (vocab_size <= cmd_args.num_classes) {
-		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, vocab_size);
+	if (global_metadata.type_count <= cmd_args.num_classes) {
+		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
 		exit(3);
 	}
 
 	// Get list of unique words
-	char **unique_words = (char **)malloc(vocab_size * sizeof(char*));
+	char **unique_words = (char **)malloc(global_metadata.type_count * sizeof(char*));
 	get_keys(&ngram_map, unique_words);
 
-	init_clusters(cmd_args, vocab_size, unique_words, &word2class_map);
+	init_clusters(cmd_args, global_metadata.type_count, unique_words, &word2class_map);
 	clock_t time_clusters_initialized = clock();
 	if (cmd_args.verbose > 0) {
 		fprintf(stderr, "%s: Finished initializing clusters in %.2f secs\n", argv_0_basename, (double)(time_clusters_initialized - time_model_built)/CLOCKS_PER_SEC);
 		fflush(stderr);
 	}
 
-	cluster(cmd_args, sent_store, num_sents_in_store, vocab_size, unique_words, &ngram_map, &word2class_map);
+	cluster(cmd_args, sent_store, global_metadata, unique_words, &ngram_map, &word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -399,13 +399,13 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
+void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, char **unique_words, struct_map **ngram_map, struct_map_word_class **word2class_map) {
 
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
-			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
+			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
 				float best_log_prob = FLT_MIN;
 				float log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
@@ -414,8 +414,8 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					process_sents_in_buffer(sent_store, num_sents_in_store, ngram_map, &class_map, false, true); // Get class ngram counts
-					log_probs[class] = query_sents_in_store(cmd_args, sent_store, num_sents_in_store, ngram_map, &class_map, word2class_map);
+					process_sents_in_buffer(sent_store, model_metadata.line_count, ngram_map, &class_map, false, true); // Get class ngram counts
+					log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, ngram_map, &class_map, word2class_map);
 				}
 				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
 				printf("best: %u, logprob=%g\n", best_class, maxf(log_probs, cmd_args.num_classes));
@@ -425,12 +425,12 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					break; // Moving stuff around didn't help, so we're done
 			}
 		}
-		printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, vocab_size, cmd_args.num_classes, cmd_args.tune_cycles);
+		printf("steps: %lu (%lu words x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
-		for (unsigned long current_num_classes = vocab_size; current_num_classes > cmd_args.num_classes; current_num_classes--) {
-			for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
+		for (unsigned long current_num_classes = model_metadata.type_count; current_num_classes > cmd_args.num_classes; current_num_classes--) {
+			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
 				float log_probs[cmd_args.num_classes];
 				//#pragma omp parallel for num_threads(cmd_args.num_threads)
@@ -490,12 +490,12 @@ struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_ma
 }
 
 
-float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map) {
+float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map) {
 	float sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
 	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
-	for (current_sent_num = 0; current_sent_num < num_sents_in_store; current_sent_num++) {
+	for (current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) {
 
 		char * restrict current_sent = sent_store[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
@@ -521,7 +521,7 @@ float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_
 			// Class prob is transition prob * emission prob
 			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
 			float weights_class[] = {0.1, 0.5, 0.4};
-			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, weights_class);
+			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, model_metadata, weights_class);
 			the_class_prob = transition_prob * emission_prob;
 			printf("w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob);
 

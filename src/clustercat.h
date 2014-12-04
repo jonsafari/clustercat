@@ -41,12 +41,10 @@ typedef struct {
 } struct_sent_info;
 
 typedef struct {
-	char *file_name;
 	unsigned long token_count;
 	unsigned long line_count;
-	unsigned int  type_count;
+	unsigned long type_count;
 	unsigned char class_order;
-	unsigned char ngram_order : 5;
 } struct_model_metadata;
 
 char *argv_0_basename; // Allow for global access to filename
@@ -70,9 +68,9 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_class_ngrams);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
-void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], unsigned long num_sents_in_store, unsigned long vocab_size, char **unique_words, struct_map **word_map, struct_map_word_class **word2class_map);
+void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, char **unique_words, struct_map **word_map, struct_map_word_class **word2class_map);
 struct_sent_info parse_input_line(char * restrict line_in, struct_map **ngram_map);
-float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const unsigned long num_sents_in_store, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map);
+float query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, struct_map **ngram_map, struct_map_class **class_map, struct_map_word_class **word2class_map);
 
 void print_sent_info(struct_sent_info * restrict sent_info);
 #endif // INCLUDE_HEADER

@@ -3,7 +3,10 @@
 #include "clustercat-ngram-prob.h"
 #include "clustercat-math.h"			// dot_product()
 
-float class_ngram_prob(struct_map_class *ngram_map[const], const sentlen_t i, const wclass_t class_i, const unsigned int class_i_count, wclass_t sent[const], const unsigned char ngram_order, const float weights[const]) { // Cf. increment_ngram()
+float class_ngram_prob(struct_map_class *ngram_map[const], const sentlen_t i, const wclass_t class_i, const unsigned int class_i_count, wclass_t sent[const], const unsigned char ngram_order, const struct_model_metadata model_metadata, const float weights[const]) { // Cf. increment_ngram()
+	float order_probs[ngram_order];  // unigrams at 0, bigrams at 1, trigrams at 2, ...
+	order_probs[0] = class_i_count / 1;
+	const short leftmost_position = (i >= ngram_order-1) ? i - (ngram_order-1) : 0; // N-grams starting point can be 0, for <s>
 	return 0.5;
 }
 
