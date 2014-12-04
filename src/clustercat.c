@@ -235,17 +235,17 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 	size_t sizeof_wclass = sizeof(wclass_t);
 	unsigned char ngram_len = i - start_position + 1;
 
-	wclass_t ngram[ngram_len + (CLASSLEN - 1)]; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
-	memset(ngram, 0, ngram_len + (CLASSLEN - 1));
-	memcpy(&ngram, &sent[start_position], ngram_len);
-	printf("ngm++: ngmlen=%u, ngram=[%hu,%hu,%hu,%hu,%hu]\n", ngram_len + (CLASSLEN - 1), ngram[0], ngram[1], ngram[2], ngram[3], ngram[4]);
+	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
+	memcpy(&ngram, &sent[start_position], ngram_len * sizeof(wclass_t));
+	//printf("ngm++ 1: i-sp=%u (i:%u,sp:%u), ngmlen=%u, sent[%hu,%hu,%hu,%hu,%hu,%hu]\n", i - start_position, i, start_position, ngram_len, sent[0], sent[1], sent[2], sent[3],sent[4],sent[5]);
+	//printf("ngm++ 2: CLASSLEN=%u, ngram=[%hu,%hu,%hu,%hu,%hu,%hu,%hu]\n", CLASSLEN, ngram[0], ngram[1], ngram[2], ngram[3], ngram[4], ngram[5], ngram[6]);
 
 	wclass_t * restrict jp = ngram;
-	for (sentlen_t j = start_position; j <= i; ++j, --ngram_len) { // Traverse longest n-gram string
+	for (sentlen_t j = start_position; j <= i; j++, --ngram_len) { // Traverse longest n-gram string
 		//if (cmd_args.verbose > 1)
 			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
 		map_increment_entry_fixed_width(map, jp);
-		jp += sizeof_wclass;
+		jp++;
 	}
 }
 
@@ -312,14 +312,14 @@ unsigned long process_sent(char * restrict sent_str, struct_map **ngram_map, str
 		if (count_word_ngrams)
 			increment_ngram_variable_width(ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
 			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_entry(ngram_map, sent_info.sent[i]));
-		if (count_class_ngrams && cmd_args.class_order) {
-			sentlen_t start_position_class = (i >= cmd_args.class_order-1) ? i - (cmd_args.class_order-1) : 0; // N-grams starting point is 0, for <s>
-			//printf("i: %u, sent_len=%u\t", i, sent_info.length);
-			//if (i - start_position_class > 1)
-			//	printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			//if (i - start_position_class > 0)
-			//	printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			//printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
+		if (count_class_ngrams) {
+			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
+			printf("i: %u, sent_len=%u\t", i, sent_info.length);
+			if (i - start_position_class > 1)
+				printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			if (i - start_position_class > 0)
+				printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
+			printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
 			increment_ngram_fixed_width(class_map, sent_info.class_sent, start_position_class, i);
 		}
 	}
