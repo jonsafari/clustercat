@@ -4,13 +4,32 @@
 #include "clustercat-math.h"			// dot_product()
 
 float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, const wclass_t class_i, const unsigned int class_i_count, wclass_t sent[const], const unsigned char ngram_order, const struct_model_metadata model_metadata, const float weights[const]) { // Cf. increment_ngram()
+	const wclass_t i_val = sent[i];
 	float order_probs[CLASSLEN] = {0};  // unigrams at 0, bigrams at 1, trigrams at 2, ...
 	order_probs[0] = class_i_count / model_metadata.line_count;
 
 	const short leftmost_position = (i >= ngram_order-1) ? i - (ngram_order-1) : 0; // N-grams starting point can be 0, for <s>
+	register sentlen_t max_ngram_used = 1; // This value is subject to reduction; if a history is unattested, we must still backoff to give a probability distribution summing to one
+	register short j = leftmost_position ? CLASSLEN - 2 : i - 1 ; // Starting point of ngram traversal
 
-	//return dot_productf(order_probs, weights, history_len_used+2);
-	return dot_productf(order_probs, weights, ngram_order);
+	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0};
+	memcpy(&ngram, &sent[leftmost_position], sizeof(wclass_t) * (i - leftmost_position + 1));
+
+	for (; j >= 0; j--, max_ngram_used++) { // Traverse shortest string first && short-circuit if history not found
+		//printf("leftpos=%i, j=%i, i=%hu, ival=%hu, maxlenused=%i, ngram[0]=%hu, ngram[j=%i]=[%hu,%hu,%hu,%hu], sent[i=%i]=[%hu,%hu,<%hu>,%hu,%hu]\n", leftmost_position, j, i, i_val, max_ngram_used, ngram[0], j, ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], i, sent[i-2], sent[i-1], sent[i], sent[i+1], sent[i+2]);
+		unsigned int numerator = map_find_entry_fixed_width(class_map, &ngram[j]);
+		printf(" c([%hu,%hu,%hu,%hu])=%u / ", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], numerator);
+		ngram[j+max_ngram_used] = 0; // We zero out word_i to get the denominator
+		unsigned int denominator = map_find_entry_fixed_width(class_map, &ngram[j]);
+		printf(" c([%hu,%hu,%hu,%hu])=%u / ", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], denominator);
+		ngram[j+max_ngram_used] = i_val; // We restore out word_i to its original value
+		printf(" %u/%u = %g\n", numerator, denominator, numerator/(float)denominator);
+		order_probs[max_ngram_used] = numerator/(float)denominator;
+		if (!numerator) // no need to calculate higher-order ngrams
+			break;
+	}
+
+	return dot_productf(order_probs, weights, max_ngram_used);
 }
 
 float ngram_prob(struct_map *ngram_map[const], const sentlen_t i, const char * restrict word_i, const unsigned int word_i_count, const struct_model_metadata model_metadata, char * restrict sent[const], const short word_lengths[const], const unsigned char ngram_order, const float weights[const]) { // Cf. increment_ngram()
