@@ -520,7 +520,7 @@ double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent
 			float the_class_prob = 0.5;
 			// Class prob is transition prob * emission prob
 			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-			float weights_class[] = {0.1, 0.5, 0.4};
+			float weights_class[] = {0.05, 0.4, 0.4, 0.15};
 			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, model_metadata, weights_class);
 			the_class_prob = transition_prob * emission_prob;
 
