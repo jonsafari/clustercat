@@ -19,21 +19,21 @@ float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, co
 	for (; j >= 0; j--, max_ngram_used++) { // Traverse shortest string first && short-circuit if history not found
 		//printf("leftpos=%i, j=%i, i=%hu, ival=%hu, maxlenused=%i, ngram[0]=%hu, ngram[j=%i]=[%hu,%hu,%hu,%hu], sent[i=%i]=[%hu,%hu,<%hu>,%hu,%hu]\n", leftmost_position, j, i, i_val, max_ngram_used, ngram[0], j, ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], i, sent[i-2], sent[i-1], sent[i], sent[i+1], sent[i+2]);
 		unsigned int numerator = map_find_entry_fixed_width(class_map, &ngram[j]);
-		printf(" c([%hu,%hu,%hu,%hu])=%u /\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], numerator);
+		//printf(" c([%hu,%hu,%hu,%hu])=%u /\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], numerator);
 		ngram[j+max_ngram_used] = 0; // We zero out word_i to get the denominator
 		unsigned int denominator = map_find_entry_fixed_width(class_map, &ngram[j]);
-		printf(" c([%hu,%hu,%hu,%hu])=%u ;\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], denominator);
+		//printf(" c([%hu,%hu,%hu,%hu])=%u ;\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], denominator);
 		ngram[j+max_ngram_used] = i_val; // We restore out word_i to its original value
-		printf(" %u/%u = %g\n", numerator, denominator, numerator/(float)denominator);
+		//printf(" %u/%u = %g\n", numerator, denominator, numerator/(float)denominator);
 		order_probs[max_ngram_used] = numerator/(float)denominator;
 		if (!numerator) // no need to calculate higher-order ngrams
 			break;
 	}
 
-	printf("transition_probs:\t");
-	fprint_arrayf(stdout, order_probs, max_ngram_used, ",");
-	printf("weights:\t\t");
-	fprint_arrayf(stdout, weights, max_ngram_used, ",");
+	//printf("transition_probs:\t");
+	//fprint_arrayf(stdout, order_probs, max_ngram_used, ",");
+	//printf("weights:\t\t");
+	//fprint_arrayf(stdout, weights, max_ngram_used, ",");
 	return dot_productf(order_probs, weights, max_ngram_used);
 }
 

@@ -23,7 +23,6 @@ void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
 struct_map *ngram_map       = NULL;	// Must initialize to NULL
-struct_map_class *class_map = NULL;	// Must initialize to NULL
 struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL
 DECLARE_DATA_STRUCT_FLOAT; // for word_word_float_map
 char usage[USAGE_LEN];
@@ -66,6 +65,8 @@ int main(int argc, char **argv) {
 	char * restrict sent_store[cmd_args.max_tune_sents];  // This will not get modified
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	unsigned long num_sents_in_store = 0;
+	struct_map_class *class_map = NULL;	// Must initialize to NULL
+
 	while (1) {
 		// Fill sentence buffer
 		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
@@ -98,6 +99,7 @@ int main(int argc, char **argv) {
 	char **unique_words = (char **)malloc(global_metadata.type_count * sizeof(char*));
 	get_keys(&ngram_map, unique_words);
 
+	//struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL
 	init_clusters(cmd_args, global_metadata.type_count, unique_words, &word2class_map);
 	clock_t time_clusters_initialized = clock();
 	if (cmd_args.verbose > 0) {
@@ -106,6 +108,8 @@ int main(int argc, char **argv) {
 	}
 
 	cluster(cmd_args, sent_store, global_metadata, unique_words, &ngram_map, &word2class_map);
+
+	// Now print the final word2class_map
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -405,9 +409,14 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
+			// Get initial logprob
+			struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
+			process_sents_in_buffer(sent_store, model_metadata.line_count, ngram_map, &class_map, false, true); // Get class ngram counts
+			double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, ngram_map, &class_map, word2class_map);
+			printf("Initial logprob=%g\n", best_log_prob);
+
 			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
-				double best_log_prob = FLT_MIN;
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
@@ -418,7 +427,8 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, ngram_map, &class_map, word2class_map);
 				}
 				wclass_t best_class = which_max(log_probs, cmd_args.num_classes);
-				printf("best: %u, logprob=%g\n", best_class, max(log_probs, cmd_args.num_classes)); fflush(stdout);
+				printf("best class: %u, old logprob=%g, new logprob=%g \n", best_class, best_log_prob, max(log_probs, cmd_args.num_classes)); fflush(stdout);
+				printf("logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
 				if (best_log_prob < max(log_probs, cmd_args.num_classes)) {
 					printf("Moving '%s' to class %u\n", word, best_class); fflush(stdout);
 				} else
