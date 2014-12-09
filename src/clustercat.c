@@ -392,13 +392,13 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
-		for (unsigned short cycle = 0; cycle < cmd_args.tune_cycles; cycle++) {
-			// Get initial logprob
-			struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-			process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
-			double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
-			printf("Initial logprob=%g\n", best_log_prob);
+		// Get initial logprob
+		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
+		process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
+		double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
 
+		for (unsigned short cycle = 1; cycle <= cmd_args.tune_cycles; cycle++) {
+			fprintf(stderr, "%s: Starting cycle %u with logprob=%g\n", argv_0_basename, cycle, best_log_prob); fflush(stderr);
 			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
 				const wclass_t old_class = get_class(&word2class_map, word, UNKNOWN_WORD_CLASS);
@@ -419,18 +419,16 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
 
 				if (best_log_prob < best_hypothesis_log_prob) { // We've improved
-					printf("logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
-					printf("Moving '%s'  %u -> %u  (logprob %g -> %g)\n", word, old_class, best_hypothesis_class, best_log_prob, best_hypothesis_log_prob); fflush(stdout);
+					fprintf(stderr, " logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
+					fprintf(stderr, " Moving '%s'  %u -> %u  (logprob %g -> %g)\n", word, old_class, best_hypothesis_class, best_log_prob, best_hypothesis_log_prob); fflush(stderr);
 					map_update_class(&word2class_map, word, best_hypothesis_class);
 					best_log_prob = best_hypothesis_log_prob;
-				} else { // Moving stuff around didn't help, so we're done
-					;
-					//printf(" Best class for %s is still %u :-/   old logprob=%g, current best logprob=%g \n", word, old_class, best_log_prob, best_hypothesis_log_prob); fflush(stdout);
-					//break;
 				}
 			}
+
+			//if ()
 		}
-		printf("steps: %lu (%lu word types x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles); fflush(stdout);
+		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  Final logprob=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
