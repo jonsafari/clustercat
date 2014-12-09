@@ -63,7 +63,7 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
 	//printf("map++: sizeof_key=%zu, CLASSLEN=%u, cls_entry=[%hu,%hu,%hu,%hu]\n", sizeof_key, CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]);
 
-	#pragma omp critical
+	//#pragma omp critical // not needed since each thread gets its own class_map
 	{
 		//printf("***41***: sizeof_key=%lu, sizeof(wclass_t)=%lu, CLASSLEN=%u, key=<%u,%u,%u,%u>\n", sizeof_key, sizeof(wclass_t), CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]); fflush(stdout);
 		HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?

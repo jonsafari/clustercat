@@ -291,8 +291,6 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 		print_sent_info(&sent_info);
 	}
 
-	// In the following loop we interpret i in two different ways.  For word/class n-gram models,
-	// it's the right-most word in the n-gram. I wrote increment_ngram() earlier using the right-most interpretation of i.
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++) {
 
@@ -415,18 +413,23 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
+				//fprintf(stderr, " logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
 				const wclass_t best_hypothesis_class = which_max(log_probs, cmd_args.num_classes);
 				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
 
 				if (best_log_prob < best_hypothesis_log_prob) { // We've improved
-					fprintf(stderr, " logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
-					fprintf(stderr, " Moving '%s'  %u -> %u  (logprob %g -> %g)\n", word, old_class, best_hypothesis_class, best_log_prob, best_hypothesis_log_prob); fflush(stderr);
+					if (cmd_args.verbose > 0) {
+						fprintf(stderr, " logprobs: "); fprint_array(stderr, log_probs, cmd_args.num_classes, ","); fflush(stderr);
+					}
+					fprintf(stderr, " Moving '%s'\t%u -> %u\t(logprob %g -> %g)\n", word, old_class, best_hypothesis_class, best_log_prob, best_hypothesis_log_prob); fflush(stderr);
 					map_update_class(&word2class_map, word, best_hypothesis_class);
 					best_log_prob = best_hypothesis_log_prob;
 				}
 			}
 
+			// In principle if there's no improvement in the determinitistic exchange algo, we can stop cycling; there will be no more gains
 			//if ()
+			//	break;
 		}
 		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  Final logprob=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob); fflush(stderr);
 
