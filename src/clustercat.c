@@ -43,7 +43,6 @@ struct cmd_args cmd_args = {
 
 
 int main(int argc, char **argv) {
-	printf("Todo: Update word2class_map when best thing is found.\n");
 	clock_t time_start = clock();
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
@@ -402,22 +401,32 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 
 			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
+				const wclass_t old_class = get_class(&word2class_map, word, UNKNOWN_WORD_CLASS);
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+				log_probs[0] = -DBL_MAX;
+
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
-				for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
+				for (wclass_t class = 1; class < cmd_args.num_classes; class++) {
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
 					log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 				}
-				wclass_t best_class = which_max(log_probs, cmd_args.num_classes);
-				printf("best class for %s: %u, old logprob=%g, new logprob=%g \n", word, best_class, best_log_prob, max(log_probs, cmd_args.num_classes)); fflush(stdout);
-				printf("logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
-				if (best_log_prob < max(log_probs, cmd_args.num_classes)) {
-					printf("Moving '%s' to class %u\n", word, best_class); fflush(stdout);
-				} else
-					break; // Moving stuff around didn't help, so we're done
+
+				const wclass_t best_hypothesis_class = which_max(log_probs, cmd_args.num_classes);
+				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
+
+				if (best_log_prob < best_hypothesis_log_prob) { // We've improved
+					printf("logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
+					printf("Moving '%s'  %u -> %u  (logprob %g -> %g)\n", word, old_class, best_hypothesis_class, best_log_prob, best_hypothesis_log_prob); fflush(stdout);
+					map_update_class(&word2class_map, word, best_hypothesis_class);
+					best_log_prob = best_hypothesis_log_prob;
+				} else { // Moving stuff around didn't help, so we're done
+					;
+					//printf(" Best class for %s is still %u :-/   old logprob=%g, current best logprob=%g \n", word, old_class, best_log_prob, best_hypothesis_log_prob); fflush(stdout);
+					//break;
+				}
 			}
 		}
 		printf("steps: %lu (%lu word types x %u classes x %u cycles)\n", steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles); fflush(stdout);
