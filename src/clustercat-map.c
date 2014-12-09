@@ -194,6 +194,15 @@ void delete_all(struct_map **map) {
 	}
 }
 
+void delete_all_class(struct_map_class **map) {
+	struct_map_class *current_entry, *tmp;
+
+	HASH_ITER(hh, *map, current_entry, tmp) { // Based on uthash's docs
+		HASH_DEL(*map, current_entry);	// delete it (map advances to next)
+		free(current_entry);	// free it
+	}
+}
+
 void print_map(struct_map **map) { // Based on uthash's docs
 	struct_map *s;
 

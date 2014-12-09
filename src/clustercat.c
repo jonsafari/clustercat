@@ -412,6 +412,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
 					log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
+					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
 				const wclass_t best_hypothesis_class = which_max(log_probs, cmd_args.num_classes);

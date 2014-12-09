@@ -66,4 +66,6 @@ unsigned long map_count(struct_map *map[const]);
 unsigned long map_print_entries(struct_map **map, const char * restrict prefix, const char sep_char, const unsigned int min_count);
 
 unsigned long map_print_entries_float(struct_map_float **map, const char * restrict prefix, const char sep_char, const unsigned int min_count);
+
+void delete_all_class(struct_map_class **map);
 #endif // INCLUDE_HEADER
