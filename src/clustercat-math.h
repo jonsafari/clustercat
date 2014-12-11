@@ -6,4 +6,6 @@ float dot_productf(const float probs[const], const float weights[const], int len
 
 long int powi(long int base, long int exp);
 
+double perplexity(const double log_probs, const unsigned long num_words_queried);
+
 #endif // INCLUDE_HEADER

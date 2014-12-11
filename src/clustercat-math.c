@@ -35,3 +35,9 @@ long int powi(long int base, long int exp) { // Integer exponentiation
 		result *= base;
 	return result;
 }
+
+double perplexity(const double log_probs, const unsigned long num_words_queried) {
+	// Assumes log_probs used log2()
+	return pow(2, -log_probs / (double)num_words_queried);
+}
+
