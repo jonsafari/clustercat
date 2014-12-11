@@ -79,6 +79,7 @@ int main(int argc, char **argv) {
 		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_sents_in_buffer() since we call that function in two separate contexts
 	}
 
+	filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
 	clock_t time_model_built = clock();
 	fprintf(stderr, "%s: Finished loading %lu tokens from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
@@ -89,8 +90,6 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, global_metadata.type_count, ngram_entries);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
-
-	filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
 	if (global_metadata.type_count <= cmd_args.num_classes) {
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
