@@ -90,6 +90,8 @@ int main(int argc, char **argv) {
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
 
+	filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
+
 	if (global_metadata.type_count <= cmd_args.num_classes) {
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
 		exit(3);
@@ -185,6 +187,33 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			exit(2);
 		}
 	}
+}
+
+void filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map) {
+
+	// Get keys
+	// Iterate over keys
+	//   If count of key_i < threshold,
+	//     increment count of <unk> by count of key_i,
+	//     decrement model_metadata.type_count by one
+	//     free & delete entry in map,
+
+	char **unique_words = (char **)malloc(model_metadata->type_count * sizeof(char*));
+	get_keys(ngram_map, unique_words);
+
+	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
+
+	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
+		unsigned long word_i_count = map_find_entry(ngram_map, unique_words[word_i]);  // We'll use this a couple times
+		if (word_i_count < cmd_args.min_count) {
+			map_update_entry(ngram_map, UNKNOWN_WORD, word_i_count);
+			model_metadata->type_count--;
+			struct_map *local_s;
+			HASH_FIND_STR(*ngram_map, unique_words[word_i], local_s);
+			delete_entry(ngram_map, local_s);
+		}
+	}
+	free(unique_words);
 }
 
 void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {

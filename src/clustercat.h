@@ -65,6 +65,7 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[con
 unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents);
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams);
 unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams);
+void filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_class_ngrams);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
 void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, char **unique_words);
