@@ -12,6 +12,7 @@
 #include "clustercat-array.h"		// which_maxf()
 #include "clustercat-data.h"
 #include "clustercat-io.h"			// fill_sent_buffer()
+#include "clustercat-math.h"		// perplexity()
 #include "clustercat-ngram-prob.h"	// class_ngram_prob()
 
 #define USAGE_LEN 10000
@@ -394,9 +395,10 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
 		double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
+		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		for (unsigned short cycle = 1; cycle <= cmd_args.tune_cycles; cycle++) {
-			fprintf(stderr, "%s: Starting cycle %u with logprob=%g\n", argv_0_basename, cycle, best_log_prob); fflush(stderr);
+			fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
 				const wclass_t old_class = get_class(&word2class_map, word, UNKNOWN_WORD_CLASS);
@@ -431,7 +433,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 			//if ()
 			//	break;
 		}
-		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  Final logprob=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob); fflush(stderr);
+		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
