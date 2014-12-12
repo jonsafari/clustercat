@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
 
 
 	// The list of unique words should always include <s>, unknown word, and </s>
-	map_update_entry(&ngram_map, "<s>", 0);
 	map_update_entry(&ngram_map, UNKNOWN_WORD, 0);
+	map_update_entry(&ngram_map, "<s>", 0);
 	map_update_entry(&ngram_map, "</s>", 0);
 
 	char * restrict sent_buffer[cmd_args.max_tune_sents]; // This will get modified
@@ -79,15 +79,15 @@ int main(int argc, char **argv) {
 		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_sents_in_buffer() since we call that function in two separate contexts
 	}
 
-	filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
+	global_metadata.type_count            = map_count(&ngram_map);
+	unsigned long number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
 	clock_t time_model_built = clock();
-	fprintf(stderr, "%s: Finished loading %lu tokens from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
-	global_metadata.type_count     = map_count(&ngram_map);
+	fprintf(stderr, "%s: Finished loading %lu tokens and %lu types (%lu filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
 	//unsigned long class_entries = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
 	unsigned long ngram_entries   = map_count(&ngram_map);
-	unsigned long total_entries   = global_metadata.type_count + ngram_entries;
-	fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, global_metadata.type_count, ngram_entries);
+	//unsigned long total_entries   = global_metadata.type_count + ngram_entries;
+	//fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, global_metadata.type_count, ngram_entries);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
 
@@ -188,7 +188,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-void filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map) {
+unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map) {
+
+	unsigned long number_of_deleted_words = 0;
 
 	// Get keys
 	// Iterate over keys
@@ -198,6 +200,7 @@ void filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metada
 	//     free & delete entry in map,
 
 	char **unique_words = (char **)malloc(model_metadata->type_count * sizeof(char*));
+	//char * unique_words[model_metadata->type_count];
 	get_keys(ngram_map, unique_words);
 
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
@@ -205,6 +208,9 @@ void filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metada
 	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
 		unsigned long word_i_count = map_find_entry(ngram_map, unique_words[word_i]);  // We'll use this a couple times
 		if (word_i_count < cmd_args.min_count) {
+			if (cmd_args.verbose > 0)
+				printf("Filtering-out word: %s (%lu < %hu)\n", unique_words[word_i], word_i_count, cmd_args.min_count);
+			number_of_deleted_words++;
 			map_update_entry(ngram_map, UNKNOWN_WORD, word_i_count);
 			model_metadata->type_count--;
 			struct_map *local_s;
@@ -212,7 +218,8 @@ void filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metada
 			delete_entry(ngram_map, local_s);
 		}
 	}
-	free(unique_words);
+	//free(unique_words);
+	return number_of_deleted_words;
 }
 
 void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
@@ -321,12 +328,18 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 	}
 
 	register sentlen_t i;
-	for (i = 0; i < sent_info.length; i++) {
 
-		if (count_word_ngrams)
+	if (count_word_ngrams) {
+		map_increment_entry(&ngram_map, "<s>");
+		map_increment_entry(&ngram_map, "</s>");
+		for (i = 0; i < sent_info.length; i++) {
 			increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
 			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_entry(ngram_map, sent_info.sent[i]));
-		if (count_class_ngrams) {
+		}
+	}
+
+	if (count_class_ngrams) {
+		for (i = 0; i < sent_info.length; i++) {
 			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
 			//printf("i: %u, sent_len=%u\t", i, sent_info.length);
 			//if (i - start_position_class > 1)

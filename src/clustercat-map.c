@@ -166,7 +166,7 @@ inline unsigned short get_class(struct_map_word_class *map[const], const char * 
 	}
 }
 
-inline unsigned int get_keys(struct_map *map[const], char *keys[]) {
+unsigned int get_keys(struct_map *map[const], char *keys[]) {
 	struct_map *entry, *tmp;
 	unsigned int number_of_keys = 0;
 
@@ -181,6 +181,7 @@ inline unsigned int get_keys(struct_map *map[const], char *keys[]) {
 }
 
 void delete_entry(struct_map **map, struct_map *entry) { // Based on uthash's docs
+	free(entry->key); // key is a malloc'd string
 	HASH_DEL(*map, entry);	// entry: pointer to deletee
 	free(entry);
 }
