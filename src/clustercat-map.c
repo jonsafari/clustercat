@@ -181,8 +181,8 @@ unsigned int get_keys(struct_map *map[const], char *keys[]) {
 }
 
 void delete_entry(struct_map **map, struct_map *entry) { // Based on uthash's docs
-	free(entry->key); // key is a malloc'd string
 	HASH_DEL(*map, entry);	// entry: pointer to deletee
+	free(entry->key); // key is a malloc'd string
 	free(entry);
 }
 

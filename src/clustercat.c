@@ -191,6 +191,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map) {
 
 	unsigned long number_of_deleted_words = 0;
+	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
 
 	// Get keys
 	// Iterate over keys
@@ -199,26 +200,28 @@ unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_mod
 	//     decrement model_metadata.type_count by one
 	//     free & delete entry in map,
 
-	char **unique_words = (char **)malloc(model_metadata->type_count * sizeof(char*));
-	//char * unique_words[model_metadata->type_count];
-	get_keys(ngram_map, unique_words);
-
-	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
+	char **local_unique_words = (char **)malloc(model_metadata->type_count * sizeof(char*));
+	//char * local_unique_words[model_metadata->type_count];
+	if (vocab_size != get_keys(ngram_map, local_unique_words)) {
+		printf("Error: model_metadata->type_count != get_keys()\n");
+		exit(4);
+	}
 
 	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
-		unsigned long word_i_count = map_find_entry(ngram_map, unique_words[word_i]);  // We'll use this a couple times
-		if (word_i_count < cmd_args.min_count) {
+		unsigned long word_i_count = map_find_entry(ngram_map, local_unique_words[word_i]);  // We'll use this a couple times
+		if ((word_i_count < cmd_args.min_count) && (strncmp(local_unique_words[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			if (cmd_args.verbose > 0)
-				printf("Filtering-out word: %s (%lu < %hu)\n", unique_words[word_i], word_i_count, cmd_args.min_count);
+				printf("Filtering-out word: %s (%lu < %hu)\n", local_unique_words[word_i], word_i_count, cmd_args.min_count);
 			number_of_deleted_words++;
 			map_update_entry(ngram_map, UNKNOWN_WORD, word_i_count);
 			model_metadata->type_count--;
 			struct_map *local_s;
-			HASH_FIND_STR(*ngram_map, unique_words[word_i], local_s);
+			HASH_FIND_STR(*ngram_map, local_unique_words[word_i], local_s);
 			delete_entry(ngram_map, local_s);
 		}
 	}
-	//free(unique_words);
+
+	free(local_unique_words);
 	return number_of_deleted_words;
 }
 
@@ -314,7 +317,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 		return 0;
 
 	struct_sent_info sent_info = {0};
-	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
+	sent_info.sent = malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
 
 	// We could have built up the word n-gram counts directly from sent_str, but it's
 	// the only one out of the three models we're building that we can do this way, and
