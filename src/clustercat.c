@@ -441,7 +441,8 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 		double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
 		fprintf(stderr, "%s: Expected Steps: %lu (%lu word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
-		for (unsigned short cycle = 1; cycle <= cmd_args.tune_cycles; cycle++) {
+		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
+		for (; cycle <= cmd_args.tune_cycles; cycle++) {
 			bool end_cycle_short = true; // This gets set to false if any word's class changes
 
 			fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -449,13 +450,6 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				char * restrict word = unique_words[word_i];
 				const wclass_t old_class = get_class(&word2class_map, word, UNKNOWN_WORD_CLASS);
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
-				log_probs[0] = -DBL_MAX;
-
-				// Get original log prob for word, for debugging.  In principle this should be the same value as log_probs[old_class].
-				//struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-				//process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
-				//double original_log_prob_for_word = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
-				//printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, original_log_prob_for_word, 0, cmd_args.num_classes-1);
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 1; class <= cmd_args.num_classes; class++) { // class values range from 1 to cmd_args.num_classes, so we need to add/subtract by one in various places below when dealing with arrays
@@ -467,8 +461,10 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
-				printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
-				fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
+				if (cmd_args.verbose > 0) {
+					printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
+					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
+				}
 
 				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
 				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
@@ -489,7 +485,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 			if (end_cycle_short)
 				break;
 		}
-		fprintf(stderr, "%s: Completed steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		fprintf(stderr, "%s: Completed steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
