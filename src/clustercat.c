@@ -210,7 +210,7 @@ unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_mod
 	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
 		unsigned long word_i_count = map_find_entry(ngram_map, local_unique_words[word_i]);  // We'll use this a couple times
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_unique_words[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
-			if (cmd_args.verbose > 0)
+			if (cmd_args.verbose > 1)
 				printf("Filtering-out word: %s (%lu < %hu)\n", local_unique_words[word_i], word_i_count, cmd_args.min_count);
 			number_of_deleted_words++;
 			map_update_entry(ngram_map, UNKNOWN_WORD, word_i_count);
@@ -418,7 +418,7 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
 		register wclass_t class = 1; // 0 is reserved
 		for (; word_i < vocab_size; word_i++, class++) {
-			if (class >= cmd_args.num_classes)
+			if (class > cmd_args.num_classes)
 				class = 1;
 			//printf("class=%u, word=%s, word_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
 			map_update_class(word2class_map, unique_words[word_i], class);
@@ -439,9 +439,11 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
 		double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
-		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		fprintf(stderr, "%s: Expected Steps: %lu (%lu word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		for (unsigned short cycle = 1; cycle <= cmd_args.tune_cycles; cycle++) {
+			bool end_cycle_short = true; // This gets set to false if any word's class changes
+
 			fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				char * restrict word = unique_words[word_i];
@@ -449,35 +451,45 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				log_probs[0] = -DBL_MAX;
 
+				// Get original log prob for word, for debugging.  In principle this should be the same value as log_probs[old_class].
+				//struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
+				//process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
+				//double original_log_prob_for_word = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
+				//printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, original_log_prob_for_word, 0, cmd_args.num_classes-1);
+
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
-				for (wclass_t class = 1; class < cmd_args.num_classes; class++) {
+				for (wclass_t class = 1; class <= cmd_args.num_classes; class++) { // class values range from 1 to cmd_args.num_classes, so we need to add/subtract by one in various places below when dealing with arrays
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true); // Get class ngram counts
-					log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
+					log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
-				//fprintf(stderr, " logprobs: "); fprint_array(stdout, log_probs, cmd_args.num_classes, ",");
-				const wclass_t best_hypothesis_class = which_max(log_probs, cmd_args.num_classes);
+				printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
+				fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
+
+				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
 				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
 
-				if (best_log_prob < best_hypothesis_log_prob) { // We've improved
+				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
+					end_cycle_short = false;
+
 					if (cmd_args.verbose > 0) {
-						fprintf(stderr, " logprobs: "); fprint_array(stderr, log_probs, cmd_args.num_classes, ","); fflush(stderr);
+						fprintf(stderr, " logprobs %u-%u: ", 1, cmd_args.num_classes); fprint_array(stderr, log_probs, cmd_args.num_classes, ","); fflush(stderr);
 					}
-					fprintf(stderr, " Moving '%s'\t%u -> %u\t(logprob %g -> %g)\n", word, old_class, best_hypothesis_class, best_log_prob, best_hypothesis_log_prob); fflush(stderr);
+					fprintf(stderr, " Moving '%s'\t%u -> %u\t(logprob %g -> %g)\n", word, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					map_update_class(&word2class_map, word, best_hypothesis_class);
 					best_log_prob = best_hypothesis_log_prob;
 				}
 			}
 
 			// In principle if there's no improvement in the determinitistic exchange algo, we can stop cycling; there will be no more gains
-			//if ()
-			//	break;
+			if (end_cycle_short)
+				break;
 		}
-		fprintf(stderr, "%s: Steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		fprintf(stderr, "%s: Completed steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
@@ -586,7 +598,7 @@ double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent
 			the_class_prob = transition_prob * emission_prob;
 
 
-			if (cmd_args.verbose > 0)
+			if (cmd_args.verbose > 1)
 				printf(" w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
 
 
