@@ -110,7 +110,8 @@ int main(int argc, char **argv) {
 	cluster(cmd_args, sent_store, global_metadata, unique_words);
 
 	// Now print the final word2class_map
-	sort_by_class(&word2class_map);
+	sort_by_key(&word2class_map); // Secondary sort, alphabetically by key
+	sort_by_class(&word2class_map); // Primary sort, numerically by class
 	print_words_and_classes(&word2class_map);
 
 	clock_t time_clustered = clock();

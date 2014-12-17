@@ -210,20 +210,20 @@ void print_words_and_classes(struct_map_word_class **map) {
 		printf("%s\t%hu\n", s->key, s->class);
 }
 
-int key_sort(struct_map *a, struct_map *b) { // Based on uthash's docs
-	return strcmp(a->key, b->key);
-}
-
 int count_sort(struct_map *a, struct_map *b) { // Based on uthash's docs
 	return (a->count - b->count);
 }
 
-void sort_by_key(struct_map **map) { // Based on uthash's docs
-	HASH_SORT(*map, key_sort);
-}
-
 void sort_by_count(struct_map **map) { // Based on uthash's docs
 	HASH_SORT(*map, count_sort);
+}
+
+int key_sort(struct_map_word_class *a, struct_map_word_class *b) {
+	return strcmp(a->key, b->key);
+}
+
+void sort_by_key(struct_map_word_class **map) {
+	HASH_SORT(*map, key_sort);
 }
 
 int class_sort(struct_map_word_class *a, struct_map_word_class *b) { // Based on uthash's docs

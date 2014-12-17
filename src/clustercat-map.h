@@ -62,6 +62,7 @@ wclass_t get_class(struct_map_word_class *map[const], const char * restrict entr
 unsigned int get_keys(struct_map *map[const], char *keys[]);
 
 void sort_by_class(struct_map_word_class **map);
+void sort_by_key(struct_map_word_class **map);
 
 unsigned long map_count(struct_map *map[const]);
 
