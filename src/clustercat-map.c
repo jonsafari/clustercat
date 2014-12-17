@@ -204,12 +204,10 @@ void delete_all_class(struct_map_class **map) {
 	}
 }
 
-void print_map(struct_map **map) { // Based on uthash's docs
-	struct_map *s;
-
-	for (s = *map; s != NULL; s = (struct_map *)(s->hh.next)) {
-		printf("key %s; count %d\n", s->key, s->count);
-	}
+void print_words_and_classes(struct_map_word_class **map) {
+	struct_map_word_class *s;
+	for (s = *map; s != NULL; s = (struct_map_word_class *)(s->hh.next))
+		printf("%s\t%hu\n", s->key, s->class);
 }
 
 int key_sort(struct_map *a, struct_map *b) { // Based on uthash's docs
@@ -226,6 +224,14 @@ void sort_by_key(struct_map **map) { // Based on uthash's docs
 
 void sort_by_count(struct_map **map) { // Based on uthash's docs
 	HASH_SORT(*map, count_sort);
+}
+
+int class_sort(struct_map_word_class *a, struct_map_word_class *b) { // Based on uthash's docs
+	return (a->class - b->class);
+}
+
+void sort_by_class(struct_map_word_class **map) {
+	HASH_SORT(*map, class_sort);
 }
 
 unsigned long map_count(struct_map *map[const]) {

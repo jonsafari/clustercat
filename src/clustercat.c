@@ -110,6 +110,8 @@ int main(int argc, char **argv) {
 	cluster(cmd_args, sent_store, global_metadata, unique_words);
 
 	// Now print the final word2class_map
+	sort_by_class(&word2class_map);
+	print_words_and_classes(&word2class_map);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -473,7 +475,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					end_cycle_short = false;
 
 					if (cmd_args.verbose > 0) {
-						fprintf(stderr, " logprobs %u-%u: ", 1, cmd_args.num_classes); fprint_array(stderr, log_probs, cmd_args.num_classes, ","); fflush(stderr);
+						fprintf(stderr, " %s logprobs %u-%u: ", word, 1, cmd_args.num_classes); fprint_array(stderr, log_probs, cmd_args.num_classes, ","); fflush(stderr);
 					}
 					fprintf(stderr, " Moving '%s'\t%u -> %u\t(logprob %g -> %g)\n", word, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					map_update_class(&word2class_map, word, best_hypothesis_class);

@@ -61,11 +61,13 @@ wclass_t get_class(struct_map_word_class *map[const], const char * restrict entr
 
 unsigned int get_keys(struct_map *map[const], char *keys[]);
 
+void sort_by_class(struct_map_word_class **map);
+
 unsigned long map_count(struct_map *map[const]);
 
 unsigned long map_print_entries(struct_map **map, const char * restrict prefix, const char sep_char, const unsigned int min_count);
-
 unsigned long map_print_entries_float(struct_map_float **map, const char * restrict prefix, const char sep_char, const unsigned int min_count);
+void print_words_and_classes(struct_map_word_class **map);
 
 void delete_all_class(struct_map_class **map);
 void delete_entry(struct_map **map, struct_map *entry);
