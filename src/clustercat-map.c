@@ -55,6 +55,7 @@ inline unsigned int map_increment_entry(struct_map **map, const char * restrict 
 	}
 	#pragma omp atomic
 	++local_s->count;
+	//printf("map: count of %s is now %u\n", entry_key, local_s->count);
 	return local_s->count;
 }
 
@@ -77,6 +78,7 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 	}
 	#pragma omp atomic
 	++local_s->count;
+	//printf("map: count of [%hu,%hu,%hu,%hu] is now %u\n", entry_key[0],entry_key[1],entry_key[2],entry_key[3], local_s->count);
 	return local_s->count;
 }
 

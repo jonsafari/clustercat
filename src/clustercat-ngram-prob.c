@@ -30,7 +30,9 @@ float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, co
 			break;
 	}
 
+	//#pragma omp ordered
 	//printf("transition_probs:\t");
+	//#pragma omp ordered
 	//fprint_arrayf(stdout, order_probs, max_ngram_used, ",");
 	//printf("weights:\t\t");
 	//fprint_arrayf(stdout, weights, max_ngram_used, ",");
