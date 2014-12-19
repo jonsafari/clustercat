@@ -287,8 +287,8 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 
 	wclass_t * restrict jp = ngram;
 	for (sentlen_t j = start_position; j <= i; j++, --ngram_len) { // Traverse longest n-gram string
-		if (cmd_args.verbose > 1)
-			printf("increment_ngram_fw4: start_position=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
+		if (cmd_args.verbose > 2)
+			printf("incr._ngram_fw4: start_pos=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
 		map_increment_entry_fixed_width(map, jp);
 		jp++;
 	}
@@ -330,7 +330,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 
 	tokenize_sent(sent_str, &sent_info, count_word_ngrams, temp_word, temp_class);
 	unsigned long token_count = sent_info.length;
-	if (cmd_args.verbose > 1) {
+	if ((cmd_args.verbose > 1) && (count_word_ngrams)) {
 		printf("sent_str: <<%s>>\n", sent_str);
 		print_sent_info(&sent_info);
 	}
@@ -489,9 +489,6 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
 					end_cycle_short = false;
 
-					if (cmd_args.verbose > 0) {
-						fprintf(stderr, " %s logprobs %u-%u: ", word, 1, cmd_args.num_classes); fprint_array(stderr, log_probs, cmd_args.num_classes, ","); fflush(stderr);
-					}
 					fprintf(stderr, " Moving '%s'\t%u -> %u\t(logprob %g -> %g)\n", word, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					map_update_class(&word2class_map, word, best_hypothesis_class);
 					best_log_prob = best_hypothesis_log_prob;
@@ -502,7 +499,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 			if (end_cycle_short)
 				break;
 		}
-		fprintf(stderr, "%s: Completed steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		fprintf(stderr, "%s: Completed steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
