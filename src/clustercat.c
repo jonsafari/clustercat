@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 	char **unique_words = (char **)malloc(global_metadata.type_count * sizeof(char*));
 	get_keys(&ngram_map, unique_words);
 
-	init_clusters(cmd_args, global_metadata.type_count, unique_words, &word2class_map);
+	init_clusters(cmd_args, global_metadata.type_count, unique_words);
 	clock_t time_clusters_initialized = clock();
 	if (cmd_args.verbose > 0) {
 		fprintf(stderr, "%s: Finished initializing clusters in %.2f secs\n", argv_0_basename, (double)(time_clusters_initialized - time_model_built)/CLOCKS_PER_SEC);
@@ -429,7 +429,7 @@ void free_sent_info(struct_sent_info sent_info) {
 	free(sent_info.sent);
 }
 
-void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map) {
+void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words) {
 	register unsigned long word_i = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
@@ -438,12 +438,12 @@ void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, cha
 			if (class > cmd_args.num_classes)
 				class = 1;
 			//printf("cls=%u, w=%s, w_i=%lu, vocab_size=%lu\n", class, unique_words[word_i], word_i, vocab_size);
-			map_update_class(word2class_map, unique_words[word_i], class);
+			map_update_class(&word2class_map, unique_words[word_i], class);
 		}
 
 	} else if (cmd_args.class_algo == BROWN) { // Really simple initialization: one class per word
 		for (unsigned long class = 0; word_i < vocab_size; word_i++, class++)
-			map_update_class(word2class_map, unique_words[word_i], class);
+			map_update_class(&word2class_map, unique_words[word_i], class);
 	}
 }
 

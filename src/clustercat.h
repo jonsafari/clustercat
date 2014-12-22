@@ -67,7 +67,7 @@ unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsig
 unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
 unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
-void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words, struct_map_word_class **word2class_map);
+void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words);
 void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, char **unique_words);
 struct_sent_info parse_input_line(char * restrict line_in, const char * restrict temp_word, const wclass_t temp_class);
 double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, struct_map_class **class_map, const char * restrict temp_word, const wclass_t temp_class);
