@@ -478,13 +478,17 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
+				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
+				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
+
 				if (cmd_args.verbose > 0) {
 					printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
 					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
+					if (best_hypothesis_log_prob > 0) { // Shouldn't happen
+						fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class);
+						exit(6);
+					}
 				}
-
-				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
-				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
 
 				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
 					end_cycle_short = false;
