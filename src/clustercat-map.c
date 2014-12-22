@@ -66,7 +66,7 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 
 	//#pragma omp critical // not needed since each thread gets its own class_map
 	{
-		//printf("***41***: sizeof_key=%lu, sizeof(wclass_t)=%lu, CLASSLEN=%u, key=<%u,%u,%u,%u>\n", sizeof_key, sizeof(wclass_t), CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]); fflush(stdout);
+		//printf("***41***: sizeof_key=%zu, sizeof(wclass_t)=%zu, CLASSLEN=%u, key=<%u,%u,%u,%u>\n", sizeof_key, sizeof(wclass_t), CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]); fflush(stdout);
 		HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
 		if (local_s == NULL) {
 			local_s = (struct_map_class *)malloc(sizeof(struct_map_class));
@@ -86,12 +86,12 @@ inline unsigned int map_find_entry_fixed_width(struct_map_class *map[const], con
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
 	unsigned int local_count = 0;
-	//printf("map: cls_entry=[%hu,%hu,%hu]\n", entry_key[0], entry_key[1], entry_key[2]);
 
 	HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
 	if (local_s != NULL) { // Deal with OOV
 		local_count = local_s->count;
 	}
+	//printf("map: count=%u for cls_entry=[%hu,%hu,%hu,%hu]\n", local_count, entry_key[0], entry_key[1], entry_key[2], entry_key[3]);
 	return local_count;
 }
 
