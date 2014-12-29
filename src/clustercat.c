@@ -23,7 +23,7 @@ void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct c
 void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
-struct_map *ngram_map       = NULL;	// Must initialize to NULL
+struct_map_word *ngram_map       = NULL;	// Must initialize to NULL
 struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
 char usage[USAGE_LEN];
 
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
 	//unsigned long total_entries   = global_metadata.type_count + ngram_entries;
 	//fprintf(stderr, "  %lu entries:  %lu types,  %lu word ngrams\n", total_entries, global_metadata.type_count, ngram_entries);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
-	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map), sizeof(struct_map) * map_entries, (double)((sizeof(struct_map) * map_entries)) / 1048576);
+	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map_word), sizeof(struct_map_word) * map_entries, (double)((sizeof(struct_map_word) * map_entries)) / 1048576);
 
 	if (global_metadata.type_count <= cmd_args.num_classes) {
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
@@ -191,7 +191,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map) {
+unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map) {
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
@@ -218,7 +218,7 @@ unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_mod
 			if (cmd_args.verbose > 1)
 				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_unique_words[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_entry(ngram_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
-			struct_map *local_s;
+			struct_map_word *local_s;
 			HASH_FIND_STR(*ngram_map, local_unique_words[word_i], local_s);
 			delete_entry(ngram_map, local_s);
 		}
@@ -230,7 +230,7 @@ unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_mod
 	return number_of_deleted_words;
 }
 
-void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
+void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
 	short j;
 	size_t sizeof_char = sizeof(char); // We use this multiple times
 	unsigned char ngram_len = 0; // Terminating char '\0' is same size as joining tab, so we'll just count that later
@@ -330,9 +330,11 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 
 	tokenize_sent(sent_str, &sent_info, count_word_ngrams, temp_word, temp_class);
 	unsigned long token_count = sent_info.length;
-	if ((cmd_args.verbose > 1) && (count_word_ngrams)) {
-		printf("sent_str: <<%s>>\n", sent_str);
+	//if ((cmd_args.verbose > 1) && (count_word_ngrams)) {
+	if ((cmd_args.verbose > 0) && (temp_class == 1) && (!strcmp(temp_word, "<s>"))) {
+		printf("temp_word=%s, temp_class=%hu, sent_str: <<%s>>\n", temp_word, temp_class, sent_str);
 		print_sent_info(&sent_info);
+		fflush(stdout);
 	}
 
 	register sentlen_t i;
@@ -473,6 +475,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
+					printf("in par loop with w=%s, cls=%hu\n", word, class); fflush(stdout);
 					process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
 					log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
@@ -532,10 +535,13 @@ struct_sent_info parse_input_line(char * restrict line_in, const char * restrict
 	//sent_info.word_lengths[0] = strlen("<s>");
 	sent_info.sent_counts[0]  = map_find_entry(&ngram_map, "<s>");
 	wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
-	if (!strncmp(temp_word, "<s>", MAX_WORD_LEN))
+	if (!strncmp(temp_word, "<s>", MAX_WORD_LEN)) {
 		sent_info.class_sent[0] = temp_class;
-	else
+		//printf("<s> is temp class=%hu\n", sent_info.class_sent[0]);
+	} else {
 		sent_info.class_sent[0]   = get_class(&word2class_map, "<s>", unknown_word_class);
+		//printf("<s> is non-temp class=%hu\n", sent_info.class_sent[0]);
+	}
 
 	sentlen_t i;
 	char * restrict pch;
@@ -586,7 +592,7 @@ double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent
 	for (current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) {
 
 		char * restrict current_sent = sent_store[current_sent_num];
-		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map **ngram_map) {
+		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map_word **ngram_map) {
 		struct_sent_info sent_info = parse_input_line(current_sent, temp_word, temp_class);
 		if (cmd_args.verbose > 2)
 			print_sent_info(&sent_info);
@@ -617,7 +623,7 @@ double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent
 			if (cmd_args.verbose > 1) {
 				printf(" w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
 				if (class_i_count < word_i_count) { // Shouldn't happen
-					printf("Error: class_count=%u < word_i_count=%u\n", class_i_count, word_i_count);
+					printf("Error: class_%hu_count=%u < word_[%s]_count=%u\n", *class_i, class_i_count, word_i, word_i_count);
 					exit(5);
 				}
 				if (class_i_count > model_metadata.token_count) { // Shouldn't happen

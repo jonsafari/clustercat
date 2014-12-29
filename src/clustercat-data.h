@@ -38,26 +38,13 @@
  //    return number_of_entries; \
  //})
  #define PRINT_ENTRIES_FLOAT(db, prefix, sep_char, min_count) (1)
-#else // Default to UThash map
- #define DATA_STRUCT_FLOAT_HUMAN_NAME "uthash_map"
- #define DATA_STRUCT_FLOAT_NAME word_word_float_map
- #define DATA_STRUCT_FLOAT_ADDR &
- #define DATA_STRUCT_FLOAT_SIZE sizeof(struct_map_float)
- #define DATA_STRUCT_FLOAT_TYPE struct_map_float **
- #define DATA_STRUCT_FLOAT_TYPE_IN_STRUCT struct_map_float *
- #define DECLARE_DATA_STRUCT_FLOAT struct_map_float *DATA_STRUCT_FLOAT_NAME  = NULL;	// Must initialize to NULL.
- #define INIT_DATA_STRUCT_FLOAT  // Don't need to do anything for uthash maps
- #define UPDATE_ENTRY_FLOAT(db,key,val) ( map_update_entry_float((db), (key), (val)))
- #define FIND_ENTRY_FLOAT(db,key) ( map_find_entry_float((db), (key)))
- #define PRINT_ENTRIES_FLOAT(db, prefix, sep_char, min_count) ( map_print_entries_float((db), (prefix), (sep_char), (min_count)))
 #endif
 
 typedef struct {
-	struct_map *word_map;
-	struct_map *word_word_map;
-	DATA_STRUCT_FLOAT_TYPE_IN_STRUCT DATA_STRUCT_FLOAT_NAME;
-	struct_map *ngram_map;
-	struct_map *class_map;
+	struct_map_word *word_map;
+	struct_map_word *word_word_map;
+	struct_map_word *ngram_map;
+	struct_map_word *class_map;
 	char **unique_words;
 } struct_model_maps;
 

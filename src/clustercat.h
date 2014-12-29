@@ -25,7 +25,8 @@
 #define MAX_WORD_LEN 255
 
 typedef unsigned short sentlen_t; // Number of words in a sentence
-//typedef unsigned short wclass_t; // Defined in clustercat-map.h
+//typedef unsigned short wclass_t;  // Defined in clustercat-map.h
+//typedef unsigned int   word_id_t; // Defined in clustercat-map.h
 #define SENT_LEN_MAX USHRT_MAX
 
 enum class_algos {EXCHANGE, BROWN};
@@ -60,12 +61,12 @@ struct cmd_args {
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
-void increment_ngram_variable_width(struct_map **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
+void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
 unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents);
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
 unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
-unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map ** ngram_map);
+unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
 void init_clusters(const struct cmd_args cmd_args, unsigned long vocab_size, char **unique_words);
 void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, char **unique_words);

@@ -1,11 +1,11 @@
 #include "clustercat-map.h"
 
-inline void map_add_entry(struct_map **map, char * restrict entry_key, unsigned int count) { // Based on uthash's docs
-	struct_map *local_s;
+inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count) { // Based on uthash's docs
+	struct_map_word *local_s;
 
 	//HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
 	//if (local_s == NULL) {
-		local_s = (struct_map *)malloc(sizeof(struct_map));
+		local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 		unsigned short strlen_entry_key = strlen(entry_key);
 		local_s->key = malloc(strlen_entry_key + 1);
 		strcpy(local_s->key, entry_key);
@@ -38,14 +38,14 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 	local_s->class = entry_class;
 }
 
-inline unsigned int map_increment_entry(struct_map **map, const char * restrict entry_key) { // Based on uthash's docs
-	struct_map *local_s;
+inline unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
+	struct_map_word *local_s;
 
 	#pragma omp critical
 	{
 		HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
 		if (local_s == NULL) {
-			local_s = (struct_map *)malloc(sizeof(struct_map));
+			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = 0;
 			unsigned short strlen_entry_key = strlen(entry_key);
 			local_s->key = malloc(strlen_entry_key + 1);
@@ -95,14 +95,14 @@ inline unsigned int map_find_entry_fixed_width(struct_map_class *map[const], con
 	return local_count;
 }
 
-inline unsigned int map_update_entry(struct_map **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
-	struct_map *local_s;
+inline unsigned int map_update_entry(struct_map_word **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
+	struct_map_word *local_s;
 
 	#pragma omp critical
 	{
 		HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
 		if (local_s == NULL) {
-			local_s = (struct_map *)malloc(sizeof(struct_map));
+			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = count;
 			unsigned short strlen_entry_key = strlen(entry_key);
 			local_s->key = malloc(strlen_entry_key + 1);
@@ -115,44 +115,13 @@ inline unsigned int map_update_entry(struct_map **map, const char * restrict ent
 	return local_s->count;
 }
 
-inline unsigned int map_update_entry_float(struct_map_float **map, const char * restrict entry_key, const float frac_count) { // Based on uthash's docs
-	struct_map_float *local_s;
-
-	#pragma omp critical
-	{
-		HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
-		if (local_s == NULL) {
-			local_s = (struct_map_float *)malloc(sizeof(struct_map_float));
-			unsigned short strlen_entry_key = strlen(entry_key);
-			local_s->key = malloc(strlen_entry_key + 1);
-			strcpy(local_s->key, entry_key);
-			local_s->frac_count = frac_count;
-			HASH_ADD_KEYPTR(hh, *map, local_s->key, strlen_entry_key, local_s);
-		} else {
-			local_s->frac_count += frac_count;
-		}
-	}
-	return local_s->frac_count;
-}
-
-inline unsigned int map_find_entry(struct_map *map[const], const char * restrict entry_key) { // Based on uthash's docs
-	struct_map *local_s;
+inline unsigned int map_find_entry(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
+	struct_map_word *local_s;
 	unsigned int local_count = 0;
 
 	HASH_FIND_STR(*map, entry_key, local_s);	// local_s: output pointer
 	if (local_s != NULL) { // Deal with OOV
 		local_count = local_s->count;
-	}
-	return local_count;
-}
-
-inline float map_find_entry_float(struct_map_float *map[const], const char * restrict entry_key) { // Based on uthash's docs
-	struct_map_float *local_s;
-	float local_count = 0.0;
-
-	HASH_FIND_STR(*map, entry_key, local_s);	// local_s: output pointer
-	if (local_s != NULL) { // Deal with OOV
-		local_count = local_s->frac_count;
 	}
 	return local_count;
 }
@@ -168,8 +137,8 @@ inline unsigned short get_class(struct_map_word_class *map[const], const char * 
 	}
 }
 
-unsigned int get_keys(struct_map *map[const], char *keys[]) {
-	struct_map *entry, *tmp;
+unsigned int get_keys(struct_map_word *map[const], char *keys[]) {
+	struct_map_word *entry, *tmp;
 	unsigned int number_of_keys = 0;
 
 	HASH_ITER(hh, *map, entry, tmp) {
@@ -182,14 +151,14 @@ unsigned int get_keys(struct_map *map[const], char *keys[]) {
 	return number_of_keys;
 }
 
-void delete_entry(struct_map **map, struct_map *entry) { // Based on uthash's docs
+void delete_entry(struct_map_word **map, struct_map_word *entry) { // Based on uthash's docs
 	HASH_DEL(*map, entry);	// entry: pointer to deletee
 	free(entry->key); // key is a malloc'd string
 	free(entry);
 }
 
-void delete_all(struct_map **map) {
-	struct_map *current_entry, *tmp;
+void delete_all(struct_map_word **map) {
+	struct_map_word *current_entry, *tmp;
 
 	HASH_ITER(hh, *map, current_entry, tmp) { // Based on uthash's docs
 		HASH_DEL(*map, current_entry);	// delete it (map advances to next)
@@ -212,11 +181,11 @@ void print_words_and_classes(struct_map_word_class **map) {
 		printf("%s\t%hu\n", s->key, s->class);
 }
 
-int count_sort(struct_map *a, struct_map *b) { // Based on uthash's docs
+int count_sort(struct_map_word *a, struct_map_word *b) { // Based on uthash's docs
 	return (a->count - b->count);
 }
 
-void sort_by_count(struct_map **map) { // Based on uthash's docs
+void sort_by_count(struct_map_word **map) { // Based on uthash's docs
 	HASH_SORT(*map, count_sort);
 }
 
@@ -236,12 +205,12 @@ void sort_by_class(struct_map_word_class **map) {
 	HASH_SORT(*map, class_sort);
 }
 
-unsigned long map_count(struct_map *map[const]) {
+unsigned long map_count(struct_map_word *map[const]) {
 	return HASH_COUNT(*map);
 }
 
-unsigned long map_print_entries(struct_map **map, const char * restrict prefix, const char sep_char, const unsigned int min_count) {
-	struct_map *entry, *tmp;
+unsigned long map_print_entries(struct_map_word **map, const char * restrict prefix, const char sep_char, const unsigned int min_count) {
+	struct_map_word *entry, *tmp;
 	unsigned long number_of_entries = 0;
 
 	HASH_ITER(hh, *map, entry, tmp) {
@@ -252,17 +221,3 @@ unsigned long map_print_entries(struct_map **map, const char * restrict prefix, 
 	}
 	return number_of_entries;
 }
-
-unsigned long map_print_entries_float(struct_map_float **map, const char * restrict prefix, const char sep_char, const unsigned int min_count) {
-	struct_map_float *entry, *tmp;
-	unsigned long number_of_entries = 0;
-
-	HASH_ITER(hh, *map, entry, tmp) {
-		if (entry->frac_count >= min_count) {
-			printf("%s%s%c%g\n", prefix, entry->key, sep_char, entry->frac_count);
-			number_of_entries++;
-		}
-	}
-	return number_of_entries;
-}
-

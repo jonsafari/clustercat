@@ -39,7 +39,7 @@ float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, co
 	return dot_productf(order_probs, weights, max_ngram_used);
 }
 
-float ngram_prob(struct_map *ngram_map[const], const sentlen_t i, const char * restrict word_i, const unsigned int word_i_count, const struct_model_metadata model_metadata, char * restrict sent[const], const short word_lengths[const], const unsigned char ngram_order, const float weights[const]) { // Cf. increment_ngram()
+float ngram_prob(struct_map_word *ngram_map[const], const sentlen_t i, const char * restrict word_i, const unsigned int word_i_count, const struct_model_metadata model_metadata, char * restrict sent[const], const short word_lengths[const], const unsigned char ngram_order, const float weights[const]) { // Cf. increment_ngram()
 	if (ngram_order == 0) // Do nothing
 		return -1;
 
