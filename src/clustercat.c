@@ -230,7 +230,7 @@ unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_mod
 	return number_of_deleted_words;
 }
 
-void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
+word_id_t increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i, word_id_t word_id) {
 	short j;
 	size_t sizeof_char = sizeof(char); // We use this multiple times
 	unsigned char ngram_len = 0; // Terminating char '\0' is same size as joining tab, so we'll just count that later
@@ -248,7 +248,7 @@ void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict
 	}
 
 	if (!ngram_len) // We couldn't do anything with this n-gram because it was too long.  Wa, wa, wa
-		return;
+		return 0;
 
 	char ngram[ngram_len];
 	strcpy(ngram, sent[start_position]);
@@ -271,10 +271,11 @@ void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict
 	for (j = start_position; j <= i; ++j, --diff) { // Traverse longest n-gram string
 		//if (cmd_args.verbose)
 			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>, jp=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram, jp);
-		map_increment_entry(ngram_map, jp);
+		map_increment_entry(ngram_map, jp, 0);
 		//if (diff > 0) // 0 allows for unigrams
 			jp += sizeof_char + word_lengths[j];
 	}
+	return 0;
 }
 
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
@@ -343,7 +344,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 		//map_increment_entry(&ngram_map, "<s>");
 		//map_increment_entry(&ngram_map, "</s>");
 		for (i = 0; i < sent_info.length; i++) {
-			increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
+			increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i, 0); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
 			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_entry(ngram_map, sent_info.sent[i]));
 		}
 	}

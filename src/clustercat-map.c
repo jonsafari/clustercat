@@ -38,15 +38,16 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 	local_s->class = entry_class;
 }
 
-inline unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
+inline unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key, word_id_t word_id) { // Based on uthash's docs
 	struct_map_word *local_s;
 
 	#pragma omp critical
 	{
-		HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
+		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 		if (local_s == NULL) {
 			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = 0;
+			local_s->word_id = word_id;
 			unsigned short strlen_entry_key = strlen(entry_key);
 			local_s->key = malloc(strlen_entry_key + 1);
 			strcpy(local_s->key, entry_key);
@@ -55,7 +56,7 @@ inline unsigned int map_increment_entry(struct_map_word **map, const char * rest
 	}
 	#pragma omp atomic
 	++local_s->count;
-	//printf("map: count of %s is now %u\n", entry_key, local_s->count);
+	//printf("map: count of %s is now %u, id=%u\n", entry_key, local_s->count, local_s->word_id);
 	return local_s->count;
 }
 

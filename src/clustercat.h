@@ -61,7 +61,7 @@ struct cmd_args {
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
-void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
+word_id_t increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i, word_id_t word_id);
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
 unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents);
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
