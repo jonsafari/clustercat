@@ -175,10 +175,21 @@ void delete_all_class(struct_map_class **map) {
 	}
 }
 
-void print_words_and_classes(struct_map_word_class **map) {
+void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict]) {
+	struct_map_word_class *map = NULL;
+
+	for (word_id_t word_id = 0; word_id < type_count; word_id++) { // Populate new word2class_map, so we can do fun stuff like primary- and secondary-sort easily
+		//printf("adding %s=%hu to temp word2class_map\n", unique_words[word_id], word2class[word_id]); fflush(stdout);
+		map_add_class(&map, unique_words[word_id], word2class[word_id]);
+	}
+	sort_by_key(&map); // Secondary sort, alphabetically by key
+	sort_by_class(&map); // Primary sort, numerically by class
 	struct_map_word_class *s;
-	for (s = *map; s != NULL; s = (struct_map_word_class *)(s->hh.next))
+	for (s = map; s != NULL; s = (struct_map_word_class *)(s->hh.next)) {
 		printf("%s\t%hu\n", s->key, s->class);
+		HASH_DEL(map, s);	// delete it (map advances to next)
+		free(s->key);	// free it
+	}
 }
 
 int count_sort(struct_map_word *a, struct_map_word *b) { // Based on uthash's docs

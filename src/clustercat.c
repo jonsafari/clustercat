@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 	char **unique_words = (char **)malloc(global_metadata.type_count * sizeof(char*));
 	get_keys(&ngram_map, unique_words);
 
-	word_id_t word2class[global_metadata.type_count];
+	wclass_t word2class[global_metadata.type_count];
 
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 	clock_t time_clusters_initialized = clock();
@@ -109,12 +109,10 @@ int main(int argc, char **argv) {
 		fflush(stderr);
 	}
 
-	cluster(cmd_args, sent_store, global_metadata, unique_words);
+	//cluster(cmd_args, sent_store, global_metadata, unique_words);
 
 	// Now print the final word2class_map
-	sort_by_key(&word2class_map); // Secondary sort, alphabetically by key
-	sort_by_class(&word2class_map); // Primary sort, numerically by class
-	print_words_and_classes(&word2class_map);
+	print_words_and_classes(global_metadata.type_count, unique_words, word2class);
 
 	clock_t time_clustered = clock();
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
@@ -433,7 +431,7 @@ void free_sent_info(struct_sent_info sent_info) {
 	free(sent_info.sent);
 }
 
-void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, word_id_t word2class[restrict]) {
+void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]) {
 	register unsigned long word_i = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes].  So it's a simple pseudo-randomized initialization.
