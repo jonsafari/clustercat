@@ -3,7 +3,7 @@
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count) { // Based on uthash's docs
 	struct_map_word *local_s;
 
-	//HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
+	//HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 	//if (local_s == NULL) {
 		local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 		unsigned short strlen_entry_key = strlen(entry_key);
@@ -17,7 +17,7 @@ inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsi
 inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned short entry_class) {
 	struct_map_word_class *local_s;
 
-	//HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
+	//HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 	//if (local_s == NULL) {
 		local_s = (struct_map_word_class *)malloc(sizeof(struct_map_word_class));
 		strncpy(local_s->key, entry_key, KEYLEN-1);
@@ -29,7 +29,7 @@ inline void map_add_class(struct_map_word_class **map, const char * restrict ent
 inline void map_update_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned short entry_class) {
 	struct_map_word_class *local_s;
 
-	HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
+	HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 	if (local_s == NULL) {
 		local_s = (struct_map_word_class *)malloc(sizeof(struct_map_word_class));
 		strncpy(local_s->key, entry_key, KEYLEN-1);
@@ -38,8 +38,8 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 	local_s->class = entry_class;
 }
 
-inline unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key, word_id_t word_id) { // Based on uthash's docs
-	struct_map_word *local_s;
+inline unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
+	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
 	#pragma omp critical
 	{
@@ -47,7 +47,6 @@ inline unsigned int map_increment_entry(struct_map_word **map, const char * rest
 		if (local_s == NULL) {
 			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = 0;
-			local_s->word_id = word_id;
 			unsigned short strlen_entry_key = strlen(entry_key);
 			local_s->key = malloc(strlen_entry_key + 1);
 			strcpy(local_s->key, entry_key);
@@ -56,7 +55,7 @@ inline unsigned int map_increment_entry(struct_map_word **map, const char * rest
 	}
 	#pragma omp atomic
 	++local_s->count;
-	//printf("map: count of %s is now %u, id=%u\n", entry_key, local_s->count, local_s->word_id);
+	//printf("map: count of %s is now %u\n", entry_key, local_s->count);
 	return local_s->count;
 }
 
@@ -101,7 +100,7 @@ inline unsigned int map_update_entry(struct_map_word **map, const char * restric
 
 	#pragma omp critical
 	{
-		HASH_FIND_STR(*map, entry_key, local_s);	// id already in the hash?
+		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 		if (local_s == NULL) {
 			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = count;
