@@ -52,8 +52,9 @@ int main(int argc, char **argv) {
 	parse_cmd_args(argc, argv, usage, &cmd_args);
 
 	struct_model_metadata global_metadata;
-	global_metadata.token_count = 0;
 	global_metadata.line_count  = 0;
+	global_metadata.token_count = 0;
+	global_metadata.type_count  = 0;
 
 
 	// The list of unique words should always include <s>, unknown word, and </s>
@@ -75,15 +76,17 @@ int main(int argc, char **argv) {
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
-		global_metadata.token_count += process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &class_map, true, false, "", -1);
+		struct_model_metadata buffer_metadata = process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &class_map, true, false, "", -1);
+		global_metadata.token_count += buffer_metadata.token_count;
+		global_metadata.type_count  += buffer_metadata.type_count;
 		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_sents_in_buffer() since we call that function in two separate contexts
 	}
 
-	global_metadata.type_count            = map_count(&ngram_map);
-	unsigned long number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
+	global_metadata.type_count        = map_count(&ngram_map);
+	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
 	clock_t time_model_built = clock();
-	fprintf(stderr, "%s: Finished loading %lu tokens and %lu types (%lu filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
+	fprintf(stderr, "%s: Finished loading %lu tokens and %u types (%u filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
 	//unsigned long class_entries = map_print_entries(&class_map, "#CL ", PRIMARY_SEP_CHAR, 0);
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	//unsigned long total_entries   = global_metadata.type_count + ngram_entries;
@@ -92,7 +95,7 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map_word), sizeof(struct_map_word) * map_entries, (double)((sizeof(struct_map_word) * map_entries)) / 1048576);
 
 	if (global_metadata.type_count <= cmd_args.num_classes) {
-		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%lu).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
+		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
 		exit(3);
 	}
 
@@ -191,7 +194,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-unsigned long filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map) {
+word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map) {
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
@@ -306,23 +309,27 @@ unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const uns
 	return num_sents_in_store;
 }
 
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class) {
-	unsigned long token_count = 0;
+struct_model_metadata process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class) {
+	struct_model_metadata buffer_metadata = {0};
 	unsigned long current_sent_num;
 	char local_sent_copy[STDIN_SENT_MAX_CHARS];
 	local_sent_copy[STDIN_SENT_MAX_CHARS-1] = '\0'; // Ensure at least last element of array is terminating character
 
 	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
 		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_WORDS-2); // Strtok, which is used later, is destructive
-		token_count += process_sent(local_sent_copy, class_map, count_word_ngrams, count_class_ngrams, temp_word, temp_class, 0);
+		struct_model_metadata sent_count_metadata = process_sent(local_sent_copy, class_map, count_word_ngrams, count_class_ngrams, temp_word, temp_class, buffer_metadata.type_count);
+		buffer_metadata.token_count += sent_count_metadata.token_count;
+		buffer_metadata.type_count  += sent_count_metadata.type_count;
 	}
 
-	return token_count;
+	return buffer_metadata;
 }
 
-unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class, word_id_t word_id) {
+struct_model_metadata process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class, word_id_t word_id) {
+	struct_model_metadata sent_count_metadata = {0};
+
 	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
-		return 0;
+		return sent_count_metadata;
 
 	struct_sent_info sent_info = {0};
 	sent_info.sent = malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
@@ -332,7 +339,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 	// it's simpler to have a more uniform way of building these up.
 
 	tokenize_sent(sent_str, &sent_info, count_word_ngrams, temp_word, temp_class);
-	unsigned long token_count = sent_info.length;
+	sent_count_metadata.token_count = sent_info.length;
 	//if ((cmd_args.verbose > 1) && (count_word_ngrams)) {
 	if ((cmd_args.verbose > 0) && (temp_class == 1) && (!strcmp(temp_word, "<s>"))) {
 		printf("temp_word=%s, temp_class=%hu, sent_str: <<%s>>\n", temp_word, temp_class, sent_str);
@@ -365,7 +372,7 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 	}
 
 	free(sent_info.sent);
-	return token_count;
+	return sent_count_metadata;
 }
 
 
@@ -460,7 +467,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
 		double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
-		fprintf(stderr, "%s: Expected Steps: %lu (%lu word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
@@ -509,7 +516,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 			if (end_cycle_short)
 				break;
 		}
-		fprintf(stderr, "%s: Completed steps: %lu (%lu word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		fprintf(stderr, "%s: Completed steps: %lu (%u word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
@@ -579,7 +586,7 @@ struct_sent_info parse_input_line(char * restrict line_in, const char * restrict
 		pch += toklen+1;
 
 		if (cmd_args.verbose > 2)
-			printf("line=%u i=%d\twlen=%d\tcnt=%d\tcls=%u\tw=%s\n", __LINE__, i, toklen, sent_info.sent_counts[i], sent_info.class_sent[i], sent_info.sent[i]);
+			printf("parse_input_line(): i=%d\twlen=%d\tcnt=%d\tcls=%u\tw=%s\n", i, toklen, sent_info.sent_counts[i], sent_info.class_sent[i], sent_info.sent[i]);
 	}
 	sent_info.length = i;
 
@@ -611,7 +618,7 @@ double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent
 			const unsigned int class_i_count = map_find_entry_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
-				printf("line=%u i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw=%s\n", __LINE__, i, word_i_count, *class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i);
+				printf("qry_snts_in_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw=%s\n", i, word_i_count, *class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i);
 			}
 
 			// Class N-gram Prob
