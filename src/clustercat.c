@@ -82,9 +82,6 @@ int main(int argc, char **argv) {
 	global_metadata.type_count        = map_count(&ngram_map);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
-	struct_sent_int_info sent_store_int[num_sents_in_store];
-	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
-
 	if (global_metadata.type_count <= cmd_args.num_classes) {
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
 		exit(3);
@@ -97,8 +94,12 @@ int main(int argc, char **argv) {
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, unique_words, global_metadata.type_count);
 
-	wclass_t word2class[global_metadata.type_count];
+	struct_sent_int_info sent_store_int[num_sents_in_store];
+	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
+	// Now we can free each word in each sentence in sent_store_string
+	// ...
 
+	wclass_t word2class[global_metadata.type_count];
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
 	clock_t time_model_built = clock();
@@ -193,7 +194,7 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 	for (unsigned long i = 0; i < num_sents_in_store; i++) {
 		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
 		char * restrict sent_i = sent_store_string[i];
-		printf("sent[%lu]=<<%s>>\n", i, sent_i);
+		//printf("sent[%lu]=<<%s>>\n", i, sent_i);
 
 		word_id_t sent_int_temp[SENT_LEN_MAX];
 		unsigned int sent_counts_int_temp[SENT_LEN_MAX];
@@ -216,31 +217,26 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 			sent_int_temp[w_i] = map_find_int(ngram_map, pch);
 			sent_counts_int_temp[w_i] = map_find_count(ngram_map, pch);
-			printf("pch=%s, int=%u, count=%u\n", pch, sent_int_temp[w_i], sent_counts_int_temp[w_i]);
+			//printf("pch=%s, int=%u, count=%u\n", pch, sent_int_temp[w_i], sent_counts_int_temp[w_i]);
 
 			pch = strtok(NULL, TOK_CHARS);
 		}
 
-#if 0
-		// Initialize last element in sentence to </s>
-		sent_info->sent[w_i] = "</s>";
-		sent_info->sent_counts[w_i] = map_find_count(&ngram_map, "</s>");
-		sent_info->word_lengths[w_i]  = strlen("</s>");
-		sent_info->length = w_i + 1; // Include <s>
-		if (!strncmp(temp_word, "</s>", MAX_WORD_LEN))
-			sent_info->class_sent[w_i] = temp_class;
-		else
-			sent_info->class_sent[w_i] = get_class(&word2class_map, "</s>", unknown_word_class);
-		if (cmd_args.verbose > 2)
-			printf("88sent_str: count_word_ngrams=%i; <<%s>>\n", count_word_ngrams, sent_str);
-		}
+		// Initialize first element in sentence to </s>
+		sent_int_temp[w_i]        = map_find_int(ngram_map, "</s>");
+		sent_counts_int_temp[w_i] = map_find_count(ngram_map, "</s>");
 
-		sent_store_int[i].sent = malloc(sizeof(word_id_t *));
-		sent_store_int[i].class_sent = malloc(sizeof(wclass_t *)); // Values set later
-		sent_store_int[i].sent_counts = malloc(sizeof(unsigned int *));
+		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
 		sent_store_int[i].length = sent_length;
 
-#endif
+		// Now that we know the actual sentence length, we can allocate the right amount for the sentence
+		sent_store_int[i].sent = malloc(sizeof(word_id_t) * sent_length);
+		sent_store_int[i].class_sent = malloc(sizeof(wclass_t) * sent_length); // Values set later
+		sent_store_int[i].sent_counts = malloc(sizeof(unsigned int) * sent_length);
+
+		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
+		// ...
+
 	}
 
 }
