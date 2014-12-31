@@ -23,9 +23,10 @@ void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct c
 void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo = NULL;
 
-struct_map_word *ngram_map       = NULL;	// Must initialize to NULL
-struct_map_word_class *word2class_map = NULL;	// Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
+struct_map_word *ngram_map = NULL; // Must initialize to NULL
+struct_map_word_class *word2class_map = NULL; // Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
 char usage[USAGE_LEN];
+size_t memusage = 0;
 
 
 // Defaults
@@ -88,25 +89,29 @@ int main(int argc, char **argv) {
 	}
 
 	// Get list of unique words
-	char **unique_words = (char **)malloc(global_metadata.type_count * sizeof(char*));
+	char **unique_words = (char **)malloc(sizeof(char*) * global_metadata.type_count);
+	memusage += sizeof(char*) * global_metadata.type_count;
 	get_keys(&ngram_map, unique_words);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, unique_words, global_metadata.type_count);
 
 	struct_sent_int_info sent_store_int[num_sents_in_store];
+	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
 	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
 	// Now we can free each word in each sentence in sent_store_string
 	// ...
 
 	wclass_t word2class[global_metadata.type_count];
+	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
 	clock_t time_model_built = clock();
 	fprintf(stderr, "%s: Finished loading %lu tokens and %u types (%u filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
-	fprintf(stderr, "%s: Approximate mem usage:  maps: %lu x %zu = %lu; total: %.1fMB\n", argv_0_basename, map_entries, sizeof(struct_map_word), sizeof(struct_map_word) * map_entries, (double)((sizeof(struct_map_word) * map_entries)) / 1048576);
+	memusage += sizeof(struct_map_word) * map_entries;
+	fprintf(stderr, "%s: Approximate mem usage:  %zuB ~= %.1fMB\n", argv_0_basename, memusage, (double)memusage / 1048576);
 
 	//cluster(cmd_args, sent_store, global_metadata, unique_words);
 
@@ -234,11 +239,14 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 		sent_store_int[i].class_sent = malloc(sizeof(wclass_t) * sent_length); // Values set later
 		sent_store_int[i].sent_counts = malloc(sizeof(unsigned int) * sent_length);
 
+		memusage += sizeof(word_id_t) * sent_length;
+		memusage += sizeof(wclass_t) * sent_length;
+		memusage += sizeof(unsigned int) * sent_length;
+
 		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
-		// ...
-
+		memcpy(sent_store_int[i].sent, sent_int_temp, sizeof(word_id_t) * sent_length);
+		memcpy(sent_store_int[i].sent_counts, sent_counts_int_temp, sizeof(unsigned int) * sent_length);
 	}
-
 }
 
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], word_id_t type_count) {
