@@ -190,7 +190,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 }
 
 void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[], struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store) {
-#if 0
 	for (unsigned long i = 0; i < num_sents_in_store; i++) {
 		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
 		char * restrict sent_i = sent_store_string[i];
@@ -201,41 +200,28 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 		// Stupid strtok is destructive
 		char * restrict pch = NULL;
-		pch = strtok(sent_str, TOK_CHARS);
+		pch = strtok(sent_i, TOK_CHARS);
 
 		// Initialize first element in sentence to <s>
-		sent_int_temp[0]        = map_find_int(&ngram_map, "<s>");
-		sent_counts_int_temp[0] = map_find_count(&ngram_map, "<s>");
+		sent_int_temp[0]        = map_find_int(ngram_map, "<s>");
+		sent_counts_int_temp[0] = map_find_count(ngram_map, "<s>");
 
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
 		for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
-			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-				fprintf(stderr, "%s: Warning: Truncating pathologically-long line starting with: %s %s %s %s %s %s ...\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
+			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines; shouldn't happen at this point anyways
+				fprintf(stderr, "%s: Warning: Truncating pathologically-long line containing: ... %s ...\n", argv_0_basename, pch);
 				break;
 			}
 
-			sent_info->sent[w_i] = pch;
-			if (count_word_ngrams)
-				sent_info->word_lengths[w_i] = strlen(pch);
-				sent_info->sent_counts[w_i] = map_find_count(&ngram_map, pch);
-				//printf("pch=%s; len=%u, count=%u\n", pch, sent_info->word_lengths[w_i], sent_info->sent_counts[w_i]);
-			if (!count_word_ngrams) {
-				if (!strncmp(temp_word, pch, MAX_WORD_LEN))
-					sent_info->class_sent[w_i] = temp_class;
-				else
-					sent_info->class_sent[w_i] =  get_class(&word2class_map, pch, unknown_word_class);
-			}
-
-			if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
-				pch[MAX_WORD_LEN] = '\0';
-				sent_info->word_lengths[w_i] = MAX_WORD_LEN;
-				fprintf(stderr, "%s: Warning: Truncating pathologically-long word '%s'\n", argv_0_basename, pch);
-			}
+			sent_int_temp[w_i] = map_find_int(ngram_map, pch);
+			sent_counts_int_temp[w_i] = map_find_count(ngram_map, pch);
+			printf("pch=%s, int=%u, count=%u\n", pch, sent_int_temp[w_i], sent_counts_int_temp[w_i]);
 
 			pch = strtok(NULL, TOK_CHARS);
 		}
 
+#if 0
 		// Initialize last element in sentence to </s>
 		sent_info->sent[w_i] = "</s>";
 		sent_info->sent_counts[w_i] = map_find_count(&ngram_map, "</s>");
@@ -254,8 +240,8 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 		sent_store_int[i].sent_counts = malloc(sizeof(unsigned int *));
 		sent_store_int[i].length = sent_length;
 
-	}
 #endif
+	}
 
 }
 
@@ -461,10 +447,11 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 		}
 
 		sent_info->sent[w_i] = pch;
-		if (count_word_ngrams)
+		if (count_word_ngrams) {
 			sent_info->word_lengths[w_i] = strlen(pch);
 			sent_info->sent_counts[w_i] = map_find_count(&ngram_map, pch);
 			//printf("pch=%s; len=%u, count=%u\n", pch, sent_info->word_lengths[w_i], sent_info->sent_counts[w_i]);
+		}
 		if (!count_word_ngrams) {
 			if (!strncmp(temp_word, pch, MAX_WORD_LEN))
 				sent_info->class_sent[w_i] = temp_class;
