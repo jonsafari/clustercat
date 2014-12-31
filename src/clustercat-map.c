@@ -38,7 +38,7 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 	local_s->class = entry_class;
 }
 
-inline unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
+inline unsigned int map_increment_count(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
 	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
 	#pragma omp critical
@@ -59,7 +59,7 @@ inline unsigned int map_increment_entry(struct_map_word **map, const char * rest
 	return local_s->count;
 }
 
-inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs
+inline unsigned int map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
 	//printf("map++: sizeof_key=%zu, CLASSLEN=%u, cls_entry=[%hu,%hu,%hu,%hu]\n", sizeof_key, CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]);
@@ -82,7 +82,7 @@ inline unsigned int map_increment_entry_fixed_width(struct_map_class **map, cons
 	return local_s->count;
 }
 
-inline unsigned int map_find_entry_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]) { // Based on uthash's docs
+inline unsigned int map_find_count_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]) { // Based on uthash's docs
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
 	unsigned int local_count = 0;
@@ -95,7 +95,7 @@ inline unsigned int map_find_entry_fixed_width(struct_map_class *map[const], con
 	return local_count;
 }
 
-inline unsigned int map_update_entry(struct_map_word **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
+inline unsigned int map_update_count(struct_map_word **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
 	struct_map_word *local_s;
 
 	#pragma omp critical
@@ -115,7 +115,7 @@ inline unsigned int map_update_entry(struct_map_word **map, const char * restric
 	return local_s->count;
 }
 
-inline unsigned int map_find_entry(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
+inline unsigned int map_find_count(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
 	struct_map_word *local_s;
 	unsigned int local_count = 0;
 
@@ -124,6 +124,24 @@ inline unsigned int map_find_entry(struct_map_word *map[const], const char * res
 		local_count = local_s->count;
 	}
 	return local_count;
+}
+
+inline word_id_t map_find_int(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
+	struct_map_word *local_s;
+	word_id_t local_id = 0;
+
+	HASH_FIND_STR(*map, entry_key, local_s);
+	if (local_s != NULL) { // Deal with OOV
+		local_id = local_s->word_id;
+	}
+	return local_id;
+}
+
+struct_map_word map_find_entry(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
+	struct_map_word *local_s;
+
+	HASH_FIND_STR(*map, entry_key, local_s);
+	return *local_s;
 }
 
 inline unsigned short get_class(struct_map_word_class *map[const], const char * restrict entry_key, const unsigned short unk) {

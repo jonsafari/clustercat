@@ -18,10 +18,10 @@ float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, co
 
 	for (; j >= 0; j--, max_ngram_used++) { // Traverse shortest string first && short-circuit if history not found
 		//printf("leftpos=%i, j=%i, i=%hu, ival=%hu, maxlenused=%i, ngram[0]=%hu, ngram[j=%i]=[%hu,%hu,%hu,%hu], sent[i=%i]=[%hu,%hu,<%hu>,%hu,%hu]\n", leftmost_position, j, i, i_val, max_ngram_used, ngram[0], j, ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], i, sent[i-2], sent[i-1], sent[i], sent[i+1], sent[i+2]);
-		unsigned int numerator = map_find_entry_fixed_width(class_map, &ngram[j]);
+		unsigned int numerator = map_find_count_fixed_width(class_map, &ngram[j]);
 		//printf(" c([%hu,%hu,%hu,%hu])=%u /\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], numerator);
 		ngram[j+max_ngram_used] = 0; // We zero out word_i to get the denominator
-		unsigned int denominator = map_find_entry_fixed_width(class_map, &ngram[j]);
+		unsigned int denominator = map_find_count_fixed_width(class_map, &ngram[j]);
 		//printf(" c([%hu,%hu,%hu,%hu])=%u ;\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], denominator);
 		ngram[j+max_ngram_used] = i_val; // We restore out word_i to its original value
 		//printf(" %u/%u = %g\n", numerator, denominator, numerator/(float)denominator);
@@ -90,12 +90,12 @@ float ngram_prob(struct_map_word *ngram_map[const], const sentlen_t i, const cha
 
 		if (history_len > 0) { // Bigrams and longer
 			ngram[ngram_len - strlen_word_i - 2] = '\0'; // Allow us to get ngram history, but replacing the last space with a \0
-			unsigned int denominator_count = map_find_entry(ngram_map, jp);
+			unsigned int denominator_count = map_find_count(ngram_map, jp);
 			//printf("ngram_prob3.7: history=<<%s>>, den._count=%u, token_count=%lu\n", jp, denominator_count, model_metadata.token_count);
 			ngram[ngram_len - strlen_word_i - 2] = SECONDARY_SEP_CHAR; // Now restore it back to a space
 
 			if (denominator_count) { // Denominator is greater than zero; history is found in training set
-				float numerator_count = (float)map_find_entry(ngram_map, jp);
+				float numerator_count = (float)map_find_count(ngram_map, jp);
 				order_probs[history_len+1] = numerator_count  / ((float)denominator_count);
 				//printf("ngram_prob3.79: denominator is not zero :-)  num._count=%g, den._count=%u, history_len=%i, hist_len_used=%i, jp=%s\n", numerator_count, denominator_count, history_len, history_len_used, jp);
 			} else { // Avoid 0/0 == -nan;  history is not in training set

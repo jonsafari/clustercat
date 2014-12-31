@@ -42,6 +42,13 @@ typedef struct {
 } struct_sent_info;
 
 typedef struct {
+	word_id_t * restrict sent;
+	wclass_t * restrict class_sent;
+	unsigned int * restrict sent_counts;
+	sentlen_t length;
+} struct_sent_int_info;
+
+typedef struct {
 	unsigned long token_count;
 	unsigned long line_count;
 	word_id_t     type_count;
@@ -61,7 +68,7 @@ struct cmd_args {
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
-void sent_store_string2sent_store_int(struct cmd_args cmd_args, char * restrict sent_store_string[], word_id_t sent_store_int[restrict], unsigned long num_sents_in_store);
+void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[], struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store);
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], word_id_t type_count);
 
 void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);

@@ -41,14 +41,17 @@ void map_add_class(struct_map_word_class **map, const char * restrict entry_key,
 
 void map_update_class(struct_map_word_class **map, const char * restrict entry_key, const wclass_t entry_class);
 
-unsigned int map_increment_entry(struct_map_word **map, const char * restrict entry_key);
+unsigned int map_increment_count(struct_map_word **map, const char * restrict entry_key);
 
-unsigned int map_increment_entry_fixed_width(struct_map_class **map, const wclass_t entry_key[const]);
+unsigned int map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]);
 
-unsigned int map_update_entry(struct_map_word **map, const char * restrict entry_key, const unsigned int count);
+unsigned int map_update_count(struct_map_word **map, const char * restrict entry_key, const unsigned int count);
 
-unsigned int map_find_entry(struct_map_word *map[const], const char * restrict entry_key);
-unsigned int map_find_entry_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]);
+struct_map_word map_find_entry(struct_map_word *map[const], const char * restrict entry_key);
+unsigned int map_find_count(struct_map_word *map[const], const char * restrict entry_key);
+unsigned int map_find_count_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]);
+
+word_id_t map_find_int(struct_map_word *map[const], const char * restrict entry_key);
 
 wclass_t get_class(struct_map_word_class *map[const], const char * restrict entry_key, const wclass_t unk);
 
