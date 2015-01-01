@@ -33,7 +33,7 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.dev_file               = NULL,
-	.max_tune_sents         = 10000,
+	.max_tune_sents         = 1000000,
 	.min_count              = 2,
 	.class_order            = 3,
 	.num_threads            = 6,
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 	map_update_count(&ngram_map, "</s>", 0);
 
 	char * restrict sent_buffer[cmd_args.max_tune_sents]; // This will get modified
-	char * restrict sent_store_string[cmd_args.max_tune_sents];  // This will not get modified
+	char * restrict * restrict sent_store_string = malloc(sizeof(char *) * cmd_args.max_tune_sents); // This will not get modified
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	unsigned long num_sents_in_store = 0;
 	struct_map_class *class_map = NULL;	// Must initialize to NULL
@@ -96,9 +96,10 @@ int main(int argc, char **argv) {
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, unique_words, global_metadata.type_count);
 
-	struct_sent_int_info sent_store_int[num_sents_in_store];
+	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * num_sents_in_store);
 	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
 	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
+	//free(sent_store_string);
 	// Now we can free each word in each sentence in sent_store_string
 	// ...
 
@@ -107,11 +108,11 @@ int main(int argc, char **argv) {
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
 	clock_t time_model_built = clock();
-	fprintf(stderr, "%s: Finished loading %lu tokens and %u types (%u filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC);
+	fprintf(stderr, "%s: Finished loading %lu tokens and %u types (%u filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	memusage += sizeof(struct_map_word) * map_entries;
-	fprintf(stderr, "%s: Approximate mem usage:  %zuB ~= %.1fMB\n", argv_0_basename, memusage, (double)memusage / 1048576);
+	fprintf(stderr, "%s: Approximate mem usage:  %zuB ~= %.1fMB\n", argv_0_basename, memusage, (double)memusage / 1048576); fflush(stderr);
 
 	//cluster(cmd_args, sent_store, global_metadata, unique_words);
 
@@ -122,6 +123,7 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
 
 	free(unique_words);
+	free(sent_store_int);
 	exit(0);
 }
 
@@ -195,7 +197,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[], struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store) {
+void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store) {
+	fprintf(stderr, "45.1\n"); fflush(stderr);
 	for (unsigned long i = 0; i < num_sents_in_store; i++) {
 		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
 		char * restrict sent_i = sent_store_string[i];
@@ -355,7 +358,7 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 	}
 }
 
-unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents) {
+unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict * restrict sent_store, unsigned long num_sents_in_store, const unsigned long max_tune_sents) {
 	for (unsigned long i = 0; (num_sents_in_store <= max_tune_sents) && (i < num_sents_in_buffer); i++, num_sents_in_store++) {
 		if (sent_buffer[i] == NULL) // The last bit of the buffer might be empty
 			break;

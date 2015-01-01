@@ -68,12 +68,12 @@ struct cmd_args {
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
-void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[], struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store);
+void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store);
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], word_id_t type_count);
 
 void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
-unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict sent_store[], unsigned long num_sents_in_store, const unsigned long max_tune_sents);
+unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict * restrict sent_store, unsigned long num_sents_in_store, const unsigned long max_tune_sents);
 unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
 unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
