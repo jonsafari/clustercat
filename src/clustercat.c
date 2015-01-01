@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
 
 void get_usage_string(char * restrict usage_string, int usage_len) {
 
-	snprintf(usage_string, usage_len, "ClusterCat  (c) 2014 Jon Dehdari - LGPL v3 or Mozilla Public License v2\n\
+	snprintf(usage_string, usage_len, "ClusterCat  (c) 2014-2015 Jon Dehdari - LGPL v3 or Mozilla Public License v2\n\
 \n\
 Usage:    clustercat [options] < corpus.tok.txt > classes.tsv \n\
 \n\
@@ -137,6 +137,7 @@ Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
+     --class-file <file>  Initialize word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
      --dev-file <file>    Use separate file to tune on (default: training set, from stdin)\n\
  -h, --help               Print this usage\n\
  -j, --jobs <i>           Set number of threads to run simultaneously (default: %d threads)\n\
@@ -163,6 +164,11 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			else if (!strcmp(class_algo_string, "exchange"))
 				cmd_args->class_algo = EXCHANGE;
 			else { printf("%s", usage); exit(0); }
+		} else if (!strcmp(argv[arg_i], "--class-file")) {
+			cmd_args->dev_file = argv[arg_i+1];
+			printf("Bug Jon to implement --class-file!\n");
+			exit(1);
+			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--dev-file")) {
 			cmd_args->dev_file = argv[arg_i+1];
 			printf("Bug Jon to implement --dev-file!\n");
@@ -369,8 +375,18 @@ unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const uns
 	return num_sents_in_store;
 }
 
-void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
-	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
+void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) { // loop over sentences
+		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+		register word_id_t word_id;
+		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
+			word_id = sent_store_int[current_sent_num].sent[i];
+			if (word_id == temp_word) { // This word matches the temp word
+				sent_store_int[current_sent_num].class_sent[i] = temp_class;
+			} else { // This word doesn't match temp word
+				sent_store_int[current_sent_num].class_sent[i] = word2class[word_id];
+			}
+		}
 	}
 }
 
@@ -483,7 +499,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
-		process_int_sents_in_store(sent_store_int, model_metadata.line_count, &class_map, -1, -1); // Get class ngram counts
+		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, -1); // Get class ngram counts
 		//double best_log_prob = query_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, "", -1);
 		double best_log_prob = -5;
 		fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
