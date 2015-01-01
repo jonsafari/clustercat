@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 
 
 	// The list of unique words should always include <s>, unknown word, and </s>
-	map_update_count(&ngram_map, UNKNOWN_WORD, 0);
+	map_update_count(&ngram_map, UNKNOWN_WORD, 0); // Should always be first
 	map_update_count(&ngram_map, "<s>", 0);
 	map_update_count(&ngram_map, "</s>", 0);
 
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
 	memusage += sizeof(struct_map_word) * map_entries;
 	fprintf(stderr, "%s: Approximate mem usage:  %zuB ~= %.1fMB\n", argv_0_basename, memusage, (double)memusage / 1048576); fflush(stderr);
 
-	//cluster(cmd_args, sent_store, global_metadata, unique_words);
+	cluster(cmd_args, sent_store_int, global_metadata, word2class);
 
 	// Now print the final word2class_map
 	print_words_and_classes(global_metadata.type_count, unique_words, word2class);
@@ -253,6 +253,7 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
+		//printf("%s=%u\n", unique_words[i], i);
 		map_set_word_id(ngram_map, unique_words[i], i);
 	}
 }
@@ -506,7 +507,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 		for (; word_i < vocab_size; word_i++, class++) {
 			if (class > cmd_args.num_classes)
 				class = 1;
-			//printf("cls=%u, w_i=%lu, vocab_size=%lu\n", class, word_i, vocab_size);
+			//printf("cls=%u, w_i=%lu, vocab_size=%u\n", class, word_i, vocab_size);
 			word2class[word_i] = class;
 		}
 
@@ -516,14 +517,15 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, char **unique_words) {
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, wclass_t word2class[]) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-		process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
-		double best_log_prob = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, "", -1);
+		//process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
+		//double best_log_prob = query_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, "", -1);
+		double best_log_prob = -5;
 		fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
@@ -531,10 +533,11 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 			bool end_cycle_short = true; // This gets set to false if any word's class changes
 
 			fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
-			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
-				char * restrict word = unique_words[word_i];
-				wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
-				const wclass_t old_class = get_class(&word2class_map, word, unknown_word_class);
+			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
+				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
+				wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
+				//const wclass_t old_class = get_class(&word2class_map, word, unknown_word_class);
+				const wclass_t old_class = word2class[word_i];
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
@@ -542,9 +545,10 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					printf("in par loop with w=%s, cls=%hu\n", word, class); fflush(stdout);
-					process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
-					log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
+					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
+					//process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
+					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
+					log_probs[class-1] = -5;
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
@@ -552,7 +556,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
 
 				if (cmd_args.verbose > 0) {
-					printf("Orig logprob for word «%s» using class «%hu» is %g;  Hypos %u-%u: ", word, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
+					printf("Orig logprob for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
 					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
 					if (best_hypothesis_log_prob > 0) { // Shouldn't happen
 						fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class);
@@ -563,9 +567,10 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
 					end_cycle_short = false;
 
-					fprintf(stderr, " Moving '%s'\t%u -> %u\t(logprob %g -> %g)\n", word, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
+					fprintf(stderr, " Moving w_%u\t%u -> %u\t(logprob %g -> %g)\n", word_i, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
-					map_update_class(&word2class_map, word, best_hypothesis_class);
+					//map_update_class(&word2class_map, word, best_hypothesis_class);
+					word2class[word_i] = best_hypothesis_class;
 					best_log_prob = best_hypothesis_log_prob;
 				}
 			}
@@ -579,8 +584,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
 		for (unsigned long current_num_classes = model_metadata.type_count; current_num_classes > cmd_args.num_classes; current_num_classes--) {
-			for (unsigned long word_i = 0; word_i < model_metadata.type_count; word_i++) {
-				char * restrict word = unique_words[word_i];
+			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				float log_probs[cmd_args.num_classes];
 				//#pragma omp parallel for num_threads(cmd_args.num_threads)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++, steps++) {
@@ -588,7 +592,7 @@ void cluster(const struct cmd_args cmd_args, char * restrict sent_store[const], 
 					log_probs[class] = -1 * (class+1); // Dummy predicate
 				}
 				wclass_t best_class = which_maxf(log_probs, cmd_args.num_classes);
-				printf("Moving '%s' to class %u\n", word, best_class);
+				printf("Moving w_%u to class %u\n", word_i, best_class);
 			}
 		}
 	}
