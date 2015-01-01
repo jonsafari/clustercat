@@ -66,7 +66,6 @@ int main(int argc, char **argv) {
 	char * restrict * restrict sent_store_string = malloc(sizeof(char *) * cmd_args.max_tune_sents); // This will not get modified
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	unsigned long num_sents_in_store = 0;
-	struct_map_class *class_map = NULL;	// Must initialize to NULL
 
 	while (1) {
 		// Fill sentence buffer
@@ -76,8 +75,8 @@ int main(int argc, char **argv) {
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
-		global_metadata.token_count += process_sents_in_buffer(sent_buffer, num_sents_in_buffer, &class_map, true, false, "", -1);
-		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store_string, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_sents_in_buffer() since we call that function in two separate contexts
+		global_metadata.token_count += process_str_sents_in_buffer(sent_buffer, num_sents_in_buffer);
+		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store_string, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_str_sents_in_buffer() since we call that function in two separate contexts
 	}
 
 	global_metadata.type_count        = map_count(&ngram_map);
@@ -370,21 +369,25 @@ unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const uns
 	return num_sents_in_store;
 }
 
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class) {
+void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
+	}
+}
+
+unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer) {
 	unsigned long token_count = 0;
-	unsigned long current_sent_num;
 	char local_sent_copy[STDIN_SENT_MAX_CHARS];
 	local_sent_copy[STDIN_SENT_MAX_CHARS-1] = '\0'; // Ensure at least last element of array is terminating character
 
-	for (current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
+	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
 		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_WORDS-2); // Strtok, which is used later, is destructive
-		token_count += process_sent(local_sent_copy, class_map, count_word_ngrams, count_class_ngrams, temp_word, temp_class);
+		token_count += process_str_sent(local_sent_copy);
 	}
 
 	return token_count;
 }
 
-unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class) {
+unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_map
 	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
 		return 0;
 
@@ -395,37 +398,12 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 	// the only one out of the three models we're building that we can do this way, and
 	// it's simpler to have a more uniform way of building these up.
 
-	tokenize_sent(sent_str, &sent_info, count_word_ngrams, temp_word, temp_class);
+	tokenize_sent(sent_str, &sent_info);
 	unsigned long token_count = sent_info.length;
-	//if ((cmd_args.verbose > 1) && (count_word_ngrams)) {
-	if ((cmd_args.verbose > 0) && (temp_class == 1) && (!strcmp(temp_word, "<s>"))) {
-		printf("temp_word=%s, temp_class=%hu, sent_str: <<%s>>\n", temp_word, temp_class, sent_str);
+	if (cmd_args.verbose > 1) {
+		printf("sent_str: <<%s>>\n", sent_str);
 		print_sent_info(&sent_info);
 		fflush(stdout);
-	}
-
-	register sentlen_t i;
-
-	if (count_word_ngrams) {
-		//map_increment_count(&ngram_map, "<s>");
-		//map_increment_count(&ngram_map, "</s>");
-		for (i = 0; i < sent_info.length; i++) {
-			increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
-			//printf("incrementing w=%s to %u (inter alia)\n", sent_info.sent[i], map_find_count(ngram_map, sent_info.sent[i]));
-		}
-	}
-
-	if (count_class_ngrams) {
-		for (i = 0; i < sent_info.length; i++) {
-			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
-			//printf("i: %u, sent_len=%u\t", i, sent_info.length);
-			//if (i - start_position_class > 1)
-			//	printf("w_i-2=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			//if (i - start_position_class > 0)
-			//	printf("w_i-1=%s (cls: %hu)\t", sent_info.sent[i-1], sent_info.class_sent[i-1]);
-			//printf("w_i=%s (cls: %hu)\n", sent_info.sent[i], sent_info.class_sent[i]);
-			increment_ngram_fixed_width(class_map, sent_info.class_sent, start_position_class, i);
-		}
 	}
 
 	free(sent_info.sent);
@@ -433,20 +411,15 @@ unsigned long process_sent(char * restrict sent_str, struct_map_class **class_ma
 }
 
 
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_word_ngrams, const char * restrict temp_word, const wclass_t temp_class) {
+void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 	// Stupid strtok is destructive
 	char * restrict pch = NULL;
 	pch = strtok(sent_str, TOK_CHARS);
-	wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 
 	// Initialize first element in sentence to <s>
 	sent_info->sent[0] = "<s>";
 	sent_info->word_lengths[0]  = strlen("<s>");
 	sent_info->sent_counts[0] = map_find_count(&ngram_map, "<s>");
-	if (!strncmp(temp_word, "<s>", MAX_WORD_LEN))
-		sent_info->class_sent[0] = temp_class;
-	else
-		sent_info->class_sent[0] = get_class(&word2class_map, "<s>", unknown_word_class);
 
 	sentlen_t w_i = 1; // Word 0 is <s>
 
@@ -457,17 +430,9 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 		}
 
 		sent_info->sent[w_i] = pch;
-		if (count_word_ngrams) {
-			sent_info->word_lengths[w_i] = strlen(pch);
-			sent_info->sent_counts[w_i] = map_find_count(&ngram_map, pch);
-			//printf("pch=%s; len=%u, count=%u\n", pch, sent_info->word_lengths[w_i], sent_info->sent_counts[w_i]);
-		}
-		if (!count_word_ngrams) {
-			if (!strncmp(temp_word, pch, MAX_WORD_LEN))
-				sent_info->class_sent[w_i] = temp_class;
-			else
-				sent_info->class_sent[w_i] =  get_class(&word2class_map, pch, unknown_word_class);
-		}
+		sent_info->word_lengths[w_i] = strlen(pch);
+		sent_info->sent_counts[w_i] = map_find_count(&ngram_map, pch);
+		//printf("pch=%s; len=%u, count=%u\n", pch, sent_info->word_lengths[w_i], sent_info->sent_counts[w_i]);
 
 		if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
 			pch[MAX_WORD_LEN] = '\0';
@@ -483,12 +448,6 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool c
 	sent_info->sent_counts[w_i] = map_find_count(&ngram_map, "</s>");
 	sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
-	if (!strncmp(temp_word, "</s>", MAX_WORD_LEN))
-		sent_info->class_sent[w_i] = temp_class;
-	else
-		sent_info->class_sent[w_i] = get_class(&word2class_map, "</s>", unknown_word_class);
-	if (cmd_args.verbose > 2)
-		printf("88sent_str: count_word_ngrams=%i; <<%s>>\n", count_word_ngrams, sent_str);
 }
 
 // Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
@@ -523,7 +482,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-		//process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
+		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
+		process_int_sents_in_store(sent_store_int, model_metadata.line_count, &class_map, -1, -1); // Get class ngram counts
 		//double best_log_prob = query_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, "", -1);
 		double best_log_prob = -5;
 		fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -546,7 +506,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
-					//process_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
+					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					log_probs[class-1] = -5;
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them

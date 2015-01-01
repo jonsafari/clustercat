@@ -75,10 +75,11 @@ void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words
 void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
 void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
 unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict * restrict sent_store, unsigned long num_sents_in_store, const unsigned long max_tune_sents);
-unsigned long process_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
-unsigned long process_sent(char * restrict sent_str, struct_map_class **class_map, bool count_word_ngrams, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
+void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
+unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer);
+unsigned long process_str_sent(char * restrict sent_str);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info, bool count_class_ngrams, const char * restrict temp_word, const wclass_t temp_class);
+void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]);
 void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, wclass_t word2class[]);
 struct_sent_info parse_input_line(char * restrict line_in, const char * restrict temp_word, const wclass_t temp_class);
