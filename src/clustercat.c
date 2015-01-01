@@ -422,6 +422,11 @@ unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_
 		fflush(stdout);
 	}
 
+	register sentlen_t i;
+	for (i = 0; i < sent_info.length; i++) {
+		increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
+	}
+
 	free(sent_info.sent);
 	return token_count;
 }
