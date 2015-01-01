@@ -38,6 +38,21 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 	local_s->class = entry_class;
 }
 
+inline void map_set_word_id(struct_map_word **map, const char * restrict entry_key, const word_id_t word_id) {
+	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
+
+	#pragma omp critical
+	{
+		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
+	}
+	if (local_s == NULL) {
+		printf("Error: word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
+		exit(5);
+	}
+	#pragma omp atomic
+	local_s->word_id = word_id;
+}
+
 inline unsigned int map_increment_count(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
 	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
@@ -207,6 +222,7 @@ void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t
 		printf("%s\t%hu\n", s->key, s->class);
 		HASH_DEL(map, s);	// delete it (map advances to next)
 		free(s->key);	// free it
+		//fprintf(stderr, "49.11: next=%zu\n", (struct_map_word_class *)(s->hh.next)); fflush(stderr);
 	}
 }
 

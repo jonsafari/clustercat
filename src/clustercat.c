@@ -99,9 +99,9 @@ int main(int argc, char **argv) {
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * num_sents_in_store);
 	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
 	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
-	//free(sent_store_string);
 	// Now we can free each word in each sentence in sent_store_string
 	// ...
+	//free(sent_store_string);
 
 	wclass_t word2class[global_metadata.type_count];
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
@@ -198,7 +198,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 }
 
 void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store) {
-	fprintf(stderr, "45.1\n"); fflush(stderr);
 	for (unsigned long i = 0; i < num_sents_in_store; i++) {
 		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
 		char * restrict sent_i = sent_store_string[i];
@@ -253,6 +252,9 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 }
 
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], word_id_t type_count) {
+	for (word_id_t i = 0; i < type_count; i++) {
+		map_set_word_id(ngram_map, unique_words[i], i);
+	}
 }
 
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map) {
