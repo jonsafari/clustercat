@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
-	//cluster(cmd_args, sent_store_int, global_metadata, word2class);
+	cluster(cmd_args, sent_store_int, global_metadata, word2class);
 
 	// Now print the final word2class_map
 	if (cmd_args.verbose >= 0)
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 
 	clock_t time_clustered = clock();
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Finished clustering in %'.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
+		fprintf(stderr, "%s: Finished clustering in %'.2f seconds.  Total time: %'.2f seconds\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, (double)(time_clustered - time_start)/CLOCKS_PER_SEC  );
 
 	free(unique_words);
 	free(sent_store_int);
@@ -520,8 +520,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
 		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, -1); // Get class ngram counts
-		//double best_log_prob = query_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, "", -1);
-		double best_log_prob = -5;
+		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, -1, -1);
+
 		if (cmd_args.verbose >= 0)
 			fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
@@ -544,10 +544,10 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
-					process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
+					process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					log_probs[class-1] = -5;
+					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
@@ -657,12 +657,13 @@ struct_sent_info parse_input_line(char * restrict line_in, const char * restrict
 }
 
 
-double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent_store[const], const struct_model_metadata model_metadata, struct_map_class **class_map, const char * restrict temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
 	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) {
+#if 0
 
 		char * restrict current_sent = sent_store[current_sent_num];
 		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map_word **ngram_map) {
@@ -712,6 +713,7 @@ double query_sents_in_store(const struct cmd_args cmd_args, char * restrict sent
 
 		sum_log_probs += sent_score; // Increment running test set total, for perplexity
 		free_sent_info(sent_info);
+#endif
 	} // Done querying current sentence
 	return sum_log_probs;
 }
