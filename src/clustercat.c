@@ -519,8 +519,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
-		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, -1); // Get class ngram counts
-		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, &class_map, -1, -1);
+		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
+		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, &class_map, -1, 0);
 
 		if (cmd_args.verbose >= 0)
 			fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);

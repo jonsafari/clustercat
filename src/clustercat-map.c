@@ -49,7 +49,7 @@ inline void map_set_word_id(struct_map_word **map, const char * restrict entry_k
 		printf("Error: word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
 		exit(5);
 	}
-	#pragma omp atomic
+	#pragma omp atomic write
 	local_s->word_id = word_id;
 }
 
