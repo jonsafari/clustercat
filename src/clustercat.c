@@ -85,7 +85,8 @@ int main(int argc, char **argv) {
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
 	if (global_metadata.type_count <= cmd_args.num_classes) {
-		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
+		if (cmd_args.verbose >= -1)
+			fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
 		exit(3);
 	}
 
@@ -109,19 +110,23 @@ int main(int argc, char **argv) {
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
 	clock_t time_model_built = clock();
-	fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
+	if (cmd_args.verbose >= -1)
+		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	memusage += sizeof(struct_map_word) * map_entries;
-	fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
+	if (cmd_args.verbose >= -1)
+		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
 	//cluster(cmd_args, sent_store_int, global_metadata, word2class);
 
 	// Now print the final word2class_map
-	print_words_and_classes(global_metadata.type_count, unique_words, word2class);
+	if (cmd_args.verbose >= 0)
+		print_words_and_classes(global_metadata.type_count, unique_words, word2class);
 
 	clock_t time_clustered = clock();
-	fprintf(stderr, "%s: Finished clustering in %'.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
+	if (cmd_args.verbose >= -1)
+		fprintf(stderr, "%s: Finished clustering in %'.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
 
 	free(unique_words);
 	free(sent_store_int);
@@ -145,6 +150,7 @@ Options:\n\
  -j, --jobs <i>           Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <i>      Minimum count of entries in training set to consider (default: %d occurrences)\n\
  -n, --num-classes <i>    Set number of word classes (default: %d classes)\n\
+ -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --tune-sents <i>     Set size of sentence store to tune on (default: first %lu sentences)\n\
      --tune-cycles <i>    Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
@@ -188,6 +194,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
 			cmd_args->class_order = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "-q") && strcmp(argv[arg_i], "--quiet"))) {
+			cmd_args->verbose--;
 		} else if (!strcmp(argv[arg_i], "--tune-sents")) {
 			cmd_args->max_tune_sents = atol(argv[arg_i+1]);
 			arg_i++;
@@ -514,13 +522,15 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, -1); // Get class ngram counts
 		//double best_log_prob = query_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, "", -1);
 		double best_log_prob = -5;
-		fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		if (cmd_args.verbose >= 0)
+			fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
 			bool end_cycle_short = true; // This gets set to false if any word's class changes
 
-			fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			if (cmd_args.verbose >= 0)
+				fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 				wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
@@ -534,6 +544,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
+					process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					log_probs[class-1] = -5;
@@ -555,7 +566,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
 					end_cycle_short = false;
 
-					fprintf(stderr, " Moving w_%u\t%u -> %u\t(logprob %g -> %g)\n", word_i, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
+					if (cmd_args.verbose >= 0)
+						fprintf(stderr, " Moving w_%u\t%u -> %u\t(logprob %g -> %g)\n", word_i, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
 					//map_update_class(&word2class_map, word, best_hypothesis_class);
 					word2class[word_i] = best_hypothesis_class;
@@ -567,7 +579,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			if (end_cycle_short)
 				break;
 		}
-		fprintf(stderr, "%s: Completed steps: %lu (%u word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		if (cmd_args.verbose >= 0)
+			fprintf(stderr, "%s: Completed steps: %lu (%u word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
