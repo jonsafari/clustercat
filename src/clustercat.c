@@ -7,6 +7,7 @@
 #include <float.h>				// DBL_MAX, etc.
 #include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC
 #include <stdbool.h>
+#include <locale.h>				// OPTIONAL!  Comment-out on non-Posix machines, and the function setlocale() in the first line of main()
 
 #include "clustercat.h"				// Model importing/exporting functions
 #include "clustercat-array.h"		// which_maxf()
@@ -45,6 +46,7 @@ struct cmd_args cmd_args = {
 
 
 int main(int argc, char **argv) {
+	setlocale(LC_ALL, ""); // Comment-out on non-Posix systems
 	clock_t time_start = clock();
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
@@ -107,19 +109,19 @@ int main(int argc, char **argv) {
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
 	clock_t time_model_built = clock();
-	fprintf(stderr, "%s: Finished loading %lu tokens and %u types (%u filtered) from %lu lines in %.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
+	fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	memusage += sizeof(struct_map_word) * map_entries;
-	fprintf(stderr, "%s: Approximate mem usage: %.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
+	fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
-	cluster(cmd_args, sent_store_int, global_metadata, word2class);
+	//cluster(cmd_args, sent_store_int, global_metadata, word2class);
 
 	// Now print the final word2class_map
 	print_words_and_classes(global_metadata.type_count, unique_words, word2class);
 
 	clock_t time_clustered = clock();
-	fprintf(stderr, "%s: Finished clustering in %.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
+	fprintf(stderr, "%s: Finished clustering in %'.2f secs\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC);
 
 	free(unique_words);
 	free(sent_store_int);
@@ -222,8 +224,8 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
 		for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
-			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines; shouldn't happen at this point anyways
-				fprintf(stderr, "%s: Warning: Line %lu length at %u. Truncating pathologically-long line starting with: \"%s ...\"\n", argv_0_basename, i+1, w_i, sent_i);
+			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
+				//fprintf(stderr, "%s: Warning: Line %lu length at %u. Truncating pathologically-long line starting with: \"%s ...\"\n", argv_0_basename, i+1, w_i, sent_i);
 				break;
 			}
 
@@ -379,13 +381,18 @@ void process_int_sents_in_store(const struct_sent_int_info * const sent_store_in
 	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 		register word_id_t word_id;
+		wclass_t class_sent[STDIN_SENT_MAX_WORDS];
+
 		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
 			word_id = sent_store_int[current_sent_num].sent[i];
 			if (word_id == temp_word) { // This word matches the temp word
-				sent_store_int[current_sent_num].class_sent[i] = temp_class;
+				class_sent[i] = temp_class;
 			} else { // This word doesn't match temp word
-				sent_store_int[current_sent_num].class_sent[i] = word2class[word_id];
+				class_sent[i] = word2class[word_id];
 			}
+
+			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
+			increment_ngram_fixed_width(class_map, class_sent, start_position_class, i);
 		}
 	}
 }
@@ -446,7 +453,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 	for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
 		if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-			fprintf(stderr, "%s: Warning: Truncating pathologically-long line starting with: %s %s %s %s %s %s ...\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
+			fprintf(stderr, "%s: Warning: Truncating pathologically-long line starting with: \"%s %s %s %s %s %s ...\"\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
 			break;
 		}
 
