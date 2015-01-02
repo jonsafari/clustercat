@@ -520,7 +520,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
 		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, -1); // Get class ngram counts
-		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, -1, -1);
+		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, &class_map, -1, -1);
 
 		if (cmd_args.verbose >= 0)
 			fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -533,7 +533,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
-				wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
+				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				//const wclass_t old_class = get_class(&word2class_map, word, unknown_word_class);
 				const wclass_t old_class = word2class[word_i];
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
@@ -547,7 +547,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
 					process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, &class_map, word_i, class);
+					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
@@ -657,32 +657,42 @@ struct_sent_info parse_input_line(char * restrict line_in, const char * restrict
 }
 
 
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
 	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) {
-#if 0
 
-		char * restrict current_sent = sent_store[current_sent_num];
-		//struct_sent_info parse_input_line(char * restrict line_in, const struct_sent_info sent_info_a, struct_map_word **ngram_map) {
-		struct_sent_info sent_info = parse_input_line(current_sent, temp_word, temp_class);
-		if (cmd_args.verbose > 2)
-			print_sent_info(&sent_info);
+		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+		register word_id_t word_id;
+		wclass_t class_sent[STDIN_SENT_MAX_WORDS];
+
+		// Build array of classes
+		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
+			word_id = sent_store_int[current_sent_num].sent[i];
+			if (word_id == temp_word) { // This word matches the temp word
+				class_sent[i] = temp_class;
+			} else { // This word doesn't match temp word
+				class_sent[i] = word2class[word_id];
+			}
+		}
 
 		float sent_score = 0.0; // Initialize with identity element
 
-		for (sentlen_t i = 1; i <= sent_info.length; i++) {
-			char * restrict word_i = sent_info.sent[i];
-			const wclass_t * class_i = &sent_info.class_sent[i];
+		const struct_sent_int_info * const sent_info = &sent_store_int[current_sent_num];
+
+
+		for (sentlen_t i = 1; i <= sent_length; i++) {
+			const word_id_t word_i = sent_info->sent[i];
+			const wclass_t class_i = class_sent[i];
 			wclass_t class_i_entry[CLASSLEN] = {0};
-			class_i_entry[0] = *class_i;
-			const unsigned int word_i_count = sent_info.sent_counts[i];
+			class_i_entry[0] = class_i;
+			const unsigned int word_i_count = sent_info->sent_counts[i];
 			const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
-				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw=%s\n", i, word_i_count, *class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i);
+				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw_id=%u\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i);
 			}
 
 			// Class N-gram Prob
@@ -690,14 +700,14 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			// Class prob is transition prob * emission prob
 			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
 			float weights_class[] = {0.05, 0.4, 0.4, 0.15};
-			float transition_prob = class_ngram_prob(class_map, i, *class_i, class_i_count, sent_info.class_sent, CLASSLEN, model_metadata, weights_class);
+			float transition_prob = class_ngram_prob(class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
 			the_class_prob = transition_prob * emission_prob;
 
 
 			if (cmd_args.verbose > 1) {
-				printf(" w=%s, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, *class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
+				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
 				if (class_i_count < word_i_count) { // Shouldn't happen
-					printf("Error: class_%hu_count=%u < word_[%s]_count=%u\n", *class_i, class_i_count, word_i, word_i_count);
+					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count);
 					exit(5);
 				}
 				if (class_i_count > model_metadata.token_count) { // Shouldn't happen
@@ -706,14 +716,11 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 				}
 			}
 
-
 			sent_score += log2((double)the_class_prob); // Increment running sentence total;  we can use doubles for global-level scores
 
 		} // for i loop
 
 		sum_log_probs += sent_score; // Increment running test set total, for perplexity
-		free_sent_info(sent_info);
-#endif
 	} // Done querying current sentence
 	return sum_log_probs;
 }

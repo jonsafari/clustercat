@@ -83,7 +83,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]);
 void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, wclass_t word2class[]);
 struct_sent_info parse_input_line(char * restrict line_in, const char * restrict temp_word, const wclass_t temp_class);
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
 
 void print_sent_info(struct_sent_info * restrict sent_info);
 #endif // INCLUDE_HEADER
