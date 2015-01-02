@@ -21,7 +21,7 @@
 #define UNKNOWN_WORD         "UnK"
 // Number of characters to read-in for each line
 #define BUFLEN 8192
-#define STDIN_SENT_MAX_CHARS 50000
+#define STDIN_SENT_MAX_CHARS 40000
 #define STDIN_SENT_MAX_WORDS 1024
 #define MAX_WORD_LEN 255
 

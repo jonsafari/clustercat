@@ -14,7 +14,7 @@ long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_
 		if (! fgets(line_in, STDIN_SENT_MAX_CHARS, file))
 			break;
 		else {
-			strlen_line_in = strlen(line_in); // We'll need this a couple times
+			strlen_line_in = strlen(line_in); // We'll need this a couple times;  strnlen isn't in C standard :-(
 			if (strlen_line_in == STDIN_SENT_MAX_CHARS-1)
 				fprintf(stderr, "\n%s: Warning: Input line too long, at buffer line %li. The full line was:\n%s\n", argv_0_basename, sent_buffer_num+1, line_in);
 			sent_buffer[sent_buffer_num] = (char *)malloc(1+ strlen_line_in * sizeof(char *));

@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 	unsigned long ngram_entries   = map_count(&ngram_map);
 	unsigned long map_entries = global_metadata.type_count + ngram_entries;
 	memusage += sizeof(struct_map_word) * map_entries;
-	fprintf(stderr, "%s: Approximate mem usage:  %zuB ~= %.1fMB\n", argv_0_basename, memusage, (double)memusage / 1048576); fflush(stderr);
+	fprintf(stderr, "%s: Approximate mem usage: %.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
 	cluster(cmd_args, sent_store_int, global_metadata, word2class);
 
@@ -223,7 +223,7 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 		for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
 			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines; shouldn't happen at this point anyways
-				fprintf(stderr, "%s: Warning: Truncating pathologically-long line containing: ... %s ...\n", argv_0_basename, pch);
+				fprintf(stderr, "%s: Warning: Line %lu length at %u. Truncating pathologically-long line starting with: \"%s ...\"\n", argv_0_basename, i+1, w_i, sent_i);
 				break;
 			}
 
@@ -396,7 +396,7 @@ unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const u
 	local_sent_copy[STDIN_SENT_MAX_CHARS-1] = '\0'; // Ensure at least last element of array is terminating character
 
 	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_WORDS-2); // Strtok, which is used later, is destructive
+		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_CHARS-2); // Strtok, which is used later, is destructive
 		token_count += process_str_sent(local_sent_copy);
 	}
 
