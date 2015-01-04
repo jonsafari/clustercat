@@ -48,6 +48,8 @@ struct cmd_args cmd_args = {
 int main(int argc, char **argv) {
 	setlocale(LC_ALL, ""); // Comment-out on non-Posix systems
 	clock_t time_start = clock();
+	time_t time_t_start;
+	time(&time_t_start);
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
 
@@ -125,8 +127,11 @@ int main(int argc, char **argv) {
 		print_words_and_classes(global_metadata.type_count, unique_words, word2class);
 
 	clock_t time_clustered = clock();
+	time_t time_t_end;
+	time(&time_t_end);
+	double time_secs_total = difftime(time_t_end, time_t_start);
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Finished clustering in %'.2f seconds.  Total time: %'.2f seconds\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, (double)(time_clustered - time_start)/CLOCKS_PER_SEC  );
+		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %.0fm %is\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, time_secs_total/60, ((int)time_secs_total % 60)  );
 
 	free(unique_words);
 	free(sent_store_int);
@@ -431,8 +436,7 @@ unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_
 
 	tokenize_sent(sent_str, &sent_info);
 	unsigned long token_count = sent_info.length;
-	if (cmd_args.verbose > 1) {
-		printf("sent_str: <<%s>>\n", sent_str);
+	if (cmd_args.verbose > 2) {
 		print_sent_info(&sent_info);
 		fflush(stdout);
 	}
@@ -534,7 +538,6 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
-				//const wclass_t old_class = get_class(&word2class_map, word, unknown_word_class);
 				const wclass_t old_class = word2class[word_i];
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 
