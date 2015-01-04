@@ -5,7 +5,7 @@ INCLUDE=-I ./src/ext/uthash/src/
 ##  * For -march info on your platform, type: gcc -march=native -Q --help=target  (or just compile with -march=native )
 ##  * We include the argument -Wno-unknown-pragmas to suppress clang's lack of support for openmp
 ##    Since we use the gnuism 'override', you don't need to modify this makefile; you can just run:  make -j4 CFLAGS=-DATA_STORE_TRIE_LCRS
-override CFLAGS += -std=c99 -O3 -fopenmp -finline-functions -fno-math-errno -fstrict-aliasing -DHASH_FUNCTION=HASH_SFH -DHASH_BLOOM=25 -Wall -Wextra -Winline -Wstrict-aliasing -Wno-unknown-pragmas -Wno-unused-parameter -Wno-comment -Wno-missing-field-initializers ${INCLUDE}
+override CFLAGS += -std=c99 -O3 -fopenmp -finline-functions -fno-math-errno -fstrict-aliasing -DHASH_FUNCTION=HASH_SAX -DHASH_BLOOM=25 -Wall -Wextra -Winline -Wstrict-aliasing -Wno-unknown-pragmas -Wno-unused-parameter -Wno-comment -Wno-missing-field-initializers ${INCLUDE}
 LDLIBS=-lm -lz #-ltcmalloc_minimal
 BIN=bin/
 SRC=src/
