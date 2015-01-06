@@ -34,7 +34,7 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.dev_file               = NULL,
-	.max_tune_sents         = 1000000,
+	.max_tune_sents         = 100000,
 	.min_count              = 2,
 	.class_order            = 3,
 	.num_threads            = 6,
@@ -96,6 +96,11 @@ int main(int argc, char **argv) {
 	char **unique_words = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
 	get_keys(&ngram_map, unique_words);
+
+	// Build array of word_counts
+	unsigned int word_counts[global_metadata.type_count];
+	memusage += sizeof(unsigned int) * global_metadata.type_count;
+	//build_word_count_array(&ngram_map, unique_words, word_counts, global_metadata.type_count);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, unique_words, global_metadata.type_count);
@@ -217,7 +222,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], unsigned long num_sents_in_store) {
+void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
 	for (unsigned long i = 0; i < num_sents_in_store; i++) {
 		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
 		char * restrict sent_i = sent_store_string[i];
@@ -271,7 +276,13 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 	}
 }
 
-void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], word_id_t type_count) {
+void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], unsigned int word_counts[restrict], const word_id_t type_count) {
+	for (word_id_t i = 0; i < type_count; i++) {
+		word_counts[i] = map_find_count(ngram_map, unique_words[i]);
+	}
+}
+
+void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
 		//printf("%s=%u\n", unique_words[i], i);
 		map_set_word_id(ngram_map, unique_words[i], i);
