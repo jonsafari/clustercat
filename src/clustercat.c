@@ -34,7 +34,7 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.dev_file               = NULL,
-	.max_tune_sents         = 100000,
+	.max_tune_sents         = 1000000,
 	.min_count              = 2,
 	.class_order            = 3,
 	.num_threads            = 6,
@@ -68,6 +68,11 @@ int main(int argc, char **argv) {
 
 	char * restrict sent_buffer[cmd_args.max_tune_sents]; // This will get modified
 	char * restrict * restrict sent_store_string = malloc(sizeof(char *) * cmd_args.max_tune_sents); // This will not get modified
+	if (sent_store_string == NULL) {
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_string.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents);
+		exit(7);
+	}
+
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	unsigned long num_sents_in_store = 0;
 
@@ -106,11 +111,14 @@ int main(int argc, char **argv) {
 	populate_word_ids(&ngram_map, unique_words, global_metadata.type_count);
 
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * num_sents_in_store);
+	if (sent_store_int == NULL) {
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents);
+		exit(8);
+	}
 	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
 	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
-	// Now we can free each word in each sentence in sent_store_string
-	// ...
-	//free(sent_store_string);
+	// Each sentence in sent_store_string was freed within sent_store_string2sent_store_int().  Now we can free the entire array
+	free(sent_store_string);
 
 	wclass_t word2class[global_metadata.type_count];
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
@@ -273,6 +281,8 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
 		memcpy(sent_store_int[i].sent, sent_int_temp, sizeof(word_id_t) * sent_length);
 		memcpy(sent_store_int[i].sent_counts, sent_counts_int_temp, sizeof(unsigned int) * sent_length);
+
+		free(sent_i); // Free-up string-based sentence
 	}
 }
 
