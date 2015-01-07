@@ -17,6 +17,7 @@
 #include "clustercat-ngram-prob.h"	// class_ngram_prob()
 
 #define USAGE_LEN 10000
+#define BUFFER_LEN 1000
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
@@ -66,21 +67,22 @@ int main(int argc, char **argv) {
 	map_update_count(&ngram_map, "<s>", 0);
 	map_update_count(&ngram_map, "</s>", 0);
 
-	char * restrict sent_buffer[cmd_args.max_tune_sents]; // This will get modified
-	char * restrict * restrict sent_store_string = malloc(sizeof(char *) * cmd_args.max_tune_sents); // This will not get modified
+	char * restrict sent_buffer[BUFFER_LEN]; // This will get modified
+	char * restrict * restrict sent_store_string = malloc(sizeof(char **) * cmd_args.max_tune_sents); // This will not get modified
 	if (sent_store_string == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_string.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents);
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_string.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
 		exit(7);
 	}
+	memusage += sizeof(void *) * cmd_args.max_tune_sents;
 
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
 	unsigned long num_sents_in_store = 0;
 
 	while (1) {
 		// Fill sentence buffer
-		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
+		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, BUFFER_LEN);
 		//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
-		if ((num_sents_in_buffer == 0) || ( cmd_args.max_tune_sents <= global_metadata.line_count)) // No more sentences in buffer
+		if ((num_sents_in_buffer == 0) || ( BUFFER_LEN <= global_metadata.line_count)) // No more sentences in buffer
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
@@ -93,7 +95,7 @@ int main(int argc, char **argv) {
 
 	if (global_metadata.type_count <= cmd_args.num_classes) {
 		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count);
+			fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
 		exit(3);
 	}
 
@@ -112,7 +114,7 @@ int main(int argc, char **argv) {
 
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * num_sents_in_store);
 	if (sent_store_int == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents);
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
 		exit(8);
 	}
 	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
@@ -192,12 +194,12 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			else { printf("%s", usage); exit(0); }
 		} else if (!strcmp(argv[arg_i], "--class-file")) {
 			cmd_args->dev_file = argv[arg_i+1];
-			printf("Bug Jon to implement --class-file!\n");
+			printf("Bug Jon to implement --class-file!\n"); fflush(stderr);
 			exit(1);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--dev-file")) {
 			cmd_args->dev_file = argv[arg_i+1];
-			printf("Bug Jon to implement --dev-file!\n");
+			printf("Bug Jon to implement --dev-file!\n"); fflush(stderr);
 			exit(1);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
@@ -224,13 +226,13 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			cmd_args->verbose++;
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
-			printf("%s", usage);
+			printf("%s", usage); fflush(stderr);
 			exit(2);
 		}
 	}
 }
 
-void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
+void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
 	for (unsigned long i = 0; i < num_sents_in_store; i++) {
 		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
 		char * restrict sent_i = sent_store_string[i];
@@ -314,7 +316,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 	char **local_unique_words = (char **)malloc(model_metadata->type_count * sizeof(char*));
 	//char * local_unique_words[model_metadata->type_count];
 	if (vocab_size != get_keys(ngram_map, local_unique_words)) {
-		printf("Error: model_metadata->type_count != get_keys()\n");
+		printf("Error: model_metadata->type_count != get_keys()\n"); fflush(stderr);
 		exit(4);
 	}
 
@@ -582,7 +584,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					printf("Orig logprob for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
 					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
 					if (best_hypothesis_log_prob > 0) { // Shouldn't happen
-						fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class);
+						fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class); fflush(stderr);
 						exit(6);
 					}
 				}
@@ -731,11 +733,11 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			if (cmd_args.verbose > 1) {
 				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
 				if (class_i_count < word_i_count) { // Shouldn't happen
-					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count);
+					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count); fflush(stderr);
 					exit(5);
 				}
 				if (class_i_count > model_metadata.token_count) { // Shouldn't happen
-					printf("Error: prob of order max_ngram_used > 1;  %u/%lu\n", class_i_count, model_metadata.token_count);
+					printf("Error: prob of order max_ngram_used > 1;  %u/%lu\n", class_i_count, model_metadata.token_count); fflush(stderr);
 					exit(6);
 				}
 			}

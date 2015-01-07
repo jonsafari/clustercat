@@ -69,7 +69,7 @@ struct cmd_args {
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
-void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict * restrict sent_store_string, struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
+void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], const word_id_t type_count);
 void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], unsigned int word_counts[restrict], const word_id_t type_count);
 
