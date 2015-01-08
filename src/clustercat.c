@@ -35,7 +35,7 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.dev_file               = NULL,
-	.max_tune_sents         = 1000000,
+	.max_tune_sents         = 500000,
 	.min_count              = 2,
 	.class_order            = 3,
 	.num_threads            = 6,
@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
 	get_keys(&ngram_map, word_list);
 
 	// Build array of word_counts
-	unsigned int word_counts[global_metadata.type_count];
+	unsigned int * restrict word_counts = malloc(sizeof(unsigned int) * global_metadata.type_count);
 	memusage += sizeof(unsigned int) * global_metadata.type_count;
 	build_word_count_array(&ngram_map, word_list, word_counts, global_metadata.type_count);
 
@@ -147,6 +147,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %.0fm %is\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, time_secs_total/60, ((int)time_secs_total % 60)  );
 
 	free(word_list);
+	free(word_counts);
 	free(sent_store_int);
 	exit(0);
 }

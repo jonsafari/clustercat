@@ -67,6 +67,7 @@ unsigned long map_count(struct_map_word *map[const]);
 unsigned long map_print_entries(struct_map_word **map, const char * restrict prefix, const char sep_char, const unsigned int min_count);
 void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict]);
 
+void delete_all(struct_map_word **map);
 void delete_all_class(struct_map_class **map);
 void delete_entry(struct_map_word **map, struct_map_word *entry);
 
