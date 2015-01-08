@@ -583,7 +583,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					end_cycle_short = false;
 
 					if (cmd_args.verbose >= 0)
-						fprintf(stderr, " Moving w_%u\t%u -> %u\t(logprob %g -> %g)\n", word_i, old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
+						fprintf(stderr, " Moving id=%-6u %-18s %u -> %u\t(logprob %g -> %g)\n", word_i, word_list[word_i], old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
 					//map_update_class(&word2class_map, word, best_hypothesis_class);
 					word2class[word_i] = best_hypothesis_class;
