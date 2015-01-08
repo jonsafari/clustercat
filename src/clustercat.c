@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
 	delete_all(&ngram_map);
 	free(sent_store_string);
 
-	wclass_t word2class[global_metadata.type_count];
+	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
@@ -146,6 +146,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %.0fm %is\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, time_secs_total/60, ((int)time_secs_total % 60)  );
 
+	free(word2class);
 	free(word_list);
 	free(word_counts);
 	free(sent_store_int);
