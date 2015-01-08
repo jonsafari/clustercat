@@ -622,62 +622,6 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 }
 
 
-struct_sent_info parse_input_line(char * restrict line_in, const char * restrict temp_word, const wclass_t temp_class) {
-	// Make local copy of sentence, for threadsafe processing
-	struct_sent_info sent_info;
-	sent_info.sent = (char **)malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
-	sent_info.sent[0] = "<s>";
-	//sent_info.word_lengths[0] = strlen("<s>");
-	sent_info.sent_counts[0]  = map_find_count(&ngram_map, "<s>");
-	wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
-	if (!strncmp(temp_word, "<s>", MAX_WORD_LEN)) {
-		sent_info.class_sent[0] = temp_class;
-		//printf("<s> is temp class=%hu\n", sent_info.class_sent[0]);
-	} else {
-		sent_info.class_sent[0]   = get_class(&word2class_map, "<s>", unknown_word_class);
-		//printf("<s> is non-temp class=%hu\n", sent_info.class_sent[0]);
-	}
-
-	sentlen_t i;
-	char * restrict pch;
-
-	for (i = 1, pch = line_in; i < SENT_LEN_MAX ; i++) { // Tokenize & save sentence input from stdin
-		sentlen_t toklen = strcspn(pch, " \n\t");
-
-		if (toklen == 0) { // End of sentence
-			sent_info.sent[i] = "</s>";
-			if (!strncmp(temp_word, "</s>", MAX_WORD_LEN))
-				sent_info.class_sent[i] = temp_class;
-			else
-				sent_info.class_sent[i]   = get_class(&word2class_map, "</s>", unknown_word_class);
-			//sent_info.word_lengths[i] = strlen("</s>"); // We'll need this several times later, for memory allocation
-			sent_info.sent_counts[i]  = map_find_count(&ngram_map, "</s>");
-			break;
-		}
-
-		sent_info.sent[i] = malloc(toklen+1);
-		strncpy(sent_info.sent[i], pch, toklen); // Threadsafe copy doesn't touch original
-		sent_info.sent[i][toklen] = '\0';
-
-		sent_info.sent_counts[i] = map_find_count(&ngram_map, sent_info.sent[i]);
-		//sent_info.word_lengths[i]  = toklen; // We'll need this several times later, for memory allocation
-
-		if (!strncmp(temp_word, sent_info.sent[i], MAX_WORD_LEN))
-			sent_info.class_sent[i] = temp_class;
-		else
-			sent_info.class_sent[i] = get_class(&word2class_map, sent_info.sent[i], unknown_word_class);
-		//class = map_find_count(&model_maps.class_map, class) ? class : unknown_word_class; // If count of class is 0, then reassign it to the unknown class
-
-		pch += toklen+1;
-
-		if (cmd_args.verbose > 2)
-			printf("prs_npt_ln: i=%d\twlen=%d\tcnt=%d\tcls=%u\tw=%s\n", i, toklen, sent_info.sent_counts[i], sent_info.class_sent[i], sent_info.sent[i]);
-	}
-	sent_info.length = i;
-
-	return sent_info;
-}
-
 
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], const char * word_list[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
