@@ -100,17 +100,17 @@ int main(int argc, char **argv) {
 	}
 
 	// Get list of unique words
-	char **unique_words = (char **)malloc(sizeof(char*) * global_metadata.type_count);
+	char **word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	get_keys(&ngram_map, unique_words);
+	get_keys(&ngram_map, word_list);
 
 	// Build array of word_counts
 	unsigned int word_counts[global_metadata.type_count];
 	memusage += sizeof(unsigned int) * global_metadata.type_count;
-	//build_word_count_array(&ngram_map, unique_words, word_counts, global_metadata.type_count);
+	build_word_count_array(&ngram_map, word_list, word_counts, global_metadata.type_count);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
-	populate_word_ids(&ngram_map, unique_words, global_metadata.type_count);
+	populate_word_ids(&ngram_map, word_list, global_metadata.type_count);
 
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * num_sents_in_store);
 	if (sent_store_int == NULL) {
@@ -129,17 +129,14 @@ int main(int argc, char **argv) {
 	clock_t time_model_built = clock();
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
-	unsigned long ngram_entries   = map_count(&ngram_map);
-	unsigned long map_entries = global_metadata.type_count + ngram_entries;
-	memusage += sizeof(struct_map_word) * map_entries;
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
-	cluster(cmd_args, sent_store_int, global_metadata, word2class);
+	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class);
 
 	// Now print the final word2class_map
 	if (cmd_args.verbose >= 0)
-		print_words_and_classes(global_metadata.type_count, unique_words, word2class);
+		print_words_and_classes(global_metadata.type_count, word_list, word2class);
 
 	clock_t time_clustered = clock();
 	time_t time_t_end;
@@ -148,7 +145,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %.0fm %is\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, time_secs_total/60, ((int)time_secs_total % 60)  );
 
-	free(unique_words);
+	free(word_list);
 	free(sent_store_int);
 	exit(0);
 }
@@ -273,7 +270,6 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 		// Now that we know the actual sentence length, we can allocate the right amount for the sentence
 		sent_store_int[i].sent = malloc(sizeof(word_id_t) * sent_length);
-		sent_store_int[i].class_sent = malloc(sizeof(wclass_t) * sent_length); // Values set later
 		sent_store_int[i].sent_counts = malloc(sizeof(unsigned int) * sent_length);
 
 		memusage += sizeof(word_id_t) * sent_length;
@@ -288,16 +284,16 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 	}
 }
 
-void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], unsigned int word_counts[restrict], const word_id_t type_count) {
+void build_word_count_array(struct_map_word **ngram_map, char * restrict word_list[const], unsigned int word_counts[restrict], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
-		word_counts[i] = map_find_count(ngram_map, unique_words[i]);
+		word_counts[i] = map_find_count(ngram_map, word_list[i]);
 	}
 }
 
-void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], const word_id_t type_count) {
+void populate_word_ids(struct_map_word **ngram_map, char * restrict word_list[const], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
-		//printf("%s=%u\n", unique_words[i], i);
-		map_set_word_id(ngram_map, unique_words[i], i);
+		//printf("%s=%u\n", word_list[i], i);
+		map_set_word_id(ngram_map, word_list[i], i);
 	}
 }
 
@@ -313,30 +309,30 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 	//     decrement model_metadata.type_count by one
 	//     free & delete entry in map,
 
-	char **local_unique_words = (char **)malloc(model_metadata->type_count * sizeof(char*));
-	//char * local_unique_words[model_metadata->type_count];
-	if (vocab_size != get_keys(ngram_map, local_unique_words)) {
+	char **local_word_list = (char **)malloc(model_metadata->type_count * sizeof(char*));
+	//char * local_word_list[model_metadata->type_count];
+	if (vocab_size != get_keys(ngram_map, local_word_list)) {
 		printf("Error: model_metadata->type_count != get_keys()\n"); fflush(stderr);
 		exit(4);
 	}
 
 	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
-		unsigned long word_i_count = map_find_count(ngram_map, local_unique_words[word_i]);  // We'll use this a couple times
-		if ((word_i_count < cmd_args.min_count) && (strncmp(local_unique_words[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
+		unsigned long word_i_count = map_find_count(ngram_map, local_word_list[word_i]);  // We'll use this a couple times
+		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
 			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count);
 			if (cmd_args.verbose > 1)
-				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_unique_words[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
+				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
 			struct_map_word *local_s;
-			HASH_FIND_STR(*ngram_map, local_unique_words[word_i], local_s);
+			HASH_FIND_STR(*ngram_map, local_word_list[word_i], local_s);
 			delete_entry(ngram_map, local_s);
 		}
 		//else
-			//printf("Keeping word: %s (%lu < %hu);\tcount(%s)=%u\n", local_unique_words[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
+			//printf("Keeping word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
 	}
 
-	free(local_unique_words);
+	free(local_word_list);
 	return number_of_deleted_words;
 }
 
@@ -539,7 +535,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, wclass_t word2class[]) {
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const char * word_list[const], wclass_t word2class[]) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -547,7 +543,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
 		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
-		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, &class_map, -1, 0);
+		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, -1, 1);
 
 		if (cmd_args.verbose >= 0)
 			fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -573,7 +569,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
 					process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, &class_map, word_i, class);
+					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 				}
 
@@ -683,7 +679,7 @@ struct_sent_info parse_input_line(char * restrict line_in, const char * restrict
 }
 
 
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], const char * word_list[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
@@ -714,11 +710,12 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const wclass_t class_i = class_sent[i];
 			wclass_t class_i_entry[CLASSLEN] = {0};
 			class_i_entry[0] = class_i;
-			const unsigned int word_i_count = sent_info->sent_counts[i];
+			//const unsigned int word_i_count = sent_info->sent_counts[i];
+			const unsigned int word_i_count = word_counts[word_i];
 			const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
-				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw_id=%u\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i);
+				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i, word_list[word_i]);
 			}
 
 			// Class N-gram Prob
@@ -754,7 +751,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 void print_sent_info(struct_sent_info * restrict sent_info) {
 	printf("struct sent_info { length = %u\n", sent_info->length);
 	for (sentlen_t i = 0; i < sent_info->length; i++) {
-		printf(" i=%u\twlen=%i\twcnt=%u\twcls=%u\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent_counts[i], sent_info->class_sent[i], sent_info->sent[i]);
+		printf(" i=%u\twlen=%i\twcnt=%u\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent_counts[i], sent_info->sent[i]);
 	}
 	printf("}\n");
 }
