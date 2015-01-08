@@ -120,6 +120,7 @@ int main(int argc, char **argv) {
 	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
 	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
 	// Each sentence in sent_store_string was freed within sent_store_string2sent_store_int().  Now we can free the entire array
+	delete_all(&ngram_map);
 	free(sent_store_string);
 
 	wclass_t word2class[global_metadata.type_count];
