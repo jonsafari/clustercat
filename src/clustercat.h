@@ -42,7 +42,6 @@ typedef struct {
 
 typedef struct {
 	word_id_t * restrict sent;
-	wclass_t * restrict class_sent;
 	sentlen_t length;
 } struct_sent_int_info;
 
