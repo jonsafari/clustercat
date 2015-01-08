@@ -236,7 +236,6 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 		//printf("sent[%lu]=<<%s>>\n", i, sent_i);
 
 		word_id_t sent_int_temp[SENT_LEN_MAX];
-		unsigned int sent_counts_int_temp[SENT_LEN_MAX];
 
 		// Stupid strtok is destructive
 		char * restrict pch = NULL;
@@ -244,7 +243,6 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 		// Initialize first element in sentence to <s>
 		sent_int_temp[0]        = map_find_int(ngram_map, "<s>");
-		sent_counts_int_temp[0] = map_find_count(ngram_map, "<s>");
 
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
@@ -255,7 +253,6 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 			}
 
 			sent_int_temp[w_i] = map_find_int(ngram_map, pch);
-			sent_counts_int_temp[w_i] = map_find_count(ngram_map, pch);
 			//printf("pch=%s, int=%u, count=%u\n", pch, sent_int_temp[w_i], sent_counts_int_temp[w_i]);
 
 			pch = strtok(NULL, TOK_CHARS);
@@ -263,14 +260,12 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 		// Initialize first element in sentence to </s>
 		sent_int_temp[w_i]        = map_find_int(ngram_map, "</s>");
-		sent_counts_int_temp[w_i] = map_find_count(ngram_map, "</s>");
 
 		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
 		sent_store_int[i].length = sent_length;
 
 		// Now that we know the actual sentence length, we can allocate the right amount for the sentence
 		sent_store_int[i].sent = malloc(sizeof(word_id_t) * sent_length);
-		sent_store_int[i].sent_counts = malloc(sizeof(unsigned int) * sent_length);
 
 		memusage += sizeof(word_id_t) * sent_length;
 		memusage += sizeof(wclass_t) * sent_length;
@@ -278,7 +273,6 @@ void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restri
 
 		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
 		memcpy(sent_store_int[i].sent, sent_int_temp, sizeof(word_id_t) * sent_length);
-		memcpy(sent_store_int[i].sent_counts, sent_counts_int_temp, sizeof(unsigned int) * sent_length);
 
 		free(sent_i); // Free-up string-based sentence
 	}
@@ -478,7 +472,6 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 	// Initialize first element in sentence to <s>
 	sent_info->sent[0] = "<s>";
 	sent_info->word_lengths[0]  = strlen("<s>");
-	sent_info->sent_counts[0] = map_find_count(&ngram_map, "<s>");
 
 	sentlen_t w_i = 1; // Word 0 is <s>
 
@@ -490,8 +483,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 		sent_info->sent[w_i] = pch;
 		sent_info->word_lengths[w_i] = strlen(pch);
-		sent_info->sent_counts[w_i] = map_find_count(&ngram_map, pch);
-		//printf("pch=%s; len=%u, count=%u\n", pch, sent_info->word_lengths[w_i], sent_info->sent_counts[w_i]);
+		//printf("pch=%s; len=%u\n", pch, sent_info->word_lengths[w_i]);
 
 		if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
 			pch[MAX_WORD_LEN] = '\0';
@@ -504,7 +496,6 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 	// Initialize last element in sentence to </s>
 	sent_info->sent[w_i] = "</s>";
-	sent_info->sent_counts[w_i] = map_find_count(&ngram_map, "</s>");
 	sent_info->word_lengths[w_i]  = strlen("</s>");
 	sent_info->length = w_i + 1; // Include <s>
 }
@@ -654,7 +645,6 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const wclass_t class_i = class_sent[i];
 			wclass_t class_i_entry[CLASSLEN] = {0};
 			class_i_entry[0] = class_i;
-			//const unsigned int word_i_count = sent_info->sent_counts[i];
 			const unsigned int word_i_count = word_counts[word_i];
 			const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
@@ -695,7 +685,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 void print_sent_info(struct_sent_info * restrict sent_info) {
 	printf("struct sent_info { length = %u\n", sent_info->length);
 	for (sentlen_t i = 0; i < sent_info->length; i++) {
-		printf(" i=%u\twlen=%i\twcnt=%u\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent_counts[i], sent_info->sent[i]);
+		printf(" i=%u\twlen=%i\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent[i]);
 	}
 	printf("}\n");
 }

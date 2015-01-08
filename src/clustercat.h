@@ -36,7 +36,6 @@ enum class_algos {EXCHANGE, BROWN};
 
 typedef struct {
 	char **sent;
-	unsigned int sent_counts[STDIN_SENT_MAX_WORDS];
 	short word_lengths[STDIN_SENT_MAX_WORDS];
 	sentlen_t length;
 } struct_sent_info;
@@ -44,7 +43,6 @@ typedef struct {
 typedef struct {
 	word_id_t * restrict sent;
 	wclass_t * restrict class_sent;
-	unsigned int * restrict sent_counts;
 	sentlen_t length;
 } struct_sent_int_info;
 
