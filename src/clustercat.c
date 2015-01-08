@@ -649,7 +649,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 		const struct_sent_int_info * const sent_info = &sent_store_int[current_sent_num];
 
 
-		for (sentlen_t i = 1; i <= sent_length; i++) {
+		for (sentlen_t i = 1; i < sent_length; i++) {
 			const word_id_t word_i = sent_info->sent[i];
 			const wclass_t class_i = class_sent[i];
 			wclass_t class_i_entry[CLASSLEN] = {0};
