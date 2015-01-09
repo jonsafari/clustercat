@@ -17,7 +17,6 @@
 #include "clustercat-ngram-prob.h"	// class_ngram_prob()
 
 #define USAGE_LEN 10000
-#define BUFFER_LEN 1000
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
@@ -35,7 +34,7 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo             = EXCHANGE,
 	.dev_file               = NULL,
-	.max_tune_sents         = 500000,
+	.max_tune_sents         = 1000000,
 	.min_count              = 2,
 	.class_order            = 3,
 	.num_threads            = 6,
@@ -67,27 +66,24 @@ int main(int argc, char **argv) {
 	map_update_count(&ngram_map, "<s>", 0);
 	map_update_count(&ngram_map, "</s>", 0);
 
-	char * restrict sent_buffer[BUFFER_LEN]; // This will get modified
-	char * restrict * restrict sent_store_string = malloc(sizeof(char **) * cmd_args.max_tune_sents); // This will not get modified
-	if (sent_store_string == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_string.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
+	char * restrict * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
+	if (sent_buffer == NULL) {
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %zu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
 		exit(7);
 	}
 	memusage += sizeof(void *) * cmd_args.max_tune_sents;
 
 	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
-	unsigned long num_sents_in_store = 0;
 
 	while (1) {
 		// Fill sentence buffer
-		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, BUFFER_LEN);
+		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
 		//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
-		if ((num_sents_in_buffer == 0) || ( BUFFER_LEN <= global_metadata.line_count)) // No more sentences in buffer
+		if ((num_sents_in_buffer == 0) || ( cmd_args.max_tune_sents <= global_metadata.line_count)) // No more sentences in buffer
 			break;
 
 		global_metadata.line_count  += num_sents_in_buffer;
 		global_metadata.token_count += process_str_sents_in_buffer(sent_buffer, num_sents_in_buffer);
-		num_sents_in_store += copy_buffer_to_store(sent_buffer, num_sents_in_buffer, sent_store_string, num_sents_in_store, cmd_args.max_tune_sents ); // Separate from process_str_sents_in_buffer() since we call that function in two separate contexts
 	}
 
 	global_metadata.type_count        = map_count(&ngram_map);
@@ -112,16 +108,17 @@ int main(int argc, char **argv) {
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, word_list, global_metadata.type_count);
 
-	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * num_sents_in_store);
+	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * global_metadata.line_count);
 	if (sent_store_int == NULL) {
 		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
 		exit(8);
 	}
-	memusage += sizeof(struct_sent_int_info) * num_sents_in_store;
-	sent_store_string2sent_store_int(&ngram_map, sent_store_string, sent_store_int, num_sents_in_store);
-	// Each sentence in sent_store_string was freed within sent_store_string2sent_store_int().  Now we can free the entire array
+	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
+	sent_buffer2sent_store_int(&ngram_map, sent_buffer, sent_store_int, global_metadata.line_count);
+	// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
 	delete_all(&ngram_map);
-	free(sent_store_string);
+	free(sent_buffer);
+	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
@@ -232,11 +229,13 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-void sent_store_string2sent_store_int(struct_map_word **ngram_map, char * restrict sent_store_string[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
-	for (unsigned long i = 0; i < num_sents_in_store; i++) {
-		// Copy string-oriented sent_store_string[] to int-oriented sent_store_int[]
-		char * restrict sent_i = sent_store_string[i];
-		//printf("sent[%lu]=<<%s>>\n", i, sent_i);
+void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
+	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
+		if (sent_buffer[i] == NULL) // No more sentences in buffer
+			break;
+
+		char * restrict sent_i = sent_buffer[i];
+		//printf("sent[%lu]=<<%s>>\n", i, sent_buffer[i]); fflush(stdout);
 
 		word_id_t sent_int_temp[SENT_LEN_MAX];
 
@@ -318,7 +317,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
 			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count);
-			if (cmd_args.verbose > 1)
+			if (cmd_args.verbose > 2)
 				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
 			struct_map_word *local_s;
@@ -395,15 +394,6 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 		map_increment_count_fixed_width(map, jp);
 		jp++;
 	}
-}
-
-unsigned long copy_buffer_to_store(char * restrict sent_buffer[const], const unsigned long num_sents_in_buffer, char * restrict * restrict sent_store, unsigned long num_sents_in_store, const unsigned long max_tune_sents) {
-	for (unsigned long i = 0; (num_sents_in_store <= max_tune_sents) && (i < num_sents_in_buffer); i++, num_sents_in_store++) {
-		if (sent_buffer[i] == NULL) // The last bit of the buffer might be empty
-			break;
-		sent_store[i] = sent_buffer[i];
-	}
-	return num_sents_in_store;
 }
 
 void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
@@ -575,7 +565,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
 					if (best_hypothesis_log_prob > 0) { // Shouldn't happen
 						fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class); fflush(stderr);
-						exit(6);
+						exit(9);
 					}
 				}
 
