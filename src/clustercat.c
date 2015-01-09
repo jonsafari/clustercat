@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 
 	char * restrict * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
 	if (sent_buffer == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %zu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %lu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
 		exit(7);
 	}
 	memusage += sizeof(void *) * cmd_args.max_tune_sents;
