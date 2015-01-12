@@ -529,8 +529,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, -1, 1);
 
-		if (cmd_args.verbose >= 0)
-			fprintf(stderr, "%s: Expected Steps: %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		if (cmd_args.verbose >= -1)
+			fprintf(stderr, "%s: Expected Steps:  %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
@@ -585,8 +585,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			if (end_cycle_short)
 				break;
 		}
-		if (cmd_args.verbose >= 0)
-			fprintf(stderr, "%s: Completed steps: %lu (%u word types x %u classes x %u cycles);  best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+		if (cmd_args.verbose >= -1)
+			fprintf(stderr, "%s: Completed steps: %lu (%u word types x %u classes x %u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
