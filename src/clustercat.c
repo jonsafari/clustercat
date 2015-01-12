@@ -685,3 +685,6 @@ void print_sent_info(struct_sent_info * restrict sent_info) {
 	}
 	printf("}\n");
 }
+
+void init_count_arrays(const struct cmd_args cmd_args, wclass_t * restrict * restrict arrays) {
+}
