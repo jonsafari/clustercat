@@ -36,10 +36,11 @@ struct cmd_args cmd_args = {
 	.dev_file               = NULL,
 	.max_tune_sents         = 1000000,
 	.min_count              = 2,
+	.max_array              = 2,
 	.class_order            = 3,
 	.num_threads            = 6,
 	.num_classes            = 100,
-	.tune_cycles            = 50,
+	.tune_cycles            = 25,
 	.verbose                = 0,
 };
 
@@ -166,13 +167,14 @@ Options:\n\
  -h, --help               Print this usage\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
+     --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
  -n, --num-classes <c>    Set number of word classes (default: %d classes)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %lu sentences)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 
@@ -204,6 +206,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--min-count")) {
 			cmd_args->min_count = (unsigned int) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--max-array")) {
+			cmd_args->max_array = (unsigned char) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);

@@ -62,6 +62,7 @@ struct cmd_args {
 	unsigned short num_threads : 10;
 	unsigned short min_count : 9;
 	char           verbose : 3;     // Negative values increasingly suppress normal output
+	unsigned char  max_array : 2;
 	unsigned char  class_algo : 2;  // enum class_algos
 };
 
