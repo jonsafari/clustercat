@@ -161,15 +161,15 @@ Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
-     --class-file <file>  Initialize word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
+     --class-file <file>  Initialize exchange word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
      --dev-file <file>    Use separate file to tune on (default: training set, from stdin)\n\
  -h, --help               Print this usage\n\
- -j, --jobs <i>           Set number of threads to run simultaneously (default: %d threads)\n\
-     --min-count <i>      Minimum count of entries in training set to consider (default: %d occurrences)\n\
- -n, --num-classes <i>    Set number of word classes (default: %d classes)\n\
+ -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
+     --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
+ -n, --num-classes <c>    Set number of word classes (default: %d classes)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
-     --tune-sents <i>     Set size of sentence store to tune on (default: first %lu sentences)\n\
-     --tune-cycles <i>    Set max number of cycles to tune on (default: %d cycles)\n\
+     --tune-sents <lu>    Set size of sentence store to tune on (default: first %lu sentences)\n\
+     --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
 ", cmd_args.num_threads, cmd_args.min_count, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles);
@@ -645,13 +645,11 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i, word_list[word_i]);
 			}
 
-			// Class N-gram Prob
-			float the_class_prob = 0.5;
 			// Class prob is transition prob * emission prob
 			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
 			float weights_class[] = {0.05, 0.4, 0.4, 0.15};
 			float transition_prob = class_ngram_prob(class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
-			the_class_prob = transition_prob * emission_prob;
+			float the_class_prob = transition_prob * emission_prob;
 
 
 			if (cmd_args.verbose > 1) {
