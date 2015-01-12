@@ -401,7 +401,7 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, struct_map_clas
 	}
 }
 
-void process_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 		register word_id_t word_id;
@@ -531,7 +531,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
-		process_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
+		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, -1, 1);
 
 		if (cmd_args.verbose >= -1)
@@ -556,7 +556,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
 					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
-					process_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
+					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
