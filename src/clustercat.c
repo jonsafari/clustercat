@@ -686,5 +686,8 @@ void print_sent_info(struct_sent_info * restrict sent_info) {
 	printf("}\n");
 }
 
-void init_count_arrays(const struct cmd_args cmd_args, wclass_t * restrict * restrict arrays) {
+void init_count_arrays(const struct cmd_args cmd_args, const word_id_t type_count, unsigned int * restrict * restrict arrays) {
+	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in arrays[0], ...
+		arrays[i-1] = calloc(powi(type_count, i), sizeof(unsigned int)); // powi() is in clustercat-math.c
+	}
 }
