@@ -71,8 +71,8 @@ void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words
 void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], unsigned int word_counts[restrict], const word_id_t type_count);
 
 void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
-void increment_ngram_fixed_width(struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
-void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
+void increment_ngram_fixed_width(const struct cmd_args cmd_args, struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
+void process_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
 unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer);
 unsigned long process_str_sent(char * restrict sent_str);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);

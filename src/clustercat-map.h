@@ -11,7 +11,7 @@
 
 // Defaults
 #define KEYLEN 80
-#define CLASSLEN 4 // Longest possible class ngram to store
+#define CLASSLEN 3 // Longest possible class ngram to store
 typedef unsigned short wclass_t;  // Number of possible word classes
 typedef unsigned int   word_id_t; // Number of possible word classes
 

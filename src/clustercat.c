@@ -384,7 +384,7 @@ void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict
 	}
 }
 
-void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
+void increment_ngram_fixed_width(const struct cmd_args cmd_args, struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
 	unsigned char ngram_len = i - start_position + 1;
 
 	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
@@ -401,7 +401,7 @@ void increment_ngram_fixed_width(struct_map_class **map, wclass_t sent[const], s
 	}
 }
 
-void process_int_sents_in_store(const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+void process_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 		register word_id_t word_id;
@@ -416,7 +416,7 @@ void process_int_sents_in_store(const struct_sent_int_info * const sent_store_in
 			}
 
 			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram_fixed_width(class_map, class_sent, start_position_class, i);
+			increment_ngram_fixed_width(cmd_args, class_map, class_sent, start_position_class, i);
 		}
 	}
 }
@@ -531,7 +531,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
-		process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
+		process_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, -1, 1);
 
 		if (cmd_args.verbose >= -1)
@@ -556,7 +556,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
 					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
-					process_int_sents_in_store(sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
+					process_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
@@ -647,7 +647,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
-				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu,%hu]\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], class_i_entry[3], word_i, word_list[word_i]);
+				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu]\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], word_i, word_list[word_i]);
 			}
 
 			// Class prob is transition prob * emission prob
