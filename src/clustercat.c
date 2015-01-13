@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 	map_update_count(&ngram_map, "<s>", 0);
 	map_update_count(&ngram_map, "</s>", 0);
 
-	char * restrict * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
+	char * * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
 	if (sent_buffer == NULL) {
 		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %lu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
 		exit(7);
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 	}
 
 	// Get list of unique words
-	char **word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
+	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
 	get_keys(&ngram_map, word_list);
 
@@ -530,7 +530,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const char * word_list[const], wclass_t word2class[]) {
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[]) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -623,7 +623,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 
 
 
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], const char * word_list[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
