@@ -125,6 +125,11 @@ int main(int argc, char **argv) {
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
 
+	// Calculate memusage for count_arrays
+	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
+		memusage += cmd_args.num_threads * (powi(global_metadata.type_count, i) * sizeof(unsigned int));
+	}
+
 	clock_t time_model_built = clock();
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
@@ -401,8 +406,9 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, struct_map_clas
 	}
 }
 
-void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const unsigned long num_sents_in_buffer, const wclass_t word2class[const], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
-	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) { // loop over sentences
+void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+
+	for (unsigned long current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 		register word_id_t word_id;
 		wclass_t class_sent[STDIN_SENT_MAX_WORDS];
@@ -530,9 +536,12 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-		//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, "", -1); // Get class ngram counts
-		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, -1, 0); // Get class ngram counts
+		count_arrays_t count_arrays = malloc(sizeof(void *) * cmd_args.max_array);
+		init_count_arrays(cmd_args, model_metadata.type_count, count_arrays);
+		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, -1, 0); // Get class ngram counts. We use -1 so that no words are ever substituted
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, -1, 1);
+		free_count_arrays(cmd_args, count_arrays);
+		free(count_arrays);
 
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Expected Steps:  %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -554,12 +563,14 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					//printf("in par loop with w_%u, cls=%hu\n", word_i, class); fflush(stdout);
-					//process_str_sents_in_buffer(sent_store, model_metadata.line_count, &class_map, false, true, word, class); // Get class ngram counts
-					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata.line_count, word2class, &class_map, word_i, class); // Get class ngram counts
+					count_arrays_t count_arrays = malloc(sizeof(void *) * cmd_args.max_array);
+					init_count_arrays(cmd_args, model_metadata.type_count, count_arrays);
+					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
+					free_count_arrays(cmd_args, count_arrays);
+					free(count_arrays);
 				}
 
 				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
@@ -686,8 +697,15 @@ void print_sent_info(struct_sent_info * restrict sent_info) {
 	printf("}\n");
 }
 
-void init_count_arrays(const struct cmd_args cmd_args, const word_id_t type_count, unsigned int * restrict * restrict arrays) {
-	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in arrays[0], ...
-		arrays[i-1] = calloc(powi(type_count, i), sizeof(unsigned int)); // powi() is in clustercat-math.c
+void init_count_arrays(const struct cmd_args cmd_args, const word_id_t type_count, count_arrays_t count_arrays) {
+	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
+		count_arrays[i-1] = calloc(powi(type_count, i), sizeof(unsigned int)); // powi() is in clustercat-math.c
+		//printf("Allocating %zu B (type_count=%u^i=%u * sizeof(uint)=%zu)\n", (powi(type_count, i) * sizeof(unsigned int)), type_count, i, sizeof(unsigned int));
+	}
+}
+
+void free_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays) {
+	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
+		free(count_arrays[i-1]);
 	}
 }
