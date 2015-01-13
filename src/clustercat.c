@@ -389,7 +389,7 @@ void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict
 	}
 }
 
-void increment_ngram_fixed_width(const struct cmd_args cmd_args, struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
+void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
 	unsigned char ngram_len = i - start_position + 1;
 
 	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
@@ -422,7 +422,7 @@ void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_
 			}
 
 			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram_fixed_width(cmd_args, class_map, class_sent, start_position_class, i);
+			increment_ngram_fixed_width(cmd_args, count_arrays, class_map, class_sent, start_position_class, i);
 		}
 	}
 }
