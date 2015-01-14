@@ -47,6 +47,12 @@ struct cmd_args cmd_args = {
 
 
 int main(int argc, char **argv) {
+	//unsigned short short_array[] = {104,101};
+	//printf("array_offset([104,101], 2)=%zu\n", array_offset(short_array, 2));
+	//unsigned short short_array2[] = {3,7,11};
+	//printf("array_offset([3,7,11], 3)=%zu\n", array_offset(short_array2, 3));
+	//exit(0);
+
 	setlocale(LC_ALL, ""); // Comment-out on non-Posix systems
 	clock_t time_start = clock();
 	time_t time_t_start;
@@ -411,7 +417,7 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 
 	// Lower-order n-grams handled using a dense array for each n-gram order
 	for (; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
-		;
+		count_arrays[ngram_len-1][ array_offset(&sent[start_position], ngram_len) ]++;
 	}
 
 }

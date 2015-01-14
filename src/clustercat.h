@@ -86,4 +86,24 @@ void init_count_arrays(const struct cmd_args cmd_args, const word_id_t type_coun
 void free_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 
 void print_sent_info(struct_sent_info * restrict sent_info);
+
+// Like atoi/strtol, but doesn't interpret each char's ascii value 0..9 .  Hence [104,101] ("he") -> 26725  (ie. (104*256)+101).  [3,7,11] -> 198411 (3*256*256) + (7*256) + 11)
+// Using a class n-gram array is fast, at the expense of memory usage for lots of unattested ngrams, especially for higher-order n-grams.
+// Trigrams are probably the highest order you'd want to use as an array, since the memory usage would be:  sizeof(wclass_t) * |C|^3   where |C| is the number of word classes.
+// |C| can be represented using an unsigned short (16 bits == 65k classes) for exchange clustering, but probably should be an unsigned int (32 bit == 4 billion classes) for Brown clustering, since initially every word type is its own class.
+inline size_t array_offset(unsigned short * pointer, unsigned int max) {
+    size_t i = *pointer;
+    while (--max) {
+        //printf("1: atosize_t: pointer=%hu; val_0=%zu; i=%zu; max=%u\n", pointer, *pointer, i, max); fflush(stdout);
+        i <<= 8; // Shift left by one byte (==  *= 256)
+        if (*pointer != 0) // pad i when pointer is done
+            pointer++;
+        i |= *pointer; // (==  += c+1)
+        //printf("2: atosize_t: pointer=%.2s; val_0=%u; i=%zu; max=%u\n\n", pointer, *pointer, i, max); fflush(stdout);
+    }
+    return i;
+}
+
+
+
 #endif // INCLUDE_HEADER
