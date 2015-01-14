@@ -392,18 +392,28 @@ void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict
 void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
 	unsigned char ngram_len = i - start_position + 1;
 
-	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
-	memcpy(&ngram, &sent[start_position], ngram_len * sizeof(wclass_t));
-	//printf("ngm++ 1: i-sp=%u (i:%u,sp:%u), ngmlen=%u, sent[%hu,%hu,%hu,%hu,%hu,%hu,...]\n", i - start_position, i, start_position, ngram_len, sent[0], sent[1], sent[2], sent[3],sent[4],sent[5]);
-	//printf("ngm++ 2: CLASSLEN=%u, ngram=[%hu,%hu,%hu,%hu,%hu,%hu,%hu]\n", CLASSLEN, ngram[0], ngram[1], ngram[2], ngram[3], ngram[4], ngram[5], ngram[6]);
+	// We might need to use a (sparse) hash table for the higher n-gram orders above cmd_args.max_array
+	if (ngram_len > cmd_args.max_array) {
 
-	wclass_t * restrict jp = ngram;
-	for (sentlen_t j = start_position; j <= i; j++, --ngram_len) { // Traverse longest n-gram string
-		if (cmd_args.verbose > 2)
-			printf("incr._ngram_fw4: start_pos=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
-		map_increment_count_fixed_width(map, jp);
-		jp++;
+		wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
+		memcpy(&ngram, &sent[start_position], ngram_len * sizeof(wclass_t));
+		//printf("ngm++ 1: i-sp=%u (i:%u,sp:%u), ngmlen=%u, sent[%hu,%hu,%hu,%hu,%hu,%hu,...]\n", i - start_position, i, start_position, ngram_len, sent[0], sent[1], sent[2], sent[3],sent[4],sent[5]);
+		//printf("ngm++ 2: CLASSLEN=%u, ngram=[%hu,%hu,%hu,%hu,%hu,%hu,%hu]\n", CLASSLEN, ngram[0], ngram[1], ngram[2], ngram[3], ngram[4], ngram[5], ngram[6]);
+
+		wclass_t * restrict jp = ngram;
+		for (sentlen_t j = start_position; (j <= i) && (ngram_len > cmd_args.max_array); j++, --ngram_len) { // Traverse longest n-gram string
+			if (cmd_args.verbose > 2)
+				printf("incr._ngram_fw4: start_pos=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
+			map_increment_count_fixed_width(map, jp);
+			jp++;
+		}
 	}
+
+	// Lower-order n-grams handled using a dense array for each n-gram order
+	for (; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
+		;
+	}
+
 }
 
 void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
