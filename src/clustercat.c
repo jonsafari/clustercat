@@ -47,12 +47,6 @@ struct cmd_args cmd_args = {
 
 
 int main(int argc, char **argv) {
-	//unsigned short short_array[] = {104,101};
-	//printf("array_offset([104,101], 2)=%zu\n", array_offset(short_array, 2));
-	//unsigned short short_array2[] = {3,7,11};
-	//printf("array_offset([3,7,11], 3)=%zu\n", array_offset(short_array2, 3));
-	//exit(0);
-
 	setlocale(LC_ALL, ""); // Comment-out on non-Posix systems
 	clock_t time_start = clock();
 	time_t time_t_start;
