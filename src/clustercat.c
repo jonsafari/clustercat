@@ -549,7 +549,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		count_arrays_t count_arrays = malloc(sizeof(void *) * cmd_args.max_array);
 		init_count_arrays(cmd_args, model_metadata.type_count, count_arrays);
 		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, -1, 0); // Get class ngram counts. We use -1 so that no words are ever substituted
-		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, -1, 1);
+		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, -1, 1);
 		free_count_arrays(cmd_args, count_arrays);
 		free(count_arrays);
 
@@ -577,7 +577,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					init_count_arrays(cmd_args, model_metadata.type_count, count_arrays);
 					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, &class_map, word_i, class);
+					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
 					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					free_count_arrays(cmd_args, count_arrays);
 					free(count_arrays);
@@ -633,7 +633,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 
 
 
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
@@ -665,6 +665,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			wclass_t class_i_entry[CLASSLEN] = {0};
 			class_i_entry[0] = class_i;
 			const unsigned int word_i_count = word_counts[word_i];
+			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
