@@ -416,9 +416,10 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 
 	// Lower-order n-grams handled using a dense array for each n-gram order
 	for (; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
-		count_arrays[ngram_len-1][ array_offset(&sent[i], ngram_len) ]++;
+	//printf("34.7.1.1: sent[i-1]=%u, sent[i]=%u, offset=%zu, ngram_len=%u\n", sent[i-1], sent[i], array_offset(&sent[i+1-ngram_len], ngram_len), ngram_len); fflush(stdout);
+		count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len) ]++;
 		if (cmd_args.verbose > 2)
-			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i], ngram_len) ] );
+			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len) ] );
 	}
 
 }
@@ -669,8 +670,8 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 		for (sentlen_t i = 1; i < sent_length; i++) {
 			const word_id_t word_i = sent_info->sent[i];
 			const wclass_t class_i = class_sent[i];
-			wclass_t class_i_entry[CLASSLEN] = {0};
-			class_i_entry[0] = class_i;
+			//wclass_t class_i_entry[CLASSLEN] = {0};
+			//class_i_entry[0] = class_i;
 			const unsigned int word_i_count = word_counts[word_i];
 			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			const unsigned int class_i_count = count_arrays[0][class_i];
@@ -683,7 +684,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			// Class prob is transition prob * emission prob
 			const float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
 			float weights_class[] = {0.05, 0.4, 0.4, 0.15};
-			const float transition_prob = class_ngram_prob(class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
+			const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
 			const float the_class_prob = transition_prob * emission_prob;
 
 

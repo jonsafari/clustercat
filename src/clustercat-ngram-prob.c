@@ -4,7 +4,7 @@
 #include "clustercat-ngram-prob.h"
 #include "clustercat-math.h"			// dot_product()
 
-float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, const wclass_t class_i, const unsigned int class_i_count, wclass_t sent[const], const unsigned char ngram_order, const struct_model_metadata model_metadata, const float weights[const]) { // Cf. increment_ngram()
+float class_ngram_prob(const struct cmd_args cmd_args, const count_arrays_t count_arrays, struct_map_class *class_map[const], const sentlen_t i, const wclass_t class_i, const unsigned int class_i_count, wclass_t sent[const], const unsigned char ngram_order, const struct_model_metadata model_metadata, const float weights[const]) { // Cf. increment_ngram()
 	const wclass_t i_val = sent[i];
 	float order_probs[CLASSLEN] = {0};  // unigrams at 0, bigrams at 1, trigrams at 2, ...
 	order_probs[0] = class_i_count / (float)model_metadata.token_count;
@@ -32,10 +32,9 @@ float class_ngram_prob(struct_map_class *class_map[const], const sentlen_t i, co
 
 	//#pragma omp ordered
 	//printf("transition_probs:\t");
-	//#pragma omp ordered
-	//fprint_arrayf(stdout, order_probs, max_ngram_used, ",");
+	//fprint_arrayf(stdout, order_probs, max_ngram_used, ","); fflush(stdout);
 	//printf("weights:\t\t");
-	//fprint_arrayf(stdout, weights, max_ngram_used, ",");
+	//fprint_arrayf(stdout, weights, max_ngram_used, ","); fflush(stdout);
 	return dot_productf(order_probs, weights, max_ngram_used);
 }
 
