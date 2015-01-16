@@ -403,7 +403,7 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 		wclass_t * restrict jp = ngram;
 		for (sentlen_t j = start_position; (j <= i) && (ngram_len > cmd_args.max_array); j++, --ngram_len) { // Traverse longest n-gram string
 			if (cmd_args.verbose > 2)
-				printf("incr._ngram_fw4: start_pos=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
+				printf(" incr._ngram_fw4: map: start_pos=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
 			map_increment_count_fixed_width(map, jp);
 			jp++;
 		}
@@ -411,7 +411,9 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 
 	// Lower-order n-grams handled using a dense array for each n-gram order
 	for (; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
-		count_arrays[ngram_len-1][ array_offset(&sent[start_position], ngram_len) ]++;
+		count_arrays[ngram_len-1][ array_offset(&sent[i], ngram_len) ]++;
+		if (cmd_args.verbose > 2)
+			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i], ngram_len) ] );
 	}
 
 }
@@ -666,7 +668,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			class_i_entry[0] = class_i;
 			const unsigned int word_i_count = word_counts[word_i];
 			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
-			const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
+			const unsigned int class_i_count = count_arrays[0][class_i];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
 				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu]\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], word_i, word_list[word_i]);
