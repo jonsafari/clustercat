@@ -214,6 +214,11 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--max-array")) {
 			cmd_args->max_array = (unsigned char) atol(argv[arg_i+1]);
+			if ((cmd_args->max_array) < 1 || (cmd_args->max_array > 3)) {
+				printf("%s: --max-array value should be between 1-3\n", argv_0_basename);
+				fflush(stderr);
+				exit(10);
+			}
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
@@ -671,14 +676,15 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const unsigned int class_i_count = count_arrays[0][class_i];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
-				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tcls_entry=[%hu,%hu,%hu]\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, class_i_entry[0], class_i_entry[1], class_i_entry[2], word_i, word_list[word_i]);
+				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
+				fflush(stdout);
 			}
 
 			// Class prob is transition prob * emission prob
-			float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
+			const float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
 			float weights_class[] = {0.05, 0.4, 0.4, 0.15};
-			float transition_prob = class_ngram_prob(class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
-			float the_class_prob = transition_prob * emission_prob;
+			const float transition_prob = class_ngram_prob(class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
+			const float the_class_prob = transition_prob * emission_prob;
 
 
 			if (cmd_args.verbose > 1) {
