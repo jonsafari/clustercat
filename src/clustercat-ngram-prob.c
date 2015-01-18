@@ -13,24 +13,31 @@ float class_ngram_prob(const struct cmd_args cmd_args, const count_arrays_t coun
 	register sentlen_t max_ngram_used = 1; // This value is subject to reduction; if a history is unattested, we must still backoff to give a probability distribution summing to one
 	register short j = leftmost_position ? CLASSLEN - 2 : i - 1 ; // Starting point of ngram traversal
 
-	wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0};
-	memcpy(&ngram, &sent[leftmost_position], sizeof(wclass_t) * (i - leftmost_position + 1));
+	if (0 && ngram_order > cmd_args.max_array) {
+		wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0};
+		memcpy(&ngram, &sent[leftmost_position], sizeof(wclass_t) * (i - leftmost_position + 1));
 
-	for (; j >= 0; j--, max_ngram_used++) { // Traverse shortest string first && short-circuit if history not found
-		//printf("leftpos=%i, j=%i, i=%hu, ival=%hu, maxlenused=%i, ngram[0]=%hu, ngram[j=%i]=[%hu,%hu,%hu,%hu], sent[i=%i]=[%hu,%hu,<%hu>,%hu,%hu]\n", leftmost_position, j, i, i_val, max_ngram_used, ngram[0], j, ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], i, sent[i-2], sent[i-1], sent[i], sent[i+1], sent[i+2]);
-		unsigned int numerator = map_find_count_fixed_width(class_map, &ngram[j]);
-		//printf(" c([%hu,%hu,%hu,%hu])=%u /\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], numerator);
-		ngram[j+max_ngram_used] = 0; // We zero out word_i to get the denominator
-		unsigned int denominator = map_find_count_fixed_width(class_map, &ngram[j]);
-		//printf(" c([%hu,%hu,%hu,%hu])=%u ;\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], denominator);
-		ngram[j+max_ngram_used] = i_val; // We restore out word_i to its original value
-		//printf(" %u/%u = %g\n", numerator, denominator, numerator/(float)denominator);
-		order_probs[max_ngram_used] = numerator/(float)denominator;
-		if (!numerator) // no need to calculate higher-order ngrams
-			break;
+		for (; j >= 0; j--, max_ngram_used++) { // Traverse shortest string first && short-circuit if history not found
+			printf("leftpos=%i, j=%i, i=%hu, ival=%hu, maxlenused=%i, ngram[0]=%hu, ngram[j=%i]=[%hu,%hu,%hu,%hu], sent[i=%i]=[%hu,%hu,<%hu>,%hu,%hu]\n", leftmost_position, j, i, i_val, max_ngram_used, ngram[0], j, ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], i, sent[i-2], sent[i-1], sent[i], sent[i+1], sent[i+2]);
+			unsigned int numerator = map_find_count_fixed_width(class_map, &ngram[j]);
+			//printf(" c([%hu,%hu,%hu,%hu])=%u /\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], numerator);
+			ngram[j+max_ngram_used] = 0; // We zero out word_i to get the denominator
+			unsigned int denominator = map_find_count_fixed_width(class_map, &ngram[j]);
+			//printf(" c([%hu,%hu,%hu,%hu])=%u ;\t", ngram[j], ngram[j+1], ngram[j+2], ngram[j+3], denominator);
+			ngram[j+max_ngram_used] = i_val; // We restore out word_i to its original value
+			//printf(" %u/%u = %g\n", numerator, denominator, numerator/(float)denominator);
+			order_probs[max_ngram_used] = numerator/(float)denominator;
+			if (!numerator) // no need to calculate higher-order ngrams
+				break;
+		}
 	}
 
-	//#pragma omp ordered
+	// Temp
+	max_ngram_used = 2;
+	//printf("42: bigram [%hu,%hu] %u / %u\n", sent[i], sent[i+1], count_arrays[1][ array_offset(&sent[i], 2) ], count_arrays[0][ array_offset(&sent[i], 1) ]  ); fflush(stdout);
+	order_probs[1] = count_arrays[1][ array_offset(&sent[i], 2) ] / (float)count_arrays[0][ array_offset(&sent[i], 1) ];
+	//order_probs[2] = count_arrays[2][ array_offset(&sent[i], 3) ] / (float)count_arrays[1][ array_offset(&sent[i], 2) ];
+
 	//printf("transition_probs:\t");
 	//fprint_arrayf(stdout, order_probs, max_ngram_used, ","); fflush(stdout);
 	//printf("weights:\t\t");

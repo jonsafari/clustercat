@@ -5,6 +5,7 @@
 
 #include <limits.h>				// UCHAR_MAX, UINT_MAX
 #include <float.h>				// DBL_MAX, etc.
+#include <math.h>				// isnan()
 #include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC
 #include <stdbool.h>
 #include <locale.h>				// OPTIONAL!  Comment-out on non-Posix machines, and the function setlocale() in the first line of main()
@@ -40,7 +41,7 @@ struct cmd_args cmd_args = {
 	.class_order            = 3,
 	.num_threads            = 6,
 	.num_classes            = 100,
-	.tune_cycles            = 25,
+	.tune_cycles            = 15,
 	.verbose                = 0,
 };
 
@@ -554,9 +555,12 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
 		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-		count_arrays_t count_arrays = malloc(sizeof(void *) * cmd_args.max_array);
+		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, model_metadata.type_count, count_arrays);
 		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, -1, 0); // Get class ngram counts. We use -1 so that no words are ever substituted
+		//printf("42: "); for (wclass_t i = 1; i <= cmd_args.num_classes; i++) {
+		//	printf("c_%u=%u, ", i, count_arrays[0][i]);
+		//} printf("\n"); fflush(stdout);
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, -1, 1);
 		free_count_arrays(cmd_args, count_arrays);
 		free(count_arrays);
@@ -568,7 +572,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
 			bool end_cycle_short = true; // This gets set to false if any word's class changes
 
-			if (cmd_args.verbose >= 0)
+			if (cmd_args.verbose >= -1)
 				fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
@@ -581,7 +585,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					count_arrays_t count_arrays = malloc(sizeof(void *) * cmd_args.max_array);
+					count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 					init_count_arrays(cmd_args, model_metadata.type_count, count_arrays);
 					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
@@ -683,13 +687,49 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 			// Class prob is transition prob * emission prob
 			const float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-			float weights_class[] = {0.05, 0.4, 0.4, 0.15};
-			const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
-			const float the_class_prob = transition_prob * emission_prob;
+
+
+			// Calculate transition probs
+			float weights_class[] = {0.2, 0.2, 0.2, 0.2, 0.2};
+			float order_probs[5] = {0};
+			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
+			float sum_weights = weights_class[2]; // unigram prob will always occur
+			float sum_probs = weights_class[2] * order_probs[2]; // unigram prob will always occur
+
+			//const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
+			if (i > 1) { // Need at least "<s> w_1" in history
+				order_probs[0] = count_arrays[2][ array_offset(&class_sent[i-2], 3) ] / (float)count_arrays[1][ array_offset(&class_sent[i-1], 2) ]; // trigram probs
+				order_probs[0] = isnan(order_probs[0]) ? 0.0f : order_probs[0]; // If the bigram history is 0, result will be a -nan
+				sum_weights += weights_class[0];
+				sum_probs += weights_class[0] * order_probs[0];
+			}
+
+			// We'll always have at least "<s>" in history
+			order_probs[1] = count_arrays[1][ array_offset(&class_sent[i-1], 2) ] / (float)count_arrays[0][ array_offset(&class_sent[i], 1) ]; // bigram probs
+			//printf("order_probs[1] = %u / %u\n", count_arrays[1][ array_offset(&class_sent[i], 2) ], count_arrays[0][ array_offset(&class_sent[i], 1)]);
+			sum_weights += weights_class[1];
+			sum_probs += weights_class[1] * order_probs[1];
+
+			if (i < sent_length-1) { // Need at least "</s>" to the right
+				order_probs[3] = count_arrays[1][ array_offset(&class_sent[i], 2) ] / (float)count_arrays[0][ array_offset(&class_sent[i+1], 1) ]; // future bigram probs
+				sum_weights += weights_class[3];
+				sum_probs += weights_class[3] * order_probs[3];
+			}
+
+			if (i < sent_length-2) { // Need at least "w </s>" to the right
+			order_probs[4] = count_arrays[2][ array_offset(&class_sent[i], 3) ] / (float)count_arrays[1][ array_offset(&class_sent[i+1], 2) ]; // future trigram probs
+			order_probs[4] = isnan(order_probs[4]) ? 0.0f : order_probs[4]; // If the bigram history is 0, result will be a -nan
+				sum_weights += weights_class[4];
+				sum_probs += weights_class[4] * order_probs[4];
+			}
+			const float transition_prob = sum_probs / sum_weights;
+			const float class_prob = emission_prob * transition_prob;
 
 
 			if (cmd_args.verbose > 1) {
-				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, the_class_prob, log2f(the_class_prob));
+				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g, sum_probs=%g, sum_weights=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, class_prob, log2f(class_prob), sum_probs, sum_weights);
+				printf("transition_probs:\t");
+				fprint_arrayf(stdout, order_probs, 5, ","); fflush(stdout);
 				if (class_i_count < word_i_count) { // Shouldn't happen
 					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count); fflush(stderr);
 					exit(5);
@@ -698,9 +738,13 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 					printf("Error: prob of order max_ngram_used > 1;  %u/%lu\n", class_i_count, model_metadata.token_count); fflush(stderr);
 					exit(6);
 				}
+				if (! ((class_prob >= 0) && (class_prob <= 1))) {
+					printf("Error: prob is not within [0,1]  %g\n", class_prob); fflush(stderr);
+					exit(11);
+				}
 			}
 
-			sent_score += log2((double)the_class_prob); // Increment running sentence total;  we can use doubles for global-level scores
+			sent_score += log2((double)class_prob); // Increment running sentence total;  we can use doubles for global-level scores
 
 		} // for i loop
 
