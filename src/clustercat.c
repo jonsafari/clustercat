@@ -610,7 +610,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
 					end_cycle_short = false;
 
-					if (cmd_args.verbose >= 0)
+					if (cmd_args.verbose > 0)
 						fprintf(stderr, " Moving id=%-6u %-18s %u -> %u\t(logprob %g -> %g)\n", word_i, word_list[word_i], old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
 					//map_update_class(&word2class_map, word, best_hypothesis_class);
@@ -690,7 +690,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 
 			// Calculate transition probs
-			float weights_class[] = {0.2, 0.2, 0.2, 0.2, 0.2};
+			float weights_class[] = {0.3, 0.175, 0.05, 0.175, 0.3};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
