@@ -764,7 +764,7 @@ void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arra
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
 		count_arrays[i-1] = calloc(powi(cmd_args.num_classes, i), sizeof(unsigned int)); // powi() is in clustercat-math.c
 		if (count_arrays[i-1] == NULL) {
-			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB (%zuB * %u^%u)\n", argv_0_basename, i, sizeof(unsigned int) * powi(cmd_args.num_classes, i) / 1048576, sizeof(unsigned int), cmd_args.num_classes, i ); fflush(stderr);
+			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB per thread (%zuB * %u^%u).  Reduce the number of desired classes using --num-classes (current value: %u)\n", argv_0_basename, i, sizeof(unsigned int) * powi(cmd_args.num_classes, i) / 1048576, sizeof(unsigned int), cmd_args.num_classes, i, cmd_args.num_classes ); fflush(stderr);
 			exit(12);
 		}
 		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), cmd_args.num_classes sizeof(unsigned int));
