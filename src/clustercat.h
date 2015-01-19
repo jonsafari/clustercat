@@ -73,7 +73,7 @@ void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words
 void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], unsigned int word_counts[restrict], const word_id_t type_count);
 
 void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
-void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, struct_map_class **map, wclass_t class_sent[const], short start_position, const sentlen_t i);
+void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t class_sent[const], short start_position, const sentlen_t i);
 void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
 unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer);
 unsigned long process_str_sent(char * restrict sent_str);
@@ -94,7 +94,7 @@ void print_sent_info(struct_sent_info * restrict sent_info);
 // |C| can be represented using an unsigned short (16 bits == 65k classes) for exchange clustering, but probably should be an unsigned int (32 bit == 4 billion classes) for Brown clustering, since initially every word type is its own class.
 inline size_t array_offset(wclass_t * pointer, const unsigned int max, const wclass_t num_classes) {
 	register uint_fast8_t ptr_i = 1;
-	size_t total_offset = (*pointer) - 1;
+	register size_t total_offset = (*pointer) - 1;
 
 	for (; ptr_i < max; ptr_i++) { // little endian
 		//printf("1: atosize_t: pointer=%p; all vals: [%hu,%hu,%hu]; total_offset=%zu; max=%u\n", pointer, *pointer, *(pointer+1), *(pointer+2), total_offset, max); fflush(stdout);

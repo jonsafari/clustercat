@@ -395,32 +395,14 @@ void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict
 	}
 }
 
-void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, struct_map_class **map, wclass_t sent[const], short start_position, const sentlen_t i) {
-	unsigned char ngram_len = i - start_position + 1;
+void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t sent[const], short start_position, const sentlen_t i) {
 
-	// We might need to use a (sparse) hash table for the higher n-gram orders above cmd_args.max_array
-	if (ngram_len > cmd_args.max_array) {
-
-		wclass_t ngram[CLASSLEN + CLASSLEN - 1] = {0}; // We reserve more space to allow for eg. the final unigram to be padded with zeros afterwards, since a fixed-width ngram will be passed-on to the map.
-		memcpy(&ngram, &sent[start_position], ngram_len * sizeof(wclass_t));
-		//printf("ngm++ 1: i-sp=%u (i:%u,sp:%u), ngmlen=%u, sent[%hu,%hu,%hu,%hu,%hu,%hu,...]\n", i - start_position, i, start_position, ngram_len, sent[0], sent[1], sent[2], sent[3],sent[4],sent[5]);
-		//printf("ngm++ 2: CLASSLEN=%u, ngram=[%hu,%hu,%hu,%hu,%hu,%hu,%hu]\n", CLASSLEN, ngram[0], ngram[1], ngram[2], ngram[3], ngram[4], ngram[5], ngram[6]);
-
-		wclass_t * restrict jp = ngram;
-		for (sentlen_t j = start_position; (j <= i) && (ngram_len > cmd_args.max_array); j++, --ngram_len) { // Traverse longest n-gram string
-			if (cmd_args.verbose > 2)
-				printf(" incr._ngram_fw4: map: start_pos=%d, i=%i, w_i=%hu, ngram_len=%d, ngram=<<%hu,%hu,%hu>>, jp=<<%hu,%hu,%hu,%hu>>\n", start_position, i, sent[i], ngram_len, ngram[0], ngram[1], ngram[2], jp[0], jp[1], jp[2], jp[3]);
-			map_increment_count_fixed_width(map, jp);
-			jp++;
-		}
-	}
-
-	// Lower-order n-grams handled using a dense array for each n-gram order
-	for (; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
-	//printf("34.7.1.1: sent[i-1]=%u, sent[i]=%u, ngram_len=%u, [%hu,%hu,%hu], offset=%zu\n", sent[i-1], sent[i], ngram_len, sent[i+1-ngram_len], sent[i+2-ngram_len], sent[i+3-ngram_len], array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes)); fflush(stdout);
+	// n-grams handled using a dense array for each n-gram order
+	for (unsigned char ngram_len = i - start_position + 1; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
+	//printf(" incr._ngram_fw5: sent[i-1]=%u, sent[i]=%u, ngram_len=%u, [%hu,%hu,%hu], offset=%zu\n", sent[i-1], sent[i], ngram_len, sent[i+1-ngram_len], sent[i+2-ngram_len], sent[i+3-ngram_len], array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes)); fflush(stdout);
+		//array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes);
 		count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ]++;
-		if (cmd_args.verbose > 2)
-			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ] );
+		//printf(" incr._ngram_fw6: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ] );
 	}
 }
 
@@ -440,7 +422,7 @@ void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_
 			}
 
 			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram_fixed_width(cmd_args, count_arrays, class_map, class_sent, start_position_class, i);
+			increment_ngram_fixed_width(cmd_args, count_arrays, class_sent, start_position_class, i);
 		}
 	}
 }
@@ -557,7 +539,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
 		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, -1, 0); // Get class ngram counts. We use -1 so that no words are ever substituted
-		//printf("42: "); for (wclass_t i = 1; i <= cmd_args.num_classes; i++) {
+		//printf("42: "); for (wclass_t i = 0; i <= cmd_args.num_classes; i++) {
 		//	printf("c_%u=%u, ", i, count_arrays[0][i]);
 		//} printf("\n"); fflush(stdout);
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, -1, 1);
