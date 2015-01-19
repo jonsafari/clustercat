@@ -417,8 +417,8 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 
 	// Lower-order n-grams handled using a dense array for each n-gram order
 	for (; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
-	//printf("34.7.1.1: sent[i-1]=%u, sent[i]=%u, offset=%zu, ngram_len=%u\n", sent[i-1], sent[i], array_offset(&sent[i+1-ngram_len], ngram_len), ngram_len); fflush(stdout);
-		count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len) ]++;
+	//printf("34.7.1.1: sent[i-1]=%u, sent[i]=%u, ngram_len=%u, [%hu,%hu,%hu], offset=%zu\n", sent[i-1], sent[i], ngram_len, sent[i+1-ngram_len], sent[i+2-ngram_len], sent[i+3-ngram_len], array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes)); fflush(stdout);
+		count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ]++;
 		if (cmd_args.verbose > 2)
 			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ] );
 	}
@@ -471,10 +471,10 @@ unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_
 
 	tokenize_sent(sent_str, &sent_info);
 	unsigned long token_count = sent_info.length;
-	if (cmd_args.verbose > 2) {
-		print_sent_info(&sent_info);
-		fflush(stdout);
-	}
+	//if (cmd_args.verbose > 2) {
+	//	print_sent_info(&sent_info);
+	//	fflush(stdout);
+	//}
 
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++) {
@@ -677,11 +677,15 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			//class_i_entry[0] = class_i;
 			const unsigned int word_i_count = word_counts[word_i];
 			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
-			const unsigned int class_i_count = count_arrays[0][class_i];
+			const unsigned int class_i_count = count_arrays[0][class_i-1];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 1) {
 				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
 				fflush(stdout);
+				if (class_i_count < word_i_count) { // Shouldn't happen
+					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count); fflush(stderr);
+					exit(5);
+				}
 			}
 
 			// Class prob is transition prob * emission prob
@@ -729,10 +733,6 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g, sum_probs=%g, sum_weights=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, class_prob, log2f(class_prob), sum_probs, sum_weights);
 				printf("transition_probs:\t");
 				fprint_arrayf(stdout, order_probs, 5, ","); fflush(stdout);
-				if (class_i_count < word_i_count) { // Shouldn't happen
-					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count); fflush(stderr);
-					exit(5);
-				}
 				if (class_i_count > model_metadata.token_count) { // Shouldn't happen
 					printf("Error: prob of order max_ngram_used > 1;  %u/%lu\n", class_i_count, model_metadata.token_count); fflush(stderr);
 					exit(6);
@@ -767,7 +767,7 @@ void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arra
 			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB per thread (%zuB * %u^%u).  Reduce the number of desired classes using --num-classes (current value: %u)\n", argv_0_basename, i, sizeof(unsigned int) * powi(cmd_args.num_classes, i) / 1048576, sizeof(unsigned int), cmd_args.num_classes, i, cmd_args.num_classes ); fflush(stderr);
 			exit(12);
 		}
-		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), cmd_args.num_classes sizeof(unsigned int));
+		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), cmd_args.num_classes, i, sizeof(unsigned int));
 	}
 }
 
