@@ -34,9 +34,9 @@ float class_ngram_prob(const struct cmd_args cmd_args, const count_arrays_t coun
 
 	// Temp
 	max_ngram_used = 2;
-	//printf("42: bigram [%hu,%hu] %u / %u\n", sent[i], sent[i+1], count_arrays[1][ array_offset(&sent[i], 2) ], count_arrays[0][ array_offset(&sent[i], 1) ]  ); fflush(stdout);
-	order_probs[1] = count_arrays[1][ array_offset(&sent[i], 2) ] / (float)count_arrays[0][ array_offset(&sent[i], 1) ];
-	//order_probs[2] = count_arrays[2][ array_offset(&sent[i], 3) ] / (float)count_arrays[1][ array_offset(&sent[i], 2) ];
+	//printf("42: bigram [%hu,%hu] %u / %u\n", sent[i], sent[i+1], count_arrays[1][ array_offset(&sent[i], 2, cmd_args.num_classes) ], count_arrays[0][ array_offset(&sent[i], 1, cmd_args.num_classes) ]  ); fflush(stdout);
+	order_probs[1] = count_arrays[1][ array_offset(&sent[i], 2, cmd_args.num_classes) ] / (float)count_arrays[0][ array_offset(&sent[i], 1, cmd_args.num_classes) ];
+	//order_probs[2] = count_arrays[2][ array_offset(&sent[i], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&sent[i], 2, cmd_args.num_classes) ];
 
 	//printf("transition_probs:\t");
 	//fprint_arrayf(stdout, order_probs, max_ngram_used, ","); fflush(stdout);

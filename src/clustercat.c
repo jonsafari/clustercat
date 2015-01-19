@@ -14,7 +14,7 @@
 #include "clustercat-array.h"		// which_maxf()
 #include "clustercat-data.h"
 #include "clustercat-io.h"			// fill_sent_buffer()
-#include "clustercat-math.h"		// perplexity()
+#include "clustercat-math.h"		// perplexity(), powi()
 #include "clustercat-ngram-prob.h"	// class_ngram_prob()
 
 #define USAGE_LEN 10000
@@ -39,7 +39,7 @@ struct cmd_args cmd_args = {
 	.min_count              = 2,
 	.max_array              = 3,
 	.class_order            = 3,
-	.num_threads            = 6,
+	.num_threads            = 4,
 	.num_classes            = 100,
 	.tune_cycles            = 15,
 	.verbose                = 0,
@@ -420,7 +420,7 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 	//printf("34.7.1.1: sent[i-1]=%u, sent[i]=%u, offset=%zu, ngram_len=%u\n", sent[i-1], sent[i], array_offset(&sent[i+1-ngram_len], ngram_len), ngram_len); fflush(stdout);
 		count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len) ]++;
 		if (cmd_args.verbose > 2)
-			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len) ] );
+			printf(" incr._ngram_fw5: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ] );
 	}
 }
 
@@ -597,7 +597,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
 				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
 
-				if (cmd_args.verbose > 0) {
+				if (cmd_args.verbose > 1) {
 					printf("Orig logprob for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
 					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
 					if (best_hypothesis_log_prob > 0) { // Shouldn't happen
@@ -697,26 +697,26 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 			//const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
 			if (i > 1) { // Need at least "<s> w_1" in history
-				order_probs[0] = count_arrays[2][ array_offset(&class_sent[i-2], 3) ] / (float)count_arrays[1][ array_offset(&class_sent[i-1], 2) ]; // trigram probs
+				order_probs[0] = count_arrays[2][ array_offset(&class_sent[i-2], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ]; // trigram probs
 				order_probs[0] = isnan(order_probs[0]) ? 0.0f : order_probs[0]; // If the bigram history is 0, result will be a -nan
 				sum_weights += weights_class[0];
 				sum_probs += weights_class[0] * order_probs[0];
 			}
 
 			// We'll always have at least "<s>" in history
-			order_probs[1] = count_arrays[1][ array_offset(&class_sent[i-1], 2) ] / (float)count_arrays[0][ array_offset(&class_sent[i], 1) ]; // bigram probs
-			//printf("order_probs[1] = %u / %u\n", count_arrays[1][ array_offset(&class_sent[i], 2) ], count_arrays[0][ array_offset(&class_sent[i], 1)]);
+			order_probs[1] = count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ] / (float)count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes) ]; // bigram probs
+			//printf("order_probs[1] = %u / %u\n", count_arrays[1][ array_offset(&class_sent[i], 2, cmd_args.num_classes) ], count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes)]);
 			sum_weights += weights_class[1];
 			sum_probs += weights_class[1] * order_probs[1];
 
 			if (i < sent_length-1) { // Need at least "</s>" to the right
-				order_probs[3] = count_arrays[1][ array_offset(&class_sent[i], 2) ] / (float)count_arrays[0][ array_offset(&class_sent[i+1], 1) ]; // future bigram probs
+				order_probs[3] = count_arrays[1][ array_offset(&class_sent[i], 2, cmd_args.num_classes) ] / (float)count_arrays[0][ array_offset(&class_sent[i+1], 1, cmd_args.num_classes) ]; // future bigram probs
 				sum_weights += weights_class[3];
 				sum_probs += weights_class[3] * order_probs[3];
 			}
 
 			if (i < sent_length-2) { // Need at least "w </s>" to the right
-			order_probs[4] = count_arrays[2][ array_offset(&class_sent[i], 3) ] / (float)count_arrays[1][ array_offset(&class_sent[i+1], 2) ]; // future trigram probs
+			order_probs[4] = count_arrays[2][ array_offset(&class_sent[i], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i+1], 2, cmd_args.num_classes) ]; // future trigram probs
 			order_probs[4] = isnan(order_probs[4]) ? 0.0f : order_probs[4]; // If the bigram history is 0, result will be a -nan
 				sum_weights += weights_class[4];
 				sum_probs += weights_class[4] * order_probs[4];

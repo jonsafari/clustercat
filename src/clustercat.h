@@ -9,6 +9,7 @@
 #include <libgen.h>			// basename()
 #include <limits.h>			// USHRT_MAX, UINT_MAX
 #include <errno.h>
+#include "clustercat-math.h"	// powi()
 
 // Defaults
 #define PRIMARY_SEP_CHAR     '\t'
@@ -91,17 +92,17 @@ void print_sent_info(struct_sent_info * restrict sent_info);
 // Using a class n-gram array is fast, at the expense of memory usage for lots of unattested ngrams, especially for higher-order n-grams.
 // Trigrams are probably the highest order you'd want to use as an array, since the memory usage would be:  sizeof(wclass_t) * |C|^3   where |C| is the number of word classes.
 // |C| can be represented using an unsigned short (16 bits == 65k classes) for exchange clustering, but probably should be an unsigned int (32 bit == 4 billion classes) for Brown clustering, since initially every word type is its own class.
-inline size_t array_offset(unsigned short * pointer, unsigned int max) {
-    size_t i = *pointer;
-    while (--max) {
-        //printf("1: atosize_t: pointer=%hu; val_0=%zu; i=%zu; max=%u\n", pointer, *pointer, i, max); fflush(stdout);
-        i <<= 8; // Shift left by one byte (==  *= 256)
-        if (*pointer != 0) // pad i when pointer is done
-            pointer++;
-        i |= *pointer; // (==  += c+1)
-        //printf("2: atosize_t: pointer=%.2s; val_0=%u; i=%zu; max=%u\n\n", pointer, *pointer, i, max); fflush(stdout);
-    }
-    return i;
+inline size_t array_offset(wclass_t * pointer, const unsigned int max, const wclass_t num_classes) {
+	register uint_fast8_t ptr_i = 1;
+	size_t total_offset = (*pointer) - 1;
+
+	for (; ptr_i < max; ptr_i++) { // little endian
+		//printf("1: atosize_t: pointer=%p; all vals: [%hu,%hu,%hu]; total_offset=%zu; max=%u\n", pointer, *pointer, *(pointer+1), *(pointer+2), total_offset, max); fflush(stdout);
+		total_offset += (pointer[ptr_i] - 1) * powi(num_classes, ptr_i);
+		//printf("2: adding ((pointer[%u]=%u - 1)* powi(%hu, %u)=%lu)=%lu\n", ptr_i, pointer[ptr_i], num_classes, ptr_i, powi(num_classes, ptr_i), (pointer[ptr_i] - 1) * powi(num_classes, ptr_i)); fflush(stdout);
+	}
+	//printf("3: atosize_t: pointer=%p; val0=%hu; total_offset=%zu; max=%u\n\n", pointer, *pointer, total_offset, max); fflush(stdout);
+	return total_offset;
 }
 
 
