@@ -120,14 +120,14 @@ int main(int argc, char **argv) {
 	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
 	sent_buffer2sent_store_int(&ngram_map, sent_buffer, sent_store_int, global_metadata.line_count);
 	// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
-	delete_all(&ngram_map);
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
-	import_class_file(cmd_args, global_metadata.type_count, word2class, initial_class_file); // Overwrite subset of word mappings, from user-provided initial_class_file
+	import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file); // Overwrite subset of word mappings, from user-provided initial_class_file
+	delete_all(&ngram_map);
 
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
