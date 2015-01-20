@@ -202,8 +202,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			else { printf("%s", usage); exit(0); }
 		} else if (!strcmp(argv[arg_i], "--class-file")) {
 			initial_class_file = argv[arg_i+1];
-			printf("Bug Jon to implement --class-file!\n"); fflush(stderr);
-			exit(1);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--dev-file")) {
 			cmd_args->dev_file = argv[arg_i+1];
