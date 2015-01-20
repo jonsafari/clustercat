@@ -23,7 +23,7 @@ void import_class_file(struct_map_word **word_map, word_id_t vocab_size, wclass_
 		line[keylen] = '\0'; // Split key and count
 		char * restrict key = line;
 		wclass_t class = atoi(line + keylen + 1);
-		printf("keylen=%i, key=<<%s>>, class=<<%d>>\n", keylen, key, class);
+		//printf("keylen=%i, key=<<%s>>, class=<<%d>>\n", keylen, key, class);
 		word_id_t key_int = map_find_int(word_map, key);
 		word2class[key_int] = class;
 	}
