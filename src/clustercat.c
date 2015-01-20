@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 
 	char * * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
 	if (sent_buffer == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %lu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %'lu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
 		exit(7);
 	}
 	memusage += sizeof(void *) * cmd_args.max_tune_sents;
@@ -179,7 +179,7 @@ Options:\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
  -n, --num-classes <c>    Set number of word classes (default: %d classes)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
-     --tune-sents <lu>    Set size of sentence store to tune on (default: first %lu sentences)\n\
+     --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu sentences)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
@@ -548,7 +548,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		free(count_arrays);
 
 		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Expected Steps:  %lu (%u word types x %u classes x %u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
@@ -606,7 +606,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				break;
 		}
 		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Completed steps: %lu (%u word types x %u classes x %u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
