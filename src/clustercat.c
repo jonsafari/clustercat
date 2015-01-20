@@ -126,7 +126,8 @@ int main(int argc, char **argv) {
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
-	import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
+	if (initial_class_file != NULL)
+		import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 	delete_all(&ngram_map);
 
 	// Calculate memusage for count_arrays
