@@ -56,16 +56,16 @@ typedef struct {
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
-	unsigned long  max_tune_sents;
-	char*          dev_file;
-	wclass_t       num_classes;
-	unsigned short tune_cycles : 10;
-	unsigned char  class_order : 6;
-	unsigned short num_threads : 10;
-	unsigned short min_count : 9;
-	char           verbose : 3;     // Negative values increasingly suppress normal output
-	unsigned char  max_array : 2;
-	unsigned char  class_algo : 2;  // enum class_algos
+	unsigned long   max_tune_sents;
+	char * restrict dev_file;
+	wclass_t        num_classes;
+	unsigned short  tune_cycles : 10;
+	unsigned char   class_order : 6;
+	unsigned short  num_threads : 10;
+	unsigned short  min_count : 9;
+	char            verbose : 3;     // Negative values increasingly suppress normal output
+	unsigned char   max_array : 2;
+	unsigned char   class_algo : 2;  // enum class_algos
 };
 
 void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);

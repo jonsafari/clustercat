@@ -10,12 +10,13 @@
 #include <stdbool.h>
 #include <locale.h>				// OPTIONAL!  Comment-out on non-Posix machines, and the function setlocale() in the first line of main()
 
-#include "clustercat.h"				// Model importing/exporting functions
-#include "clustercat-array.h"		// which_maxf()
+#include "clustercat.h"						// Model importing/exporting functions
+#include "clustercat-array.h"				// which_maxf()
 #include "clustercat-data.h"
-#include "clustercat-io.h"			// fill_sent_buffer()
-#include "clustercat-math.h"		// perplexity(), powi()
-#include "clustercat-ngram-prob.h"	// class_ngram_prob()
+#include "clustercat-import-class-file.h"	// import_class_file()
+#include "clustercat-io.h"					// fill_sent_buffer()
+#include "clustercat-math.h"				// perplexity(), powi()
+#include "clustercat-ngram-prob.h"			// class_ngram_prob()
 
 #define USAGE_LEN 10000
 
@@ -23,7 +24,8 @@
 void get_usage_string(char * restrict usage_string, int usage_len);
 void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
 void free_sent_info(struct_sent_info sent_info);
-char * restrict class_algo = NULL;
+char * restrict class_algo       = NULL;
+char * restrict initial_class_file = NULL;
 
 struct_map_word *ngram_map = NULL; // Must initialize to NULL
 struct_map_word_class *word2class_map = NULL; // Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
@@ -125,6 +127,7 @@ int main(int argc, char **argv) {
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
+	import_class_file(cmd_args, global_metadata.type_count, word2class, initial_class_file); // Overwrite subset of word mappings, from user-provided initial_class_file
 
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
@@ -198,7 +201,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 				cmd_args->class_algo = EXCHANGE;
 			else { printf("%s", usage); exit(0); }
 		} else if (!strcmp(argv[arg_i], "--class-file")) {
-			cmd_args->dev_file = argv[arg_i+1];
+			initial_class_file = argv[arg_i+1];
 			printf("Bug Jon to implement --class-file!\n"); fflush(stderr);
 			exit(1);
 			arg_i++;
@@ -676,6 +679,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 			// Calculate transition probs
 			float weights_class[] = {0.3, 0.175, 0.05, 0.175, 0.3};
+			//float weights_class[] = {0.3, 0.175, 0.05, 0.0, 0.0};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
