@@ -24,8 +24,9 @@
 void get_usage_string(char * restrict usage_string, int usage_len);
 void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
 void free_sent_info(struct_sent_info sent_info);
-char * restrict class_algo       = NULL;
+char * restrict class_algo         = NULL;
 char * restrict initial_class_file = NULL;
+char * restrict weights_string     = NULL;
 
 struct_map_word *ngram_map = NULL; // Must initialize to NULL
 struct_map_word_class *word2class_map = NULL; // Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
 	time_t time_t_start;
 	time(&time_t_start);
 	argv_0_basename = basename(argv[0]);
+	weights_string = "0.3 0.175 0.05 0.175 0.3";
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
 
 	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
@@ -183,8 +185,9 @@ Options:\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu sentences)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
+ -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles, weights_string);
 }
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 
@@ -239,6 +242,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-v") && strcmp(argv[arg_i], "--verbose"))) {
 			cmd_args->verbose++;
+		} else if (!(strcmp(argv[arg_i], "-w") && strcmp(argv[arg_i], "--weights"))) {
+			weights_string = argv[arg_i+1];
+			arg_i++;
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
 			printf("%s", usage); fflush(stderr);
@@ -677,8 +683,9 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 
 			// Calculate transition probs
-			float weights_class[] = {0.3, 0.175, 0.05, 0.175, 0.3};
+			float weights_class[] = {0.35, 0.14, 0.02, 0.14, 0.35};
 			//float weights_class[] = {0.3, 0.175, 0.05, 0.0, 0.0};
+			//float weights_class[] = {0.0, 0.95, 0.05, 0.0, 0.0};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
