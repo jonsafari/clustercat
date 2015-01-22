@@ -42,7 +42,7 @@ struct cmd_args cmd_args = {
 	.max_array              = 3,
 	.class_order            = 3,
 	.num_threads            = 4,
-	.num_classes            = 100,
+	.num_classes            = 0,
 	.tune_cycles            = 15,
 	.verbose                = 0,
 };
@@ -93,10 +93,11 @@ int main(int argc, char **argv) {
 	global_metadata.type_count        = map_count(&ngram_map);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
-	if (global_metadata.type_count <= cmd_args.num_classes) {
-		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
+	if (cmd_args.num_classes >= global_metadata.type_count) { // User manually set number of classes is too low
+		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
 		exit(3);
+	} else if (cmd_args.num_classes == 0) { // User did not manually set number of classes at all
+		cmd_args.num_classes = (wclass_t) sqrt(global_metadata.type_count);
 	}
 
 	// Get list of unique words
@@ -178,13 +179,13 @@ Options:\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
- -n, --num-classes <c>    Set number of word classes (default: %d classes)\n\
+ -n, --num-classes <c>    Set number of word classes (default: square root of vocabulary size)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu sentences)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.num_classes, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 
