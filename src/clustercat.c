@@ -564,6 +564,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 
 			if (cmd_args.verbose >= -1)
 				fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps) // non-determinism
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
@@ -575,7 +576,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					steps++;
 					// Get log prob
 					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
+					count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));  // This array is small and dense
 					init_count_arrays(cmd_args, count_arrays);
 					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
