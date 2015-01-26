@@ -53,6 +53,11 @@ typedef struct {
 	word_id_t     type_count;
 } struct_model_metadata;
 
+typedef struct word_bigram { // This is for an array pointing to a linked list of successors to a given word
+	word_id_t word_id;
+	struct word_bigram * restrict next;
+} struct_word_bigram;
+
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
@@ -79,6 +84,7 @@ unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const u
 unsigned long process_str_sent(char * restrict sent_str);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
+size_t set_bigram_counts(struct_word_bigram ** restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]);
 void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[]);
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);

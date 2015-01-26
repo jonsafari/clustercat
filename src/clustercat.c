@@ -93,8 +93,11 @@ int main(int argc, char **argv) {
 	}
 
 	global_metadata.type_count        = map_count(&ngram_map);
+
+	// Filter out infrequent words
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
+	// Check or set number of classes
 	if (cmd_args.num_classes >= global_metadata.type_count) { // User manually set number of classes is too low
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
 		exit(3);
@@ -126,6 +129,12 @@ int main(int argc, char **argv) {
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
+	// Initialize and set word bigram counts
+	struct_word_bigram ** restrict word_bigrams = calloc(sizeof(void *), global_metadata.type_count);
+	memusage += sizeof(void *) * global_metadata.type_count;
+	memusage += set_bigram_counts(word_bigrams, sent_store_int, global_metadata.line_count);
+
+	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class);
@@ -158,6 +167,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %.0fm %is\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, time_secs_total/60, ((int)time_secs_total % 60)  );
 
 	free(word2class);
+	free(word_bigrams);
 	free(word_list);
 	free(word_counts);
 	free(sent_store_int);
@@ -519,6 +529,34 @@ void free_sent_info(struct_sent_info sent_info) {
 		free(sent_info.sent[i]);
 
 	free(sent_info.sent);
+}
+
+size_t set_bigram_counts(struct_word_bigram ** restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
+	register size_t memusage = 0;
+	register size_t sizeof_struct_word_bigram = sizeof(struct_word_bigram);
+
+	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
+		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+		register word_id_t word_id_i;
+		register word_id_t word_id_i_minus_1;
+		wclass_t class_sent[STDIN_SENT_MAX_WORDS];
+
+		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
+			word_id_i         = sent_store_int[current_sent_num].sent[i];
+			word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
+			if (word_bigrams[word_id_i_minus_1] == 0) { // word_i-1 doesn't have any successors yet
+				word_bigrams[word_id_i_minus_1] = calloc(sizeof_struct_word_bigram,1);
+				word_bigrams[word_id_i_minus_1]->word_id = word_id_i;
+				memusage += sizeof_struct_word_bigram;
+				;
+			} else { // Check to see if we've seen this bigram before
+				while (0) {
+					;
+				}
+			}
+		}
+	}
+	return memusage;
 }
 
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]) {
