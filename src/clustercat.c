@@ -130,9 +130,16 @@ int main(int argc, char **argv) {
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
 	// Initialize and set word bigram counts
+	clock_t time_bigram_start = clock();
+	if (cmd_args.verbose >= 0)
+		fprintf(stderr, "%s: Bigram counting ... ", argv_0_basename); fflush(stderr);
 	struct_word_bigram ** restrict word_bigrams = calloc(sizeof(void *), global_metadata.type_count);
 	memusage += sizeof(void *) * global_metadata.type_count;
-	memusage += set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count);
+	size_t bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count);
+	memusage += bigram_memusage;
+	clock_t time_bigram_end = clock();
+	if (cmd_args.verbose >= 0)
+		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %zu B (sizeof(struct_word_bigram)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage, sizeof(struct_word_bigram), bigram_memusage / (float)sizeof(struct_word_bigram)); fflush(stderr);
 
 	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
@@ -532,8 +539,6 @@ void free_sent_info(struct_sent_info sent_info) {
 }
 
 size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram ** restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
-	if (cmd_args.verbose > 0)
-		printf("Starting bigram counting\n"); fflush(stdout);
 	register size_t memusage = 0;
 	register size_t sizeof_struct_word_bigram = sizeof(struct_word_bigram);
 
@@ -565,8 +570,6 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram ** r
 		}
 	}
 
-	if (cmd_args.verbose > 0)
-		printf("Bigram memusage: %zu B (sizeof(struct_word_bigram)=%zu x %g unique bigrams)\n", memusage, sizeof_struct_word_bigram, memusage / (float)sizeof_struct_word_bigram); fflush(stdout);
 	return memusage;
 }
 
