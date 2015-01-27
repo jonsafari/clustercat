@@ -16,6 +16,17 @@ typedef unsigned short wclass_t;  // Number of possible word classes
 typedef unsigned int   word_id_t; // Number of possible word classes
 
 typedef struct {
+	word_id_t word_1;
+	word_id_t word_2;
+} struct_word_bigram;
+
+
+typedef struct { // Basically just need an O(1) set that we can iterate over later
+	struct_word_bigram key;
+	UT_hash_handle hh;	// makes this structure hashable
+} struct_map_bigram;
+
+typedef struct {
 	char * restrict key;
 	unsigned int count;
 	word_id_t word_id;
@@ -34,6 +45,7 @@ typedef struct { // Maps a word to its class
 	UT_hash_handle hh;	// makes this structure hashable
 } struct_map_word_class;
 
+void map_add_bigram(struct_map_bigram **map, const struct_word_bigram * bigram);
 
 void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count);
 
@@ -69,6 +81,7 @@ void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t
 
 void delete_all(struct_map_word **map);
 void delete_all_class(struct_map_class **map);
+void delete_all_bigram(struct_map_bigram **map);
 void delete_entry(struct_map_word **map, struct_map_word *entry);
 
 #endif // INCLUDE_HEADER

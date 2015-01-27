@@ -129,18 +129,6 @@ int main(int argc, char **argv) {
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
-	// Initialize and set word bigram counts
-	clock_t time_bigram_start = clock();
-	if (cmd_args.verbose >= 0)
-		fprintf(stderr, "%s: Bigram counting ... ", argv_0_basename); fflush(stderr);
-	struct_word_bigram ** restrict word_bigrams = calloc(sizeof(void *), global_metadata.type_count);
-	memusage += sizeof(void *) * global_metadata.type_count;
-	size_t bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count);
-	memusage += bigram_memusage;
-	clock_t time_bigram_end = clock();
-	if (cmd_args.verbose >= 0)
-		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %zu B (sizeof(struct_word_bigram)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage, sizeof(struct_word_bigram), bigram_memusage / (float)sizeof(struct_word_bigram)); fflush(stderr);
-
 	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
@@ -148,6 +136,29 @@ int main(int argc, char **argv) {
 	if (initial_class_file != NULL)
 		import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 	delete_all(&ngram_map);
+
+	// Initialize and set word bigram listing
+	clock_t time_bigram_start = clock();
+	if (cmd_args.verbose >= 0)
+		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
+	struct_word_bigram_list_item ** restrict word_bigrams = calloc(sizeof(void *), global_metadata.type_count);
+	memusage += sizeof(void *) * global_metadata.type_count;
+	size_t bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count);
+	memusage += bigram_memusage;
+	clock_t time_bigram_end = clock();
+	if (cmd_args.verbose >= 0)
+		//fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB (sizeof(struct_word_bigram_list_item)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_itemm_memusage / (float)sizeof(struct_word_bigram_list_item
+		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB (sizeof(struct_word_bigram_list_item)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_item), bigram_memusage / (float)sizeof(struct_word_bigram_list_item)); fflush(stderr);
+
+	// Build <v,c> counts, which consists of a word followed by a given class
+	unsigned int * restrict * word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+	//unsigned int (* restrict word_class_counts)[cmd_args.num_classes] = calloc(global_metadata.type_count , sizeof(unsigned int)); // we declare it this way so that it can be used as word_class_counts][class]
+	if (word_class_counts == NULL) {
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Maybe increase --min-count\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
+		exit(13);
+	}
+	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int);
+	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count);
 
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
@@ -538,41 +549,6 @@ void free_sent_info(struct_sent_info sent_info) {
 	free(sent_info.sent);
 }
 
-size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram ** restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
-	register size_t memusage = 0;
-	register size_t sizeof_struct_word_bigram = sizeof(struct_word_bigram);
-
-	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-		register word_id_t word_id_i;
-		register word_id_t word_id_i_minus_1;
-
-		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
-			word_id_i         = sent_store_int[current_sent_num].sent[i];
-			word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
-			if (word_bigrams[word_id_i_minus_1] == 0) { // word_i-1 doesn't have any successors yet
-				word_bigrams[word_id_i_minus_1] = calloc(sizeof_struct_word_bigram,1);
-				word_bigrams[word_id_i_minus_1]->word_id = word_id_i;
-				memusage += sizeof_struct_word_bigram;
-			} else { // Check to see if we've seen this bigram before
-				struct_word_bigram * bigram = word_bigrams[word_id_i_minus_1];
-				while (bigram->word_id != word_id_i) { // We've seen this bigram before.  Stop
-					if (bigram->next == NULL) { // No more existing bigrams; add new one
-						bigram->next = calloc(sizeof_struct_word_bigram,1);
-						(bigram->next)->word_id = word_id_i;
-						memusage += sizeof_struct_word_bigram;
-						break; // in loop we'd break here
-					} else { // We have reached the end of the linked list yet; try the next one
-						bigram = bigram->next;
-					}
-				}
-			}
-		}
-	}
-
-	return memusage;
-}
-
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]) {
 	register unsigned long word_i = 0;
 
@@ -588,6 +564,73 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	} else if (cmd_args.class_algo == BROWN) { // Really simple initialization: one class per word
 		for (unsigned long class = 1; word_i < vocab_size; word_i++, class++)
 			word2class[word_i] = class;
+	}
+}
+
+size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_list_item ** restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
+	// We first build a hash map of bigrams, since we need random access when traversing the corpus.
+	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
+
+	struct_map_bigram *map_bigram = NULL;
+	struct_word_bigram bigram;
+
+	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
+		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+
+		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
+			bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
+			bigram.word_2 = sent_store_int[current_sent_num].sent[i];
+			map_add_bigram(&map_bigram, &bigram);
+		}
+	}
+
+	register size_t memusage = 0;
+	register size_t sizeof_struct_word_bigram_list_item = sizeof(struct_word_bigram_list_item);
+	register word_id_t word_1;
+	register word_id_t word_2;
+
+	// Iterate through bigram map
+	struct_map_bigram *entry, *tmp;
+	HASH_ITER(hh, map_bigram, entry, tmp) {
+		word_1 = (entry->key).word_1;
+		word_2 = (entry->key).word_2;
+		if (word_bigrams[word_1] == 0) { // word_i-1 doesn't have any successors yet
+			word_bigrams[word_1] = calloc(sizeof_struct_word_bigram_list_item,1);
+			word_bigrams[word_1]->word_id = word_2;
+			memusage += sizeof_struct_word_bigram_list_item;
+		} else { // Check to see if we've seen this bigram before
+			struct_word_bigram_list_item * bigram = word_bigrams[word_1];
+			while (bigram->word_id != word_2) { // We've seen this bigram before.  Stop
+				if (bigram->next == NULL) { // No more existing bigrams; add new one
+					bigram->next = calloc(sizeof_struct_word_bigram_list_item,1);
+					(bigram->next)->word_id = word_2;
+					memusage += sizeof_struct_word_bigram_list_item;
+					break; // in loop we'd break here
+				} else { // We have reached the end of the linked list yet; try the next one
+					bigram = bigram->next;
+				}
+			}
+		}
+	}
+	delete_all_bigram(&map_bigram);
+
+	return memusage;
+}
+
+void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict * word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
+	register size_t sizeof_struct_word_bigram_list_item = sizeof(struct_word_bigram_list_item);
+
+	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
+		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+		register wclass_t class_i;
+		register word_id_t word_id_i_minus_1;
+
+		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
+			class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
+			word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
+			//word_class_counts[word_id_i_minus_1][class_i]++;
+			//word_class_counts[class_i][word_id_i_minus_1]++;
+		}
 	}
 }
 

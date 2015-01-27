@@ -1,5 +1,16 @@
 #include "clustercat-map.h"
 
+inline void map_add_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
+	struct_map_bigram *local_s;
+	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
+	if (local_s == NULL) {
+		local_s = (struct_map_bigram *)malloc(sizeof(struct_map_bigram));
+		//memcpy(local_s->key, bigram, sizeof(struct_word_bigram));
+		local_s->key = *bigram;
+		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
+	}
+}
+
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count) { // Based on uthash's docs
 	struct_map_word *local_s;
 
@@ -201,6 +212,15 @@ void delete_all(struct_map_word **map) {
 
 void delete_all_class(struct_map_class **map) {
 	struct_map_class *current_entry, *tmp;
+
+	HASH_ITER(hh, *map, current_entry, tmp) { // Based on uthash's docs
+		HASH_DEL(*map, current_entry);	// delete it (map advances to next)
+		free(current_entry);	// free it
+	}
+}
+
+void delete_all_bigram(struct_map_bigram **map) {
+	struct_map_bigram *current_entry, *tmp;
 
 	HASH_ITER(hh, *map, current_entry, tmp) { // Based on uthash's docs
 		HASH_DEL(*map, current_entry);	// delete it (map advances to next)
