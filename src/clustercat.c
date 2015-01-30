@@ -158,6 +158,7 @@ int main(int argc, char **argv) {
 		exit(13);
 	}
 	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int);
+	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(uint)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(unsigned int)); fflush(stderr);
 	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count);
 
 	// Calculate memusage for count_arrays
@@ -630,6 +631,8 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
 			class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
 			word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
+			//printf("i=%u, sent_length=%u, sent_num=%u, line_count=%lu, class_i=%u, word_id_i_minus_1=%u, num_classes=%u, offset=%u, orig_val=%u\n", i, sent_length, current_sent_num, line_count, class_i, word_id_i_minus_1, cmd_args.num_classes, word_id_i_minus_1 + cmd_args.num_classes * class_i,  word_class_counts[word_id_i_minus_1 + cmd_args.num_classes * class_i]); fflush(stdout);
+			word_class_counts[word_id_i_minus_1 + cmd_args.num_classes * class_i]++;
 			//word_class_counts[word_id_i_minus_1][class_i]++;
 			//word_class_counts[class_i][word_id_i_minus_1]++;
 		}
