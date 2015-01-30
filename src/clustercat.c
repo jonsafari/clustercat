@@ -589,6 +589,8 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_list
 	register word_id_t word_1;
 	register word_id_t word_2;
 
+	sort_bigrams(&map_bigram); // really speeds up the next step
+
 	// Iterate through bigram map
 	struct_map_bigram *entry, *tmp;
 	HASH_ITER(hh, map_bigram, entry, tmp) {

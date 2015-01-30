@@ -270,6 +270,19 @@ void sort_by_class(struct_map_word_class **map) {
 	HASH_SORT(*map, class_sort);
 }
 
+inline int bigram_sort_word_1(struct_map_bigram *a, struct_map_bigram *b) { // Based on uthash's docs
+	return ((a->key).word_1 - (b->key).word_1);
+}
+
+inline int bigram_sort_word_2(struct_map_bigram *a, struct_map_bigram *b) { // Based on uthash's docs
+	return ((a->key).word_2 - (b->key).word_2);
+}
+
+void sort_bigrams(struct_map_bigram **map) {
+	HASH_SORT(*map, bigram_sort_word_2);
+	HASH_SORT(*map, bigram_sort_word_1);
+}
+
 unsigned long map_count(struct_map_word *map[const]) {
 	return HASH_COUNT(*map);
 }
