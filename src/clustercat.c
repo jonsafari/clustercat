@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= 0)
 		//fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB (sizeof(struct_word_bigram_list_item)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_itemm_memusage / (float)sizeof(struct_word_bigram_list_item
-		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB (sizeof(struct_word_bigram_list_item)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_item), bigram_memusage / (float)sizeof(struct_word_bigram_list_item)); fflush(stderr);
+		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB: sizeof(bigram_struct)=%zuB x %'lu unique bigrams\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_item), bigram_memusage / sizeof(struct_word_bigram_list_item)); fflush(stderr);
 
 	// Build <v,c> counts, which consists of a word followed by a given class
 	unsigned int * restrict * word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
