@@ -279,7 +279,7 @@ inline int bigram_sort_word_2(struct_map_bigram *a, struct_map_bigram *b) { // B
 }
 
 void sort_bigrams(struct_map_bigram **map) {
-	HASH_SORT(*map, bigram_sort_word_2);
+	//HASH_SORT(*map, bigram_sort_word_2); // faster if unused
 	HASH_SORT(*map, bigram_sort_word_1);
 }
 
