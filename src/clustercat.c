@@ -139,14 +139,14 @@ int main(int argc, char **argv) {
 
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
-	if (cmd_args.verbose >= 0)
+	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
 	struct_word_bigram_list_item ** restrict word_bigrams = calloc(sizeof(void *), global_metadata.type_count);
 	memusage += sizeof(void *) * global_metadata.type_count;
 	size_t bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count);
 	memusage += bigram_memusage;
 	clock_t time_bigram_end = clock();
-	if (cmd_args.verbose >= 0)
+	if (cmd_args.verbose >= -1)
 		//fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB (sizeof(struct_word_bigram_list_item)=%zu x %g unique bigrams)\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_itemm_memusage / (float)sizeof(struct_word_bigram_list_item
 		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB: sizeof(bigram_struct)=%zuB x %'lu unique bigrams\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576, sizeof(struct_word_bigram_list_item), bigram_memusage / sizeof(struct_word_bigram_list_item)); fflush(stderr);
 
@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
-	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class);
+	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class, word_bigrams, word_class_counts);
 
 	// Now print the final word2class_map
 	if (cmd_args.verbose >= 0)
@@ -621,7 +621,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_list
 }
 
 void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict * word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
-	register size_t sizeof_struct_word_bigram_list_item = sizeof(struct_word_bigram_list_item);
+	//register size_t sizeof_struct_word_bigram_list_item = sizeof(struct_word_bigram_list_item);
 
 	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
@@ -639,7 +639,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[]) {
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_list_item ** restrict word_bigrams, unsigned int * restrict * word_class_counts) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -652,8 +652,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		//	printf("c_%u=%u, ", i, count_arrays[0][i]);
 		//} printf("\n"); fflush(stdout);
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, -1, 1);
-		free_count_arrays(cmd_args, count_arrays);
-		free(count_arrays);
+		//free_count_arrays(cmd_args, count_arrays);
+		//free(count_arrays);
 
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -666,6 +666,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps) // non-determinism
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
+				const unsigned int word_i_count = word_counts[word_i];
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				const wclass_t old_class = word2class[word_i];
@@ -675,15 +676,17 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				for (wclass_t class = 1; class <= cmd_args.num_classes; class++) { // class values range from 1 to cmd_args.num_classes, so we need to add/subtract by one in various places below when dealing with arrays
 					steps++;
 					// Get log prob
-					struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));  // This array is small and dense
-					init_count_arrays(cmd_args, count_arrays);
-					tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
+					//struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
+					//count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));  // This array is small and dense
+					//init_count_arrays(cmd_args, count_arrays);
+					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
-					delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
-					free_count_arrays(cmd_args, count_arrays);
-					free(count_arrays);
+					//log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
+					float delta = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_counts, word_bigrams, word_class_counts, count_arrays, false);
+					log_probs[class-1] = -1;
+					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
+					//free_count_arrays(cmd_args, count_arrays);
+					//free(count_arrays);
 				}
 
 				const wclass_t best_hypothesis_class = 1 + which_max(log_probs, cmd_args.num_classes);
@@ -735,6 +738,25 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 }
 
 
+float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], const unsigned int word_counts[const], struct_word_bigram_list_item ** restrict word_bigrams, unsigned int * restrict * word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
+	unsigned int count_class = count_arrays[0][class];
+	unsigned int new_count_class = count_class - word_counts[word];
+	register float delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
+
+	if (! is_tentative_move) {
+		count_class = new_count_class;
+	}
+
+	struct_word_bigram_list_item * prev_word = word_bigrams[word]; // start traversing list of words that precede the word in question
+	while (prev_word != NULL) {
+		// delta = delta - ...
+		// ...
+		prev_word = prev_word->next;
+	}
+
+	return delta;
+}
 
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
