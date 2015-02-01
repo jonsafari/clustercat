@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576); fflush(stderr);
 
 	// Build <v,c> counts, which consists of a word followed by a given class
-	unsigned int * restrict * word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+	unsigned int * restrict word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
 	//unsigned int (* restrict word_class_counts)[cmd_args.num_classes] = calloc(global_metadata.type_count , sizeof(unsigned int)); // we declare it this way so that it can be used as word_class_counts][class]
 	if (word_class_counts == NULL) {
 		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Maybe increase --min-count\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
@@ -622,7 +622,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	return memusage;
 }
 
-void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict * word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
+void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
 
 	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
@@ -640,7 +640,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 	}
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict * word_class_counts) {
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -739,22 +739,25 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 }
 
 
-float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], const unsigned int word_counts[const], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict * word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], const unsigned int word_counts[const], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_arrays[0][class];
 	unsigned int new_count_class = count_class - word_counts[word];
 	register float delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
 
-	if (! is_tentative_move) {
+	if (! is_tentative_move)
 		count_class = new_count_class;
-	}
 
-	//struct_word_bigram_entry prev_word = word_bigrams[word]; // start traversing list of words that precede the word in question
-	//while (prev_word != NULL) {
-	//	//delta = delta - word_class_counts[] - word_bigrams[word][
-	//	// ...
-	//	prev_word = prev_word->next;
-	//}
+	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
+		word_id_t prev_word = word_bigrams[word].words[i];
+		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * class];
+		printf("prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
+		if (word_class_count == 0) {
+			delta = delta - word_class_count * word_class_count;
+		} else {
+			delta = delta - word_class_count * log2(word_class_count);
+		}
+	}
 
 	return delta;
 }
