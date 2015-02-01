@@ -21,8 +21,9 @@ typedef struct {
 } struct_word_bigram;
 
 
-typedef struct { // Basically just need an O(1) set that we can iterate over later
+typedef struct { // We need an O(1) map that we can iterate over later
 	struct_word_bigram key;
+	unsigned int count;
 	UT_hash_handle hh;	// makes this structure hashable
 } struct_map_bigram;
 
@@ -45,8 +46,6 @@ typedef struct { // Maps a word to its class
 	UT_hash_handle hh;	// makes this structure hashable
 } struct_map_word_class;
 
-void map_add_bigram(struct_map_bigram **map, const struct_word_bigram * bigram);
-
 void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count);
 
 void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const wclass_t entry_class);
@@ -58,6 +57,8 @@ void map_set_word_id(struct_map_word **map, const char * restrict entry_key, con
 unsigned int map_increment_count(struct_map_word **map, const char * restrict entry_key);
 
 unsigned int map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]);
+
+void map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram);
 
 unsigned int map_update_count(struct_map_word **map, const char * restrict entry_key, const unsigned int count);
 

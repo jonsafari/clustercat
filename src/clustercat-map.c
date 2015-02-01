@@ -1,13 +1,16 @@
 #include "clustercat-map.h"
 
-inline void map_add_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
+inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
 	struct_map_bigram *local_s;
 	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
 	if (local_s == NULL) {
 		local_s = (struct_map_bigram *)malloc(sizeof(struct_map_bigram));
 		//memcpy(local_s->key, bigram, sizeof(struct_word_bigram));
 		local_s->key = *bigram;
+		local_s->count = 1;
 		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
+	} else {
+		(local_s->count)++;
 	}
 }
 
@@ -279,8 +282,8 @@ inline int bigram_sort_word_2(struct_map_bigram *a, struct_map_bigram *b) { // B
 }
 
 void sort_bigrams(struct_map_bigram **map) {
-	//HASH_SORT(*map, bigram_sort_word_2); // faster if unused
-	HASH_SORT(*map, bigram_sort_word_1);
+	HASH_SORT(*map, bigram_sort_word_2);
+	//HASH_SORT(*map, bigram_sort_word_1);
 }
 
 unsigned long map_count(struct_map_word *map[const]) {

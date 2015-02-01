@@ -25,6 +25,7 @@
 #define STDIN_SENT_MAX_CHARS 40000
 #define STDIN_SENT_MAX_WORDS 1024
 #define MAX_WORD_LEN 255
+#define MAX_WORD_PREDECESSORS 1000000
 
 typedef unsigned short sentlen_t; // Number of words in a sentence
 //typedef unsigned short wclass_t;  // Defined in clustercat-map.h
@@ -55,10 +56,11 @@ typedef struct {
 
 // typedef {...} struct_word_bigram; // see clustercat-map.h
 
-typedef struct word_bigram_list_item { // This is for an array pointing to a linked list of successors to a given word
-	word_id_t word_id;
-	struct word_bigram_list_item * restrict next;
-} struct_word_bigram_list_item;
+typedef struct { // This is for an array pointing to this struct having a pointer to an array of successors to a given word, as well as the length of that array
+	word_id_t * words;
+	unsigned int * counts;
+	unsigned int length;
+} struct_word_bigram_entry;
 
 char *argv_0_basename; // Allow for global access to filename
 
@@ -87,10 +89,10 @@ unsigned long process_str_sent(char * restrict sent_str);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]);
-size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_list_item ** restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count);
+size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count);
 void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict * word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count);
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_list_item ** restrict word_bigrams, unsigned int * restrict * word_class_counts);
-float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], const unsigned int word_counts[const], struct_word_bigram_list_item ** restrict word_bigrams, unsigned int * restrict * word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move);
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict * word_class_counts);
+float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], const unsigned int word_counts[const], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict * word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move);
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class);
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
