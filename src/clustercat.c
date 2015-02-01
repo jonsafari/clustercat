@@ -588,8 +588,8 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 
 	register size_t memusage = 0;
 	register word_id_t word_2;
-	register word_id_t word_2_last = -1;
-	register unsigned int length = 1;
+	register word_id_t word_2_last = 0;
+	register unsigned int length = 0;
 	word_id_t * word_buffer     = malloc(sizeof(word_id_t) * MAX_WORD_PREDECESSORS);
 	unsigned int * count_buffer = malloc(sizeof(unsigned int) * MAX_WORD_PREDECESSORS);
 
@@ -597,20 +597,28 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	struct_map_bigram *entry, *tmp;
 	HASH_ITER(hh, map_bigram, entry, tmp) {
 		word_2 = (entry->key).word_2;
-		if (word_2 == word_2_last) { // Within successive entry
-			word_buffer[length-1]  = (entry->key).word_1;
-			count_buffer[length-1] = entry->count;
+		//printf("[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
+		if (word_2 == word_2_last) { // Within successive entry; ie. 2nd entry or greater
+			word_buffer[length]  = (entry->key).word_1;
+			count_buffer[length] = entry->count;
 			length++;
 		} else { // New entry; process previous entry
-			word_bigrams[word_2].length = length;
-			word_bigrams[word_2].words  = malloc(length * sizeof(word_id_t));
-			memcpy(word_bigrams[word_2].words,  word_buffer, length * sizeof(word_id_t));
+			word_bigrams[word_2_last].length = length;
+			word_bigrams[word_2_last].words  = malloc(length * sizeof(word_id_t));
+			memcpy(word_bigrams[word_2_last].words,  word_buffer, length * sizeof(word_id_t));
 			memusage += length * sizeof(word_id_t);
-			word_bigrams[word_2].counts = malloc(length * sizeof(unsigned int));
-			memcpy(word_bigrams[word_2].counts, count_buffer , length * sizeof(unsigned int));
+			word_bigrams[word_2_last].counts = malloc(length * sizeof(unsigned int));
+			memcpy(word_bigrams[word_2_last].counts, count_buffer , length * sizeof(unsigned int));
 			memusage += length * sizeof(unsigned int);
+			//printf("\nword_2_last=%u, length=%u word_1s: ", word_2_last, length);
+			//for (unsigned int i = 0; i < length; i++) {
+			//	printf("<%u,%u> ", word_bigrams[word_2_last].words[i], word_bigrams[word_2_last].counts[i]);
+			//}
+			//printf("\n");
 
 			word_2_last = word_2;
+			word_buffer[0]  = (entry->key).word_1;
+			count_buffer[0] = entry->count;
 			length = 1;
 		}
 	}
@@ -683,7 +691,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					//log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
-					float delta = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, false);
+					float delta = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 					log_probs[class-1] = -1;
 					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					//free_count_arrays(cmd_args, count_arrays);
@@ -744,14 +752,16 @@ float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const 
 	unsigned int count_class = count_arrays[0][class];
 	unsigned int new_count_class = count_class - word_count;
 	register float delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
+	//printf("42: word=%u, word_count=%u, class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
-		count_class = new_count_class;
+		count_arrays[0][class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
 		//printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * class), prev_word, cmd_args.num_classes, class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * class];
+		printf("44\n"); fflush(stdout);
 		//printf("prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta = delta - word_class_count * log2(word_class_count);
