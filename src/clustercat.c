@@ -683,7 +683,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					//log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
-					float delta = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_counts, word_bigrams, word_class_counts, count_arrays, false);
+					float delta = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, false);
 					log_probs[class-1] = -1;
 					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					//free_count_arrays(cmd_args, count_arrays);
@@ -739,10 +739,10 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 }
 
 
-float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], const unsigned int word_counts[const], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_arrays[0][class];
-	unsigned int new_count_class = count_class - word_counts[word];
+	unsigned int new_count_class = count_class - word_count;
 	register float delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
 
 	if (! is_tentative_move)
@@ -750,13 +750,17 @@ float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const 
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
+		//printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * class), prev_word, cmd_args.num_classes, class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * class];
-		printf("prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
-		if (word_class_count == 0) {
-			delta = delta - word_class_count * word_class_count;
-		} else {
+		//printf("prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
+		if (word_class_count != 0) // Can't do log(0)
 			delta = delta - word_class_count * log2(word_class_count);
-		}
+		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
+		delta = delta + new_word_class_count * log2(new_word_class_count);
+		//printf("word=%u; class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, prev_word=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, class, i, word_count, count_class, new_count_class, prev_word, word_class_count, new_word_class_count, delta); fflush(stdout);
+		if (! is_tentative_move)
+			word_class_counts[prev_word + cmd_args.num_classes * class] = new_word_class_count;
+
 	}
 
 	return delta;
