@@ -683,6 +683,11 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 1; class <= cmd_args.num_classes; class++) { // class values range from 1 to cmd_args.num_classes, so we need to add/subtract by one in various places below when dealing with arrays
+					if (old_class == class) {
+						log_probs[class-1] = 0.0;
+						continue;
+					}
+
 					steps++;
 					// Get log prob
 					//struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
@@ -691,8 +696,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					//log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
-					float delta = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
-					log_probs[class-1] = -1;
+					log_probs[class-1] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					//free_count_arrays(cmd_args, count_arrays);
 					//free(count_arrays);
@@ -764,9 +768,9 @@ float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const 
 		printf("44\n"); fflush(stdout);
 		//printf("prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
-			delta = delta - word_class_count * log2(word_class_count);
+			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
-		delta = delta + new_word_class_count * log2(new_word_class_count);
+		delta += new_word_class_count * log2(new_word_class_count);
 		//printf("word=%u; class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, prev_word=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, class, i, word_count, count_class, new_count_class, prev_word, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
 			word_class_counts[prev_word + cmd_args.num_classes * class] = new_word_class_count;
