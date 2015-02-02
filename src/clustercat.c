@@ -652,27 +652,26 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 	return 0.0;
 }
 
-inline float pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_arrays[0][to_class];
-	unsigned int new_count_class = count_class - word_count;
-	register float delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
-	//printf("42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
+	unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
+	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
+	printf("42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
 		count_arrays[0][to_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		//printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
+		printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * to_class];
-		//printf("44\n"); fflush(stdout);
-		//printf("prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
+		printf("44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
-		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
+		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
 		delta += new_word_class_count * log2(new_word_class_count);
-		//printf("word=%u; to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, prev_word=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, to_class, i, word_count, count_class, new_count_class, prev_word, word_class_count, new_word_class_count, delta); fflush(stdout);
+		printf("45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
 			word_class_counts[prev_word + cmd_args.num_classes * to_class] = new_word_class_count;
 
@@ -713,7 +712,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				const wclass_t old_class = word2class[word_i];
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
-				const float delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+				const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 1; class <= cmd_args.num_classes; class++) { // class values range from 1 to cmd_args.num_classes, so we need to add/subtract by one in various places below when dealing with arrays
