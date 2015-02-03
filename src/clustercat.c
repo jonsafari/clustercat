@@ -657,21 +657,21 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	unsigned int count_class = count_arrays[0][to_class];
 	unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
-	printf("42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
+	//printf("42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
 		count_arrays[0][to_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
+		//printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * to_class];
-		printf("44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
+		//printf("44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
 		delta += new_word_class_count * log2(new_word_class_count);
-		printf("45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
+		//printf("45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
 			word_class_counts[prev_word + cmd_args.num_classes * to_class] = new_word_class_count;
 
@@ -712,14 +712,14 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				const wclass_t old_class = word2class[word_i];
 				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
-				const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+				const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class-1, word2class, word_bigrams, word_class_counts, count_arrays, true);
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 1; class <= cmd_args.num_classes; class++) { // class values range from 1 to cmd_args.num_classes, so we need to add/subtract by one in various places below when dealing with arrays
-					if (old_class == class) {
-						log_probs[class-1] = 0.0;
-						continue;
-					}
+					//if (old_class == class) {
+					//	log_probs[class-1] = 0.0;
+					//	continue;
+					//}
 
 					steps++;
 					// Get log prob
@@ -729,7 +729,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class-1] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
 					//log_probs[class-1] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
-					log_probs[class-1] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+					log_probs[class-1] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class-1, word2class, word_bigrams, word_class_counts, count_arrays, true);
 					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					//free_count_arrays(cmd_args, count_arrays);
 					//free(count_arrays);
@@ -741,21 +741,24 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				if (cmd_args.verbose > 1) {
 					printf("Orig logprob for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, log_probs[old_class-1], 1, cmd_args.num_classes);
 					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
-					if (best_hypothesis_log_prob > 0) { // Shouldn't happen
-						fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class); fflush(stderr);
-						exit(9);
-					}
+					//if (best_hypothesis_log_prob > 0) { // Shouldn't happen
+					//	fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class); fflush(stderr);
+					//	exit(9);
+					//}
 				}
 
-				if (log_probs[old_class-1] < best_hypothesis_log_prob) { // We've improved
+				//if (log_probs[old_class-1] > best_hypothesis_log_prob) { // We've improved
+				if (old_class != best_hypothesis_class) { // We've improved
 					end_cycle_short = false;
 
 					if (cmd_args.verbose > 0)
-						fprintf(stderr, " Moving id=%-6u %-18s %u -> %u\t(logprob %g -> %g)\n", word_i, word_list[word_i], old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
+						fprintf(stderr, " Moving id=%-7u count=%-7u %-18s %u -> %u\t(logprob %g -> %g)\n", word_i, word_counts[word_i], word_list[word_i], old_class, best_hypothesis_class, log_probs[old_class-1], best_hypothesis_log_prob); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
 					//map_update_class(&word2class_map, word, best_hypothesis_class);
 					word2class[word_i] = best_hypothesis_class;
 					best_log_prob = best_hypothesis_log_prob;
+					pex_remove_word(cmd_args, word_i, word_i_count, old_class-1, word2class, word_bigrams, word_class_counts, count_arrays, false);
+					pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class-1, word2class, word_bigrams, word_class_counts, count_arrays, false);
 				}
 			}
 
