@@ -819,7 +819,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			const unsigned int class_i_count = count_arrays[0][class_i-1];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
-			if (cmd_args.verbose > 1) {
+			if (cmd_args.verbose > 2) {
 				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
 				fflush(stdout);
 				if (class_i_count < word_i_count) { // Shouldn't happen
@@ -871,7 +871,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const float class_prob = emission_prob * transition_prob;
 
 
-			if (cmd_args.verbose > 1) {
+			if (cmd_args.verbose > 2) {
 				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g, sum_probs=%g, sum_weights=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, class_prob, log2f(class_prob), sum_probs, sum_weights);
 				printf("transition_probs:\t");
 				fprint_arrayf(stdout, order_probs, 5, ","); fflush(stdout);

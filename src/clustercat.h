@@ -70,11 +70,11 @@ struct cmd_args {
 	wclass_t        num_classes;
 	unsigned short  tune_cycles : 10;
 	unsigned char   class_order : 6;
-	unsigned short  num_threads : 10;
-	unsigned short  min_count : 9;
+	unsigned short  num_threads : 9;
 	char            verbose : 3;     // Negative values increasingly suppress normal output
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;  // enum class_algos
+	unsigned short  min_count : 9;
 };
 
 void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
