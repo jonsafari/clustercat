@@ -763,13 +763,13 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				const wclass_t old_class = word2class[word_i];
-				double log_probs[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
 					//if (old_class == class) {
-					//	log_probs[class] = 0.0;
+					//	scores[class] = 0.0;
 					//	continue;
 					//}
 
@@ -779,36 +779,41 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));  // This array is small and dense
 					//init_count_arrays(cmd_args, count_arrays);
 					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
-					//log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					//log_probs[class] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, word_i, class);
-					log_probs[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+					//scores[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
+					//scores[class] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, word_i, class);
+					scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					//free_count_arrays(cmd_args, count_arrays);
 					//free(count_arrays);
 				}
 
-				const wclass_t best_hypothesis_class = which_max(log_probs, cmd_args.num_classes);
-				const double best_hypothesis_log_prob = max(log_probs, cmd_args.num_classes);
+				const wclass_t best_hypothesis_class = which_max(scores, cmd_args.num_classes);
+				const double best_hypothesis_score = max(scores, cmd_args.num_classes);
 
 				if (cmd_args.verbose > 1) {
-					printf("Orig logprob for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, log_probs[old_class], 1, cmd_args.num_classes);
-					fprint_array(stdout, log_probs, cmd_args.num_classes, ","); fflush(stdout);
-					//if (best_hypothesis_log_prob > 0) { // Shouldn't happen
-					//	fprintf(stderr, "Error: best_hypothesis_log_prob=%g for class %hu > 0\n", best_hypothesis_log_prob, best_hypothesis_class); fflush(stderr);
+					printf("Orig score for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, scores[old_class], 1, cmd_args.num_classes);
+					fprint_array(stdout, scores, cmd_args.num_classes, ","); fflush(stdout);
+					//if (best_hypothesis_score > 0) { // Shouldn't happen
+					//	fprintf(stderr, "Error: best_hypothesis_score=%g for class %hu > 0\n", best_hypothesis_score, best_hypothesis_class); fflush(stderr);
 					//	exit(9);
 					//}
 				}
 
-				//if (log_probs[old_class] > best_hypothesis_log_prob) { // We've improved
+				//if (scores[old_class] > best_hypothesis_score) { // We've improved
 				if (old_class != best_hypothesis_class) { // We've improved
 					end_cycle_short = false;
 
 					if (cmd_args.verbose > 0)
-						fprintf(stderr, " Moving id=%-7u count=%-7u %-18s %u -> %u\t(logprob %g -> %g)\n", word_i, word_counts[word_i], word_list[word_i], old_class, best_hypothesis_class, log_probs[old_class], best_hypothesis_log_prob); fflush(stderr);
+						fprintf(stderr, " Moving id=%-7u count=%-7u %-18s %u -> %u\t(%g -> %g)\n", word_i, word_counts[word_i], word_list[word_i], old_class, best_hypothesis_class, scores[old_class], best_hypothesis_score); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
 					//map_update_class(&word2class_map, word, best_hypothesis_class);
 					word2class[word_i] = best_hypothesis_class;
-					best_log_prob = best_hypothesis_log_prob;
+					if (isnan(best_hypothesis_score)) { // shouldn't happen
+						fprintf(stderr, "Error: best_hypothesis_score=%g :-(\n", best_hypothesis_score); fflush(stderr);
+						//exit(5);
+					} else {
+						best_log_prob += best_hypothesis_score;
+					}
 					pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
 					pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
 				}
