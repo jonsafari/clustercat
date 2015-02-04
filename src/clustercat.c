@@ -36,16 +36,17 @@ size_t memusage = 0;
 
 // Defaults
 struct cmd_args cmd_args = {
-	.class_algo             = EXCHANGE,
-	.dev_file               = NULL,
-	.max_tune_sents         = 1000000,
-	.min_count              = 2,
-	.max_array              = 3,
-	.class_order            = 2,
-	.num_threads            = 4,
-	.num_classes            = 0,
-	.tune_cycles            = 15,
-	.verbose                = 0,
+	.class_algo        = EXCHANGE,
+	.dev_file          = NULL,
+	.max_tune_sents    = 1000000,
+	.min_count         = 2,
+	.max_array         = 3,
+	.class_order       = 2,
+	.num_threads       = 4,
+	.num_classes       = 0,
+	.rev_alternate     = 1,
+	.tune_cycles       = 15,
+	.verbose           = 0,
 };
 
 
@@ -211,12 +212,13 @@ Options:\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
  -n, --num-classes <c>    Set number of word classes (default: square root of vocabulary size)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
+     --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu sentences)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
  -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.max_tune_sents, cmd_args.tune_cycles, weights_string);
+", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles, weights_string);
 }
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 
@@ -263,6 +265,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-q") && strcmp(argv[arg_i], "--quiet"))) {
 			cmd_args->verbose--;
+		} else if (!strcmp(argv[arg_i], "--rev-alternate")) {
+			cmd_args->rev_alternate = (unsigned char) atoi(argv[arg_i+1]);
+			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--tune-sents")) {
 			cmd_args->max_tune_sents = atol(argv[arg_i+1]);
 			arg_i++;
@@ -370,7 +375,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
 			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count);
-			if (cmd_args.verbose > 2)
+			if (cmd_args.verbose > 3)
 				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
 			struct_map_word *local_s;
@@ -654,8 +659,8 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 
 inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
-	unsigned int count_class = count_arrays[0][to_class];
-	unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
+	const unsigned int count_class = count_arrays[0][to_class];
+	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
 	//printf("42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
 
@@ -671,7 +676,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
 		delta += new_word_class_count * log2(new_word_class_count);
-		//printf("45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
+		//printf("mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
 			word_class_counts[prev_word + cmd_args.num_classes * to_class] = new_word_class_count;
 
