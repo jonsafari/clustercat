@@ -677,7 +677,31 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 }
 
 inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
-	return 0.0;
+	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
+	const unsigned int count_class = count_arrays[0][from_class];
+	const unsigned int new_count_class = count_class - word_count; // Differs from paper: replace "-" with "+"
+	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
+	//printf("rm42: word=%u, word_count=%u, from_class=%u, count_class=%u, new_count_class=%u (count_class - word_count), delta=%g\n", word, word_count, from_class, count_class, new_count_class, delta); fflush(stdout);
+
+	if (! is_tentative_move)
+		count_arrays[0][from_class] = new_count_class;
+
+	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
+		word_id_t prev_word = word_bigrams[word].words[i];
+		//printf("rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
+		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * from_class];
+		//printf("rm44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
+		if (word_class_count != 0) // Can't do log(0)
+			delta -= word_class_count * log2(word_class_count);
+		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
+		delta += new_word_class_count * log2(new_word_class_count);
+		//printf("rm45: word=%u; prev_word=%u, from_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u (w-c - %u), delta=%g\n", word, prev_word, from_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
+		if (! is_tentative_move)
+			word_class_counts[prev_word + cmd_args.num_classes * from_class] = new_word_class_count;
+
+	}
+
+	return delta;
 }
 
 inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
