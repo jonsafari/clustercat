@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
 	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
-	init_clusters(cmd_args, global_metadata.type_count, word2class);
+	init_clusters(cmd_args, global_metadata.type_count, word2class, word_counts, word_list);
 	if (initial_class_file != NULL)
 		import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 	delete_all(&ngram_map);
@@ -577,7 +577,7 @@ void free_sent_info(struct_sent_info sent_info) {
 	free(sent_info.sent);
 }
 
-void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict]) {
+void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const unsigned int word_counts[const], char * word_list[restrict]) {
 	register unsigned long word_i = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes-1].  So it's a simple pseudo-randomized initialization.
@@ -585,7 +585,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 		for (; word_i < vocab_size; word_i++, class++) {
 			if (class == cmd_args.num_classes) // reset
 				class = 0;
-			//printf("cls=%u, w_i=%lu, vocab_size=%u\n", class, word_i, vocab_size);
+			//printf("cls=%-4u w_i=%-8lu #(w)=%-8u str(w)=%-20s vocab_size=%u\n", class, word_i, word_counts[word_i], word_list[word_i], vocab_size);
 			word2class[word_i] = class;
 		}
 
@@ -780,7 +780,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//init_count_arrays(cmd_args, count_arrays);
 					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
 					//log_probs[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					//log_probs[class] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, word_i, class);
+					//log_probs[class] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, word_i, class);
 					log_probs[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
 					//free_count_arrays(cmd_args, count_arrays);
@@ -839,7 +839,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 }
 
 
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
@@ -904,9 +904,9 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 				sum_probs += weights_class[0] * order_probs[0];
 			}
 
-			// We'll always have at least "<s>" in history
+			// We'll always have at least "<s>" in history.  And we'll always have Vienna.
 			order_probs[1] = count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ] / (float)count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes) ]; // bigram probs
-			//printf("order_probs[1] = %u / %u\n", count_arrays[1][ array_offset(&class_sent[i], 2, cmd_args.num_classes) ], count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes)]);
+			//printf("order_probs[1] = %u / %u; [%hu,%hu] \n", count_arrays[1][ array_offset(&class_sent[i], 2, cmd_args.num_classes) ], count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes)], class_sent[i-1], class_sent[i]);
 			sum_weights += weights_class[1];
 			sum_probs += weights_class[1] * order_probs[1];
 
