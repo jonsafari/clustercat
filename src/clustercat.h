@@ -106,12 +106,12 @@ void print_sent_info(struct_sent_info * restrict sent_info);
 // |C| can be represented using an unsigned short (16 bits == 65k classes) for exchange clustering, but probably should be an unsigned int (32 bit == 4 billion classes) for Brown clustering, since initially every word type is its own class.
 inline size_t array_offset(wclass_t * pointer, const unsigned int max, const wclass_t num_classes) {
 	register uint_fast8_t ptr_i = 1;
-	register size_t total_offset = (*pointer) - 1;
+	register size_t total_offset = (*pointer);
 
 	for (; ptr_i < max; ptr_i++) { // little endian
 		//printf("1: atosize_t: pointer=%p; all vals: [%hu,%hu,%hu]; total_offset=%zu; max=%u\n", pointer, *pointer, *(pointer+1), *(pointer+2), total_offset, max); fflush(stdout);
-		total_offset += (pointer[ptr_i] - 1) * powi(num_classes, ptr_i);
-		//printf("2: adding ((pointer[%u]=%u - 1)* powi(%hu, %u)=%lu)=%lu\n", ptr_i, pointer[ptr_i], num_classes, ptr_i, powi(num_classes, ptr_i), (pointer[ptr_i] - 1) * powi(num_classes, ptr_i)); fflush(stdout);
+		total_offset += (pointer[ptr_i]) * powi(num_classes, ptr_i);
+		//printf("2: adding ((pointer[%u]=%u)* powi(%hu, %u)=%lu)=%lu\n", ptr_i, pointer[ptr_i], num_classes, ptr_i, powi(num_classes, ptr_i), pointer[ptr_i] * powi(num_classes, ptr_i)); fflush(stdout);
 	}
 	//printf("3: atosize_t: pointer=%p; val0=%hu; total_offset=%zu; max=%u\n\n", pointer, *pointer, total_offset, max); fflush(stdout);
 	return total_offset;
