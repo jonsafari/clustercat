@@ -448,7 +448,30 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 	}
 }
 
-void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays, struct_map_class **class_map, const word_id_t temp_word, const wclass_t temp_class) {
+void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays) { // this is a stripped-down version of tally_int_sents_in_store; no temp_class either
+	wclass_t class_sent[STDIN_SENT_MAX_WORDS];
+
+	for (unsigned long current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) { // loop over sentences
+		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+
+		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
+			class_sent[i] = word2class[ sent_store_int[current_sent_num].sent[i] ];
+			//printf("class_sent[%u]=%hu\n", i, class_sent[i]);
+			count_arrays[0][  class_sent[i] ]++;
+			if (cmd_args.max_array > 1  &&  i > 0) {
+				const size_t offset = array_offset(&class_sent[i-1], 2, cmd_args.num_classes);
+				count_arrays[1][offset]++;
+				//printf("[%hu,%hu]=%u now; offset=%zu\n", class_sent[i-1], class_sent[i], count_arrays[1][offset], offset); fflush(stdout);
+				if (cmd_args.max_array > 2  &&  i > 1) {
+					const size_t offset = array_offset(&class_sent[i-2], 3, cmd_args.num_classes);
+					count_arrays[2][offset]++;
+				}
+			}
+		}
+	}
+}
+
+void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
 
 	for (unsigned long current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
@@ -662,16 +685,16 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	const unsigned int count_class = count_arrays[0][to_class];
 	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
-	//printf("42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
+	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
 		count_arrays[0][to_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		//printf("43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
+		//printf("mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * to_class];
-		//printf("44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
+		//printf("mv44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
@@ -690,14 +713,14 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
-		struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
-		tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, -1, 0); // Get class ngram counts. We use -1 so that no words are ever substituted
-		//printf("42: "); for (wclass_t i = 0; i <= cmd_args.num_classes; i++) {
+		tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
+		//printf("42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
 		//	printf("c_%u=%u, ", i, count_arrays[0][i]);
-		//} printf("\n"); fflush(stdout);
-		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, &class_map, -1, 1);
+		//	class_sum += count_arrays[0][i];
+		//} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
+		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, -1, 1);
 		//free_count_arrays(cmd_args, count_arrays);
 		//free(count_arrays);
 
@@ -842,8 +865,8 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 			// Calculate transition probs
 			float weights_class[] = {0.35, 0.14, 0.02, 0.14, 0.35};
-			//float weights_class[] = {0.3, 0.175, 0.05, 0.0, 0.0};
 			//float weights_class[] = {0.0, 0.95, 0.05, 0.0, 0.0};
+			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
