@@ -19,7 +19,7 @@
 #define TOK_CHARS            " \t\n"
 #define UNKNOWN_WORD_CLASS   0
 #define UNKNOWN_WORD_ID      0
-#define UNKNOWN_WORD         "UnK"
+#define UNKNOWN_WORD         "<unk>"
 // Number of characters to read-in for each line
 #define BUFLEN 8192
 #define STDIN_SENT_MAX_CHARS 40000
