@@ -706,7 +706,9 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 
 inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
-	const unsigned int count_class = count_arrays[0][to_class];
+	unsigned int count_class = count_arrays[0][to_class];
+	if (!count_class) // class is empty
+		count_class = 1;
 	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
 	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
@@ -740,7 +742,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
 		tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
-		//printf("42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
+		//printf("cluster(): 42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
 		//	printf("c_%u=%u, ", i, count_arrays[0][i]);
 		//	class_sum += count_arrays[0][i];
 		//} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
@@ -764,7 +766,13 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
-				const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+				const double delta_remove_word = 0.0;  // Not really necessary
+
+				//printf("cluster(): 43: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
+				//	printf("c_%u=%u, ", i, count_arrays[0][i]);
+				//	class_sum += count_arrays[0][i];
+				//} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
@@ -810,7 +818,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					word2class[word_i] = best_hypothesis_class;
 					if (isnan(best_hypothesis_score)) { // shouldn't happen
 						fprintf(stderr, "Error: best_hypothesis_score=%g :-(\n", best_hypothesis_score); fflush(stderr);
-						//exit(5);
+						exit(5);
 					} else {
 						best_log_prob += best_hypothesis_score;
 					}
