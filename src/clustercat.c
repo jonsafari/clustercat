@@ -616,8 +616,13 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 
 		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
-			bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
-			bigram.word_2 = sent_store_int[current_sent_num].sent[i];
+			if (reverse) {
+				bigram.word_2 = sent_store_int[current_sent_num].sent[i-1];
+				bigram.word_1 = sent_store_int[current_sent_num].sent[i];
+			} else { // Normal direction
+				bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
+				bigram.word_2 = sent_store_int[current_sent_num].sent[i];
+			}
 			map_increment_bigram(&map_bigram, &bigram);
 		}
 	}
