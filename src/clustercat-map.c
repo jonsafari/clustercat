@@ -250,7 +250,7 @@ void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t
 }
 
 int count_sort(struct_map_word *a, struct_map_word *b) { // Based on uthash's docs
-	return (a->count - b->count);
+	return (b->count - a->count); // sort descending: most frequent to least frequent
 }
 
 void sort_by_count(struct_map_word **map) { // Based on uthash's docs

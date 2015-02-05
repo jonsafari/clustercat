@@ -109,6 +109,7 @@ int main(int argc, char **argv) {
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
+	sort_by_count(&ngram_map); // Speeds up lots of stuff later
 	get_keys(&ngram_map, word_list);
 
 	// Build array of word_counts
@@ -763,6 +764,9 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			moved_count = 0;
 
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
+			//for (word_id_t word_i = model_metadata.type_count-1; word_i != -1; word_i--) {
+				if (cycle < 3 && word_i < cmd_args.num_classes) // don't move high-frequency words in the first (few) iteration(s)
+					continue;
 				const unsigned int word_i_count = word_counts[word_i];
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
 				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
