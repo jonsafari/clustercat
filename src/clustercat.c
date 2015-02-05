@@ -141,15 +141,24 @@ int main(int argc, char **argv) {
 
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
+	size_t bigram_memusage = 0; size_t bigram_rev_memusage = 0;
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
 	struct_word_bigram_entry * restrict word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 	memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-	size_t bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count);
+	bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count, 0);
 	memusage += bigram_memusage;
+
+	// Initialize and set *reverse* word bigram listing
+	if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
+		struct_word_bigram_entry * restrict word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
+		memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
+		bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, sent_store_int, global_metadata.line_count, 1);
+		memusage += bigram_rev_memusage;
+	}
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, bigram_memusage/(double)1048576); fflush(stderr);
+		fprintf(stderr, "in %'.2f secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
 
 	// Build <v,c> counts, which consists of a word followed by a given class
 	unsigned int * restrict word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
@@ -596,7 +605,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
+size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
 	// We first build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
 
