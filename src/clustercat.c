@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
-	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class, word_bigrams, word_class_counts);
+	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
 	// Now print the final word2class_map
 	if (cmd_args.verbose >= 0)
@@ -783,7 +783,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	return delta;
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts) {
+void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -822,6 +822,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 				const double delta_remove_word = 0.0;  // Not really necessary
+				const double delta_remove_word_rev = 0.0;  // Not really necessary
 
 				//printf("cluster(): 43: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
 				//	printf("c_%u=%u, ", i, count_arrays[0][i]);
@@ -835,18 +836,12 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//	continue;
 					//}
 
+					if (cycle % (cmd_args.rev_alternate+1)) { // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles;  this one is the normal one
+						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+					} else { // This is the reversed one
+						//scores[class] = delta_remove_word_rev + pex_move_word_rev(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, true);
+					}
 					steps++;
-					// Get log prob
-					//struct_map_class *class_map = NULL; // Build local counts of classes, for flexibility
-					//count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));  // This array is small and dense
-					//init_count_arrays(cmd_args, count_arrays);
-					//tally_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays, &class_map, word_i, class); // Get class ngram counts
-					//scores[class] = query_sents_in_store(cmd_args, sent_store, model_metadata, &class_map, word, class);
-					//scores[class] = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, word_i, class);
-					scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
-					//delete_all_class(&class_map); // Individual elements in map are malloc'd, so we need to free all of them
-					//free_count_arrays(cmd_args, count_arrays);
-					//free(count_arrays);
 				}
 
 				const wclass_t best_hypothesis_class = which_max(scores, cmd_args.num_classes);
