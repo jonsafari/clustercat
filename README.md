@@ -5,7 +5,7 @@
 ## Overview
 
 ClusterCat induces word classes from unannotated text.
-It is dual-licensed under the [LGPL v3][lgpl3] or the [Apache License v2][al2].
+It is freely licensed under the [LGPL v3][lgpl3] or the [MPL v2][mpl2].
 It is programmed in modern C, with few external libraries.
 
 ## System Requirements
@@ -24,11 +24,12 @@ It is programmed in modern C, with few external libraries.
 The binary `clustercat` gets compiled into the `bin` directory.
 Command-line argument usage may be obtained by running with program with the **`--help`** flag.
 
-**Training** preprocessed text (already tokenized, normalized, etc) is pretty simple:
+**Clustering** preprocessed text (already tokenized, normalized, etc) is pretty simple:
 
       clustercat [options] < train.tok.txt > output.txt
 
-The word-classes can be induced from [Brown clustering][] or the [Exchange Algorithm][], for example.
+The word-classes are induced from the [predictive][] [exchange algorithm][].
+Future work includes support for [Brown clustering][].
 The format of the class file has each line consisting of `word`*TAB*`class` (a word type, then tab, then class).
 
 
@@ -36,8 +37,9 @@ The format of the class file has each line consisting of `word`*TAB*`class` (a w
 ...
 
 [lgpl3]: https://www.gnu.org/copyleft/lesser.html
-[al2]: https://www.apache.org/licenses/LICENSE-2.0.html
+[mpl2]: https://www.mozilla.org/MPL/2.0
 [c99]: https://en.wikipedia.org/wiki/C99
 [openmp]: https://en.wikipedia.org/wiki/OpenMP
-[brown clustering]: https://en.wikipedia.org/wiki/Brown_clustering
+[predictive]: https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
+[brown clustering]: https://en.wikipedia.org/wiki/Brown_clustering
