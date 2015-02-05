@@ -131,6 +131,7 @@ int main(int argc, char **argv) {
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
+
 	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
@@ -138,6 +139,7 @@ int main(int argc, char **argv) {
 	if (initial_class_file != NULL)
 		import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 	delete_all(&ngram_map);
+
 
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
@@ -147,25 +149,24 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
 
-
 	#pragma omp parallel sections // Both bigram listing and reverse bigram listing can be done in parallel
 	{
-	#pragma omp section
-	{
-	word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
-	memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-	bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count, 0);
-	}
+		#pragma omp section
+		{
+			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
+			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
+			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count, false);
+		}
 
-	// Initialize and set *reverse* word bigram listing
-	#pragma omp section
-	{
-	if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
-		word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
-		memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-		bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, sent_store_int, global_metadata.line_count, 1);
-	}
-	}
+		// Initialize and set *reverse* word bigram listing
+		#pragma omp section
+		{
+			if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
+				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
+				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
+				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, sent_store_int, global_metadata.line_count, true);
+			}
+		}
 	}
 
 	memusage += bigram_memusage + bigram_rev_memusage;
@@ -173,16 +174,31 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "in %'.2f CPU secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
 
+
 	// Build <v,c> counts, which consists of a word followed by a given class
 	unsigned int * restrict word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
-	//unsigned int (* restrict word_class_counts)[cmd_args.num_classes] = calloc(global_metadata.type_count , sizeof(unsigned int)); // we declare it this way so that it can be used as word_class_counts][class]
 	if (word_class_counts == NULL) {
 		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Maybe increase --min-count\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
 		exit(13);
 	}
 	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int);
 	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(uint)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(unsigned int)); fflush(stderr);
-	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count);
+	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count, false);
+
+	// Build reverse: <c,v> counts: class followed by word.  This and the normal one are both pretty fast, so no need to parallelize this
+	unsigned int * restrict word_class_rev_counts = NULL;
+	if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
+		word_class_rev_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+		if (word_class_rev_counts == NULL) {
+			fprintf(stderr,  "%s: Warning: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Falling back to --rev-alternate 0\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
+			cmd_args.rev_alternate = 0;
+		} else {
+			memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int);
+			fprintf(stderr, "%s: Allocating %'.1f MB for word_class_rev_counts: num_classes=%u x type_count=%u x sizeof(uint)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(unsigned int)); fflush(stderr);
+			build_word_class_counts(cmd_args, word_class_rev_counts, word2class, sent_store_int, global_metadata.line_count, true);
+		}
+
+	}
 
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
@@ -686,7 +702,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	return memusage;
 }
 
-void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count) {
+void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
 
 	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
@@ -694,8 +710,13 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 		register word_id_t word_id_i_minus_1;
 
 		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
-			class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
-			word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
+			if (reverse) { // Reversed: <c,v>
+				class_i           = word2class[sent_store_int[current_sent_num].sent[i-1]];
+				word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i];
+			} else { // Normal <v,c>
+				class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
+				word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
+			}
 			//printf("i=%u, sent_length=%u, sent_num=%u, line_count=%lu, class_i=%u, word_id_i_minus_1=%u, num_classes=%u, offset=%u, orig_val=%u\n", i, sent_length, current_sent_num, line_count, class_i, word_id_i_minus_1, cmd_args.num_classes, word_id_i_minus_1 + cmd_args.num_classes * class_i,  word_class_counts[word_id_i_minus_1 + cmd_args.num_classes * class_i]); fflush(stdout);
 			word_class_counts[word_id_i_minus_1 + cmd_args.num_classes * class_i]++;
 			//word_class_counts[word_id_i_minus_1][class_i]++;
