@@ -754,12 +754,14 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
+		word_id_t moved_count = 0;
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
-			bool end_cycle_short = true; // This gets set to false if any word's class changes
 
 			if (cmd_args.verbose >= -1)
-				fprintf(stderr, "%s: Starting cycle %u with logprob=%g, PP=%g\n", argv_0_basename, cycle, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+				fprintf(stderr, "%s: Starting cycle %u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", argv_0_basename, cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps) // non-determinism
+			moved_count = 0;
+
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 				const unsigned int word_i_count = word_counts[word_i];
 				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
@@ -809,7 +811,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 
 				//if (scores[old_class] > best_hypothesis_score) { // We've improved
 				if (old_class != best_hypothesis_class) { // We've improved
-					end_cycle_short = false;
+					moved_count++;
 
 					if (cmd_args.verbose > 0)
 						fprintf(stderr, " Moving id=%-7u count=%-7u %-18s %u -> %u\t(%g -> %g)\n", word_i, word_counts[word_i], word_list[word_i], old_class, best_hypothesis_class, scores[old_class], best_hypothesis_score); fflush(stderr);
@@ -828,7 +830,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			}
 
 			// In principle if there's no improvement in the determinitistic exchange algo, we can stop cycling; there will be no more gains
-			if (end_cycle_short)
+			if (!moved_count) // Nothing moved in last cycle, so that's it
 				break;
 		}
 		if (cmd_args.verbose >= -1)
