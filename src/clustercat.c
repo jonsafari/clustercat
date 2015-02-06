@@ -13,6 +13,7 @@
 #include "clustercat.h"						// Model importing/exporting functions
 #include "clustercat-array.h"				// which_maxf()
 #include "clustercat-data.h"
+#include "clustercat-dbg.h"					// for printing out various complex data structures
 #include "clustercat-import-class-file.h"	// import_class_file()
 #include "clustercat-io.h"					// fill_sent_buffer()
 #include "clustercat-math.h"				// perplexity(), powi()
