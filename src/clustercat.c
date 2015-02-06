@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
 
 
 	// Build <v,c> counts, which consists of a word followed by a given class
-	unsigned int * restrict word_class_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+	unsigned int * restrict word_class_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
 	if (word_class_counts == NULL) {
 		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Maybe increase --min-count\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
 		exit(13);
@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
 	// Build reverse: <c,v> counts: class followed by word.  This and the normal one are both pretty fast, so no need to parallelize this
 	unsigned int * restrict word_class_rev_counts = NULL;
 	if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
-		word_class_rev_counts = calloc(cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+		word_class_rev_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
 		if (word_class_rev_counts == NULL) {
 			fprintf(stderr,  "%s: Warning: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Falling back to --rev-alternate 0\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
 			cmd_args.rev_alternate = 0;
@@ -717,8 +717,8 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 				class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
 				word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
 			}
-			//printf("i=%u, sent_length=%u, sent_num=%u, line_count=%lu, class_i=%u, word_id_i_minus_1=%u, num_classes=%u, offset=%u, orig_val=%u\n", i, sent_length, current_sent_num, line_count, class_i, word_id_i_minus_1, cmd_args.num_classes, word_id_i_minus_1 + cmd_args.num_classes * class_i,  word_class_counts[word_id_i_minus_1 + cmd_args.num_classes * class_i]); fflush(stdout);
-			word_class_counts[word_id_i_minus_1 + cmd_args.num_classes * class_i]++;
+			//printf("i=%u, sent_length=%u, sent_num=%u, line_count=%lu, class_i=%u, word_id_i_minus_1=%u, num_classes=%u, offset=%u, orig_val=%u\n", i, sent_length, current_sent_num, line_count, class_i, word_id_i_minus_1, cmd_args.num_classes, word_id_i_minus_1 * cmd_args.num_classes + class_i,  word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i]); fflush(stdout);
+			word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i]++;
 			//word_class_counts[word_id_i_minus_1][class_i]++;
 			//word_class_counts[class_i][word_id_i_minus_1]++;
 		}
@@ -737,8 +737,8 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		//printf("rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
-		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * from_class];
+		//printf("rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
+		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + from_class];
 		//printf("rm44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
@@ -746,7 +746,7 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 		delta += new_word_class_count * log2(new_word_class_count);
 		//printf("rm45: word=%u; prev_word=%u, from_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u (w-c - %u), delta=%g\n", word, prev_word, from_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		if (! is_tentative_move)
-			word_class_counts[prev_word + cmd_args.num_classes * from_class] = new_word_class_count;
+			word_class_counts[prev_word * cmd_args.num_classes + from_class] = new_word_class_count;
 
 	}
 
@@ -767,8 +767,8 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		//printf("mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word + cmd_args.num_classes * to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
-		const unsigned int word_class_count = word_class_counts[prev_word + cmd_args.num_classes * to_class];
+		//printf("mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
+		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
 		//printf("mv44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
@@ -776,7 +776,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		delta += new_word_class_count * log2(new_word_class_count);
 		//printf("mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
-			word_class_counts[prev_word + cmd_args.num_classes * to_class] = new_word_class_count;
+			word_class_counts[prev_word * cmd_args.num_classes + to_class] = new_word_class_count;
 
 	}
 
