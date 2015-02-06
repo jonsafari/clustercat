@@ -44,7 +44,7 @@ struct cmd_args cmd_args = {
 	.class_order       = 2,
 	.num_threads       = 4,
 	.num_classes       = 0,
-	.rev_alternate     = 1,
+	.rev_alternate     = 0,
 	.tune_cycles       = 15,
 	.verbose           = 0,
 };
@@ -728,7 +728,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	const unsigned int count_class = count_arrays[0][from_class];
-	const unsigned int new_count_class = count_class - word_count; // Differs from paper: replace "-" with "+"
+	const unsigned int new_count_class = count_class - word_count;
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
 	//printf("rm42: word=%u, word_count=%u, from_class=%u, count_class=%u, new_count_class=%u (count_class - word_count), delta=%g\n", word, word_count, from_class, count_class, new_count_class, delta); fflush(stdout);
 
@@ -742,7 +742,7 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 		//printf("rm44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
-		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
+		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
 		delta += new_word_class_count * log2(new_word_class_count);
 		//printf("rm45: word=%u; prev_word=%u, from_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u (w-c - %u), delta=%g\n", word, prev_word, from_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		if (! is_tentative_move)
@@ -805,6 +805,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		word_id_t moved_count = 0;
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
+			const bool is_nonreversed_cycle = (cmd_args.rev_alternate == 0) || (cycle % (cmd_args.rev_alternate+1)); // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles; if rev_alternate==0 then always do this part.
 
 			if (cmd_args.verbose >= -1)
 				fprintf(stderr, "%s: Starting cycle %u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", argv_0_basename, cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -836,10 +837,10 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//	continue;
 					//}
 
-					if (cycle % (cmd_args.rev_alternate+1)) { // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles;  this one is the normal one
+					if (is_nonreversed_cycle) {
 						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
 					} else { // This is the reversed one
-						//scores[class] = delta_remove_word_rev + pex_move_word_rev(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, true);
+						scores[class] = delta_remove_word_rev + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, true);
 					}
 					steps++;
 				}
@@ -871,8 +872,14 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					} else {
 						best_log_prob += best_hypothesis_score;
 					}
-					pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
-					pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
+
+					if (is_nonreversed_cycle) {
+						pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
+					} else { // This is the reversed one
+						pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, false);
+					}
 				}
 			}
 
