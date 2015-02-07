@@ -97,6 +97,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class);
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
+void clear_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 void free_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 
 void print_sent_info(struct_sent_info * restrict sent_info);

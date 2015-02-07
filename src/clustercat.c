@@ -913,6 +913,9 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			if (!moved_count) // Nothing moved in last cycle, so that's it
 				break;
 		}
+
+		free_count_arrays(cmd_args, count_arrays);
+		free(count_arrays);
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
@@ -1060,6 +1063,12 @@ void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arra
 			exit(12);
 		}
 		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), cmd_args.num_classes, i, sizeof(unsigned int));
+	}
+}
+
+void clear_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays) {
+	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
+		memset(count_arrays[i-1], 0, powi(cmd_args.num_classes, i) * sizeof(unsigned int)); // powi() is in clustercat-math.c
 	}
 }
 
