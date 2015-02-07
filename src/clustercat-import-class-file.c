@@ -23,8 +23,8 @@ void import_class_file(struct_map_word **word_map, word_id_t vocab_size, wclass_
 		line[keylen] = '\0'; // Split key and count
 		char * restrict key = line;
 		wclass_t class = atoi(line + keylen + 1);
-		if ((class < 1) || (class > num_classes)) {
-			fprintf(stderr,  " Error: Imported word classes from file \"%s\" must be in a range from 1-%u.  Word \"%s\" has class %i\n", class_file_name, num_classes, key, class); fflush(stderr);
+		if (num_classes <= class) {
+			fprintf(stderr,  " Error: Imported word classes from file \"%s\" must be in a range [0,%u-1].  Word \"%s\" has class %i.  If --num-classes is unset, a value is automatically chosen.  See --help\n", class_file_name, num_classes, key, class); fflush(stderr);
 			exit(13);
 		}
 		//printf("keylen=%i, key=<<%s>>, class=<<%d>>\n", keylen, key, class);

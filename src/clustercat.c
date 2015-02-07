@@ -817,23 +817,27 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
 		}
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, -1, 1);
-		//free_count_arrays(cmd_args, count_arrays);
-		//free(count_arrays);
 
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		word_id_t moved_count = 0;
+		count_arrays_t temp_count_arrays = malloc(cmd_args.max_array * sizeof(void *));
+		init_count_arrays(cmd_args, temp_count_arrays);
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
 			const bool is_nonreversed_cycle = (cmd_args.rev_alternate == 0) || (cycle % (cmd_args.rev_alternate+1)); // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles; if rev_alternate==0 then always do this part.
+
+			clear_count_arrays(cmd_args, temp_count_arrays);
+			tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, temp_count_arrays);
+			double queried_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, temp_count_arrays, -1, 1);
 
 			if (cmd_args.verbose >= -1) {
 				if (is_nonreversed_cycle)
 					fprintf(stderr, "%s: Starting normal cycle   ", argv_0_basename);
 				else
 					fprintf(stderr, "%s: Starting reversed cycle ", argv_0_basename);
-				fprintf(stderr, "%u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+				fprintf(stderr, "%-3u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			}
 			moved_count = 0;
 
@@ -914,6 +918,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				break;
 		}
 
+		free_count_arrays(cmd_args, temp_count_arrays);
+		free(temp_count_arrays);
 		free_count_arrays(cmd_args, count_arrays);
 		free(count_arrays);
 		if (cmd_args.verbose >= -1)
@@ -986,9 +992,10 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 
 			// Calculate transition probs
-			float weights_class[] = {0.35, 0.14, 0.02, 0.14, 0.35};
-			//float weights_class[] = {0.0, 0.95, 0.05, 0.0, 0.0};
+			//float weights_class[] = {0.35, 0.14, 0.02, 0.14, 0.35};
 			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
+			//float weights_class[] = {0.0, 0.99, 0.01, 0.0, 0.0};
+			float weights_class[] = {0.8, 0.19, 0.01, 0.0, 0.0};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
