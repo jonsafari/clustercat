@@ -718,10 +718,8 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 				class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
 				word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
 			}
-			//printf("i=%u, sent_length=%u, sent_num=%u, line_count=%lu, class_i=%u, word_id_i_minus_1=%u, num_classes=%u, offset=%u, orig_val=%u\n", i, sent_length, current_sent_num, line_count, class_i, word_id_i_minus_1, cmd_args.num_classes, word_id_i_minus_1 * cmd_args.num_classes + class_i,  word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i]); fflush(stdout);
+			//printf("i=%hu, sent_len=%u, sent_num=%lu, line_count=%lu, <v,w>=<%u,%u>, <v,c>=<%u,%u>, num_classes=%u, offset=%u (%u * %u + %u), orig_val=%u, rev=%d\n", i, sent_length, current_sent_num, line_count, sent_store_int[current_sent_num].sent[i-1], sent_store_int[current_sent_num].sent[i], word_id_i_minus_1, class_i, cmd_args.num_classes, word_id_i_minus_1 * cmd_args.num_classes + class_i, word_id_i_minus_1, cmd_args.num_classes, class_i, word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i], reverse); fflush(stdout);
 			word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i]++;
-			//word_class_counts[word_id_i_minus_1][class_i]++;
-			//word_class_counts[class_i][word_id_i_minus_1]++;
 		}
 	}
 }
@@ -738,14 +736,14 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		//printf("rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
+		//printf(" rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + from_class];
-		//printf("rm44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
 		delta += new_word_class_count * log2(new_word_class_count);
-		//printf("rm45: word=%u; prev_word=%u, from_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u (w-c - %u), delta=%g\n", word, prev_word, from_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
+		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%li (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
+		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
 			word_class_counts[prev_word * cmd_args.num_classes + from_class] = new_word_class_count;
 
@@ -761,21 +759,20 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		count_class = 1;
 	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
-	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g\n", word, word_count, to_class, count_class, new_count_class, delta); fflush(stdout);
+	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g, is_tentative_move=%d\n", word, word_count, to_class, count_class, new_count_class, delta, is_tentative_move); fflush(stdout);
 
 	if (! is_tentative_move)
 		count_arrays[0][to_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
-		//printf("mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
+		//printf(" mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
-		//printf("mv44: prev_word=%u, word_class_counts=%u\n", prev_word, word_class_count); fflush(stdout);
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
 		delta += new_word_class_count * log2(new_word_class_count);
-		//printf("mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, w-c_count=%u, new_w-c_count=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, word_class_count, new_word_class_count, delta); fflush(stdout);
+		//printf(" mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%hu>, #(<v,c>)=%u, new_#(<v,c>)=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, prev_word, to_class, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
 			word_class_counts[prev_word * cmd_args.num_classes + to_class] = new_word_class_count;
 
@@ -792,10 +789,13 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
 		tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
-		//printf("cluster(): 42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
-		//	printf("c_%u=%u, ", i, count_arrays[0][i]);
-		//	class_sum += count_arrays[0][i];
-		//} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
+
+		if (cmd_args.verbose > 3) {
+			printf("cluster(): 42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
+				printf("c_%u=%u, ", i, count_arrays[0][i]);
+				class_sum += count_arrays[0][i];
+			} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
+		}
 		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, -1, 1);
 		//free_count_arrays(cmd_args, count_arrays);
 		//free(count_arrays);
@@ -808,11 +808,16 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
 			const bool is_nonreversed_cycle = (cmd_args.rev_alternate == 0) || (cycle % (cmd_args.rev_alternate+1)); // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles; if rev_alternate==0 then always do this part.
 
-			if (cmd_args.verbose >= -1)
-				fprintf(stderr, "%s: Starting cycle %u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", argv_0_basename, cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
-			//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps) // non-determinism
+			if (cmd_args.verbose >= -1) {
+				if (is_nonreversed_cycle)
+					fprintf(stderr, "%s: Starting normal cycle   ", argv_0_basename);
+				else
+					fprintf(stderr, "%s: Starting reversed cycle ", argv_0_basename);
+				fprintf(stderr, "%u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			}
 			moved_count = 0;
 
+			//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps) // non-determinism
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 			//for (word_id_t word_i = model_metadata.type_count-1; word_i != -1; word_i--) {
 				if (cycle < 3 && word_i < cmd_args.num_classes) // don't move high-frequency words in the first (few) iteration(s)
@@ -944,7 +949,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
 			const unsigned int class_i_count = count_arrays[0][class_i];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
-			if (cmd_args.verbose > 2) {
+			if (cmd_args.verbose > 3) {
 				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
 				fflush(stdout);
 				if (class_i_count < word_i_count) { // Shouldn't happen
