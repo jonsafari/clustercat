@@ -742,11 +742,22 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_
 			delta -= word_class_count * log2(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
 		delta += new_word_class_count * log2(new_word_class_count);
-		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%li (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
+		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
 			word_class_counts[prev_word * cmd_args.num_classes + from_class] = new_word_class_count;
 
+	}
+
+	if (cmd_args.rev_alternate && (!is_tentative_move)) { // also update reversed word-class counts
+		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
+			const word_id_t next_word = word_bigrams_rev[word].words[i];
+			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + from_class];
+			const unsigned int new_word_class_rev_count = word_class_rev_count - word_bigrams_rev[word].counts[i];
+			//printf(" rm47: rev_next_word=%u, rev_#(<v,c>)=%u, rev_new_#(<v,c>)=%u\n", next_word, word_class_rev_count, new_word_class_rev_count); fflush(stdout);
+			//print_word_class_counts(cmd_args, model_metadata, word_class_rev_counts);
+			word_class_rev_counts[next_word * cmd_args.num_classes + from_class] = new_word_class_rev_count;
+		}
 	}
 
 	return delta;
@@ -776,6 +787,15 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		if (! is_tentative_move)
 			word_class_counts[prev_word * cmd_args.num_classes + to_class] = new_word_class_count;
 
+	}
+
+	if ((!is_tentative_move) && cmd_args.rev_alternate) { // also update reversed word-class counts; reversed order of conditionals since the first clause here is more common in this function
+		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
+			const word_id_t next_word = word_bigrams_rev[word].words[i];
+			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
+			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
+			word_class_rev_counts[next_word * cmd_args.num_classes + to_class] = new_word_class_rev_count;
+		}
 	}
 
 	return delta;
