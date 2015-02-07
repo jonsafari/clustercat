@@ -724,7 +724,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 	}
 }
 
-inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	const unsigned int count_class = count_arrays[0][from_class];
 	const unsigned int new_count_class = count_class - word_count;
@@ -752,7 +752,7 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const word_id_t wor
 	return delta;
 }
 
-inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, unsigned int * restrict word_class_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_arrays[0][to_class];
 	if (!count_class) // class is empty
@@ -844,9 +844,9 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//}
 
 					if (is_nonreversed_cycle) {
-						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
 					} else { // This is the reversed one
-						scores[class] = delta_remove_word_rev + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, true);
+						scores[class] = delta_remove_word_rev + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays, true);
 					}
 					steps++;
 				}
@@ -880,11 +880,11 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					}
 
 					if (is_nonreversed_cycle) {
-						pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_class_counts, count_arrays, false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, false);
 					} else { // This is the reversed one
-						pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_class_rev_counts, count_arrays, false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays, false);
 					}
 				}
 			}
