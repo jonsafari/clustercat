@@ -231,7 +231,7 @@ void delete_all_bigram(struct_map_bigram **map) {
 	}
 }
 
-void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict]) {
+void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict], const int class_offset) {
 	struct_map_word_class *map = NULL;
 
 	for (word_id_t word_id = 0; word_id < type_count; word_id++) { // Populate new word2class_map, so we can do fun stuff like primary- and secondary-sort easily
@@ -242,7 +242,7 @@ void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t
 	sort_by_class(&map); // Primary sort, numerically by class
 	struct_map_word_class *s;
 	for (s = map; s != NULL; s = (struct_map_word_class *)(s->hh.next)) {
-		printf("%s\t%hu\n", s->key, s->class);
+		printf("%s\t%i\n", s->key, (s->class) + class_offset);
 		HASH_DEL(map, s);	// delete it (map advances to next)
 		free(s->key);	// free it
 		//fprintf(stderr, "49.11: next=%zu\n", (struct_map_word_class *)(s->hh.next)); fflush(stderr);

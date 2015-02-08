@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
 
 	// Now print the final word2class_map
 	if (cmd_args.verbose >= 0)
-		print_words_and_classes(global_metadata.type_count, word_list, word2class);
+		print_words_and_classes(global_metadata.type_count, word_list, word2class, (int)cmd_args.class_offset);
 
 	clock_t time_clustered = clock();
 	time_t time_t_end;

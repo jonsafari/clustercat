@@ -80,7 +80,7 @@ void sort_bigrams(struct_map_bigram **map);
 unsigned long map_count(struct_map_word *map[const]);
 
 unsigned long map_print_entries(struct_map_word **map, const char * restrict prefix, const char sep_char, const unsigned int min_count);
-void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict]);
+void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict], const int class_offset);
 
 void delete_all(struct_map_word **map);
 void delete_all_class(struct_map_class **map);
