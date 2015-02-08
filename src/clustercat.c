@@ -38,11 +38,10 @@ size_t memusage = 0;
 // Defaults
 struct cmd_args cmd_args = {
 	.class_algo        = EXCHANGE,
-	.dev_file          = NULL,
+	.class_offset      = 0,
 	.max_tune_sents    = 1000000,
 	.min_count         = 2,
 	.max_array         = 3,
-	.class_order       = 2,
 	.num_threads       = 4,
 	.num_classes       = 0,
 	.rev_alternate     = 2,
@@ -245,7 +244,7 @@ Function: Induces word categories from plaintext\n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
      --class-file <file>  Initialize exchange word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
-     --dev-file <file>    Use separate file to tune on (default: training set, from stdin)\n\
+     --class-offset <c>   Print final word classes starting at a given number (default: 0)\n\
  -h, --help               Print this usage\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
@@ -278,10 +277,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--class-file")) {
 			initial_class_file = argv[arg_i+1];
 			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--dev-file")) {
-			cmd_args->dev_file = argv[arg_i+1];
-			printf("Bug Jon to implement --dev-file!\n"); fflush(stderr);
-			exit(1);
+		} else if (!strcmp(argv[arg_i], "--class-offset")) {
+			cmd_args->class_offset = (signed char)atoi(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
 			cmd_args->num_threads = (unsigned int) atol(argv[arg_i+1]);
@@ -299,9 +296,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
-			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "-o") && strcmp(argv[arg_i], "--order"))) {
-			cmd_args->class_order = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-q") && strcmp(argv[arg_i], "--quiet"))) {
 			cmd_args->verbose--;
@@ -995,7 +989,8 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			//float weights_class[] = {0.35, 0.14, 0.02, 0.14, 0.35};
 			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
 			//float weights_class[] = {0.0, 0.99, 0.01, 0.0, 0.0};
-			float weights_class[] = {0.8, 0.19, 0.01, 0.0, 0.0};
+			//float weights_class[] = {0.8, 0.19, 0.01, 0.0, 0.0};
+			float weights_class[] = {0.69, 0.15, 0.01, 0.15, 0.0};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
