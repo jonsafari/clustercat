@@ -222,7 +222,7 @@ int main(int argc, char **argv) {
 	time(&time_t_end);
 	double time_secs_total = difftime(time_t_end, time_t_start);
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %.0fm %is\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, time_secs_total/60, ((int)time_secs_total % 60)  );
+		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %lim %lis\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, (long)time_secs_total/60, ((long)time_secs_total % 60)  );
 
 	free(word2class);
 	free(word_bigrams);
@@ -916,6 +916,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		free(temp_count_arrays);
 		free_count_arrays(cmd_args, count_arrays);
 		free(count_arrays);
+
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
