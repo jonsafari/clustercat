@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
 		exit(3);
 	} else if (cmd_args.num_classes == 0) { // User did not manually set number of classes at all
-		cmd_args.num_classes = (wclass_t) sqrt(global_metadata.type_count);
+		cmd_args.num_classes = (wclass_t) (0.95 * sqrt(global_metadata.type_count));
 	}
 
 	// Get list of unique words
@@ -219,7 +219,7 @@ int main(int argc, char **argv) {
 	time(&time_t_end);
 	double time_secs_total = difftime(time_t_end, time_t_start);
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total time about %lim %lis\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, (long)time_secs_total/60, ((long)time_secs_total % 60)  );
+		fprintf(stderr, "%s: Finished clustering in %'.2f CPU seconds.  Total wall clock time was about %lim %lis\n", argv_0_basename, (double)(time_clustered - time_model_built)/CLOCKS_PER_SEC, (long)time_secs_total/60, ((long)time_secs_total % 60)  );
 
 	free(word2class);
 	free(word_bigrams);
@@ -246,7 +246,7 @@ Options:\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
- -n, --num-classes <c>    Set number of word classes (default: square root of vocabulary size)\n\
+ -n, --num-classes <c>    Set number of word classes (default: 0.95 * square root of vocabulary size)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu sentences)\n\
@@ -578,7 +578,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 
 	for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
 		if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-			fprintf(stderr, "%s: Warning: Truncating pathologically-long line starting with: \"%s %s %s %s %s %s ...\"\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
+			fprintf(stderr, "%s: Notice: Truncating pathologically-long line starting with: \"%s %s %s %s %s %s ...\"\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
 			break;
 		}
 
@@ -589,7 +589,7 @@ void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
 		if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
 			pch[MAX_WORD_LEN] = '\0';
 			sent_info->word_lengths[w_i] = MAX_WORD_LEN;
-			fprintf(stderr, "%s: Warning: Truncating pathologically-long word '%s'\n", argv_0_basename, pch);
+			fprintf(stderr, "%s: Notice: Truncating pathologically-long word '%s'\n", argv_0_basename, pch);
 		}
 
 		pch = strtok(NULL, TOK_CHARS);
