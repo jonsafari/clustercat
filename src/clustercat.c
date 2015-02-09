@@ -985,22 +985,24 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 
 			// Calculate transition probs
-			//float weights_class[] = {0.35, 0.14, 0.02, 0.14, 0.35};
+			float weights_class[] = {0.4, 0.16, 0.01, 0.1, 0.33};
 			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
 			//float weights_class[] = {0.0, 0.99, 0.01, 0.0, 0.0};
 			//float weights_class[] = {0.8, 0.19, 0.01, 0.0, 0.0};
-			float weights_class[] = {0.69, 0.15, 0.01, 0.15, 0.0};
+			//float weights_class[] = {0.69, 0.15, 0.01, 0.15, 0.0};
 			float order_probs[5] = {0};
 			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
 			float sum_weights = weights_class[2]; // unigram prob will always occur
 			float sum_probs = weights_class[2] * order_probs[2]; // unigram prob will always occur
 
 			//const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
-			if (i > 1) { // Need at least "<s> w_1" in history
+			if ((cmd_args.max_array > 2) && (i > 1)) { // Need at least "<s> w_1" in history
 				order_probs[0] = count_arrays[2][ array_offset(&class_sent[i-2], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ]; // trigram probs
 				order_probs[0] = isnan(order_probs[0]) ? 0.0f : order_probs[0]; // If the bigram history is 0, result will be a -nan
 				sum_weights += weights_class[0];
 				sum_probs += weights_class[0] * order_probs[0];
+			} else {
+				weights_class[0] = 0.0;
 			}
 
 			// We'll always have at least "<s>" in history.  And we'll always have Vienna.
@@ -1015,12 +1017,15 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 				sum_probs += weights_class[3] * order_probs[3];
 			}
 
-			if (i < sent_length-2) { // Need at least "w </s>" to the right
+			if ((cmd_args.max_array > 2) && (i < sent_length-2)) { // Need at least "w </s>" to the right
 			order_probs[4] = count_arrays[2][ array_offset(&class_sent[i], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i+1], 2, cmd_args.num_classes) ]; // future trigram probs
 			order_probs[4] = isnan(order_probs[4]) ? 0.0f : order_probs[4]; // If the bigram history is 0, result will be a -nan
 				sum_weights += weights_class[4];
 				sum_probs += weights_class[4] * order_probs[4];
+			} else {
+				weights_class[4] = 0.0;
 			}
+
 			const float transition_prob = sum_probs / sum_weights;
 			const float class_prob = emission_prob * transition_prob;
 
