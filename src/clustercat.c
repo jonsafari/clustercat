@@ -39,7 +39,7 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo        = EXCHANGE,
 	.class_offset      = 0,
-	.max_tune_sents    = 1000000,
+	.max_tune_sents    = 10000000,
 	.min_count         = 2,
 	.max_array         = 3,
 	.num_threads       = 4,
@@ -80,20 +80,16 @@ int main(int argc, char **argv) {
 	}
 	memusage += sizeof(void *) * cmd_args.max_tune_sents;
 
-	unsigned long num_sents_in_buffer = 0; // We might need this number later if a separate dev set isn't provided;  we'll just tune on final buffer.
-
-	while (1) {
-		// Fill sentence buffer
-		num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
-		//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
-		if ((num_sents_in_buffer == 0) || ( cmd_args.max_tune_sents <= global_metadata.line_count)) // No more sentences in buffer
-			break;
-
-		global_metadata.line_count  += num_sents_in_buffer;
-		global_metadata.token_count += process_str_sents_in_buffer(sent_buffer, num_sents_in_buffer);
+	// Fill sentence buffer
+	const unsigned long num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
+	//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
+	global_metadata.line_count  += num_sents_in_buffer;
+	if (cmd_args.max_tune_sents <= global_metadata.line_count) { // There are more sentences in stdin than were processed
+		fprintf(stderr, "%s: Warning: Sentence buffer is full.  You probably should increase it using --tune-sents .  Current value: %lu\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
 	}
 
-	global_metadata.type_count        = map_count(&ngram_map);
+	global_metadata.token_count += process_str_sents_in_buffer(sent_buffer, num_sents_in_buffer);
+	global_metadata.type_count   = map_count(&ngram_map);
 
 	// Filter out infrequent words
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
@@ -126,7 +122,7 @@ int main(int argc, char **argv) {
 		exit(8);
 	}
 	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
-	sent_buffer2sent_store_int(&ngram_map, sent_buffer, sent_store_int, global_metadata.line_count);
+	memusage += sent_buffer2sent_store_int(&ngram_map, sent_buffer, sent_store_int, global_metadata.line_count);
 	// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
@@ -202,7 +198,8 @@ int main(int argc, char **argv) {
 
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
-		memusage += cmd_args.num_threads * (powi(cmd_args.num_classes, i) * sizeof(unsigned int));
+		memusage += 2 * (powi(cmd_args.num_classes, i) * sizeof(unsigned int));
+		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), memusage);
 	}
 
 	clock_t time_model_built = clock();
@@ -244,7 +241,7 @@ Function: Induces word categories from plaintext\n\
 Options:\n\
      --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
      --class-file <file>  Initialize exchange word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
-     --class-offset <c>   Print final word classes starting at a given number (default: 0)\n\
+     --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
  -h, --help               Print this usage\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
@@ -257,7 +254,7 @@ Options:\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
  -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
 \n\
-", cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles, weights_string);
+", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles, weights_string);
 }
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 
@@ -321,7 +318,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
+size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
+	size_t local_memusage = 0;
+
 	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
 		if (sent_buffer[i] == NULL) // No more sentences in buffer
 			break;
@@ -336,7 +335,7 @@ void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sen
 		pch = strtok(sent_i, TOK_CHARS);
 
 		// Initialize first element in sentence to <s>
-		sent_int_temp[0]        = map_find_int(ngram_map, "<s>");
+		sent_int_temp[0] = map_find_int(ngram_map, "<s>");
 
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
@@ -353,7 +352,7 @@ void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sen
 		}
 
 		// Initialize first element in sentence to </s>
-		sent_int_temp[w_i]        = map_find_int(ngram_map, "</s>");
+		sent_int_temp[w_i] = map_find_int(ngram_map, "</s>");
 
 		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
 		sent_store_int[i].length = sent_length;
@@ -361,15 +360,14 @@ void sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sen
 		// Now that we know the actual sentence length, we can allocate the right amount for the sentence
 		sent_store_int[i].sent = malloc(sizeof(word_id_t) * sent_length);
 
-		memusage += sizeof(word_id_t) * sent_length;
-		memusage += sizeof(wclass_t) * sent_length;
-		memusage += sizeof(unsigned int) * sent_length;
+		local_memusage += sizeof(word_id_t) * sent_length;
 
 		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
 		memcpy(sent_store_int[i].sent, sent_int_temp, sizeof(word_id_t) * sent_length);
 
 		free(sent_i); // Free-up string-based sentence
 	}
+	return local_memusage;
 }
 
 void build_word_count_array(struct_map_word **ngram_map, char * restrict word_list[const], unsigned int word_counts[restrict], const word_id_t type_count) {
