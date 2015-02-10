@@ -42,13 +42,14 @@ typedef struct { // Maps a class to its count
 
 typedef struct { // Maps a word to its class
 	char key[KEYLEN];
+	unsigned long word_count;
 	wclass_t class;
 	UT_hash_handle hh;	// makes this structure hashable
 } struct_map_word_class;
 
 void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count);
 
-void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const wclass_t entry_class);
+void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned long word_count, const wclass_t entry_class);
 
 void map_update_class(struct_map_word_class **map, const char * restrict entry_key, const wclass_t entry_class);
 
@@ -75,6 +76,7 @@ unsigned int get_keys(struct_map_word *map[const], char *keys[]);
 void sort_by_class(struct_map_word_class **map);
 void sort_by_key(struct_map_word_class **map);
 void sort_by_count(struct_map_word **map);
+void word_class_sort_by_count(struct_map_word_class **map);
 void sort_bigrams(struct_map_bigram **map);
 
 unsigned long map_count(struct_map_word *map[const]);

@@ -32,7 +32,6 @@ char * restrict initial_class_file   = NULL;
 char * restrict weights_string       = NULL;
 
 struct_map_word *ngram_map = NULL; // Must initialize to NULL
-struct_map_word_class *word2class_map = NULL; // Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
 char usage[USAGE_LEN];
 size_t memusage = 0;
 
@@ -216,7 +215,7 @@ int main(int argc, char **argv) {
 
 	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
-	// Now print the final word2class_map
+	// Now print the final word2class mapping
 	if (cmd_args.verbose >= 0) {
 		FILE *out_file = stdout;
 		if (out_file_string)
@@ -858,8 +857,6 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				if (cycle < 3 && word_i < cmd_args.num_classes) // don't move high-frequency words in the first (few) iteration(s)
 					continue;
 				const unsigned int word_i_count = word_counts[word_i];
-				//wclass_t unknown_word_class  = get_class(&word2class_map, UNKNOWN_WORD, UNKNOWN_WORD_CLASS); // We'll use this later
-				//wclass_t unknown_word_class  = word2class[UNKNOWN_WORD_ID]; // We'll use this later
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
@@ -905,7 +902,6 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					if (cmd_args.verbose > 0)
 						fprintf(stderr, " Moving id=%-7u count=%-7u %-18s %u -> %u\t(%g -> %g)\n", word_i, word_counts[word_i], word_list[word_i], old_class, best_hypothesis_class, scores[old_class], best_hypothesis_score); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
-					//map_update_class(&word2class_map, word, best_hypothesis_class);
 					word2class[word_i] = best_hypothesis_class;
 					if (isnan(best_hypothesis_score)) { // shouldn't happen
 						fprintf(stderr, "Error: best_hypothesis_score=%g :-(\n", best_hypothesis_score); fflush(stderr);

@@ -28,7 +28,7 @@ inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsi
 	local_s->count = count;
 }
 
-inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned short entry_class) {
+inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned long word_count, const unsigned short entry_class) {
 	struct_map_word_class *local_s;
 
 	//HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
@@ -37,6 +37,7 @@ inline void map_add_class(struct_map_word_class **map, const char * restrict ent
 		strncpy(local_s->key, entry_key, KEYLEN-1);
 		HASH_ADD_STR(*map, key, local_s);
 	//}
+	local_s->word_count = word_count;
 	local_s->class = entry_class;
 }
 
@@ -236,12 +237,13 @@ void print_words_and_classes(FILE * out_file, word_id_t type_count, char **word_
 
 	for (word_id_t word_id = 0; word_id < type_count; word_id++) { // Populate new word2class_map, so we can do fun stuff like primary- and secondary-sort easily
 		//printf("adding %s=%hu to temp word2class_map\n", word_list[word_id], word2class[word_id]); fflush(stdout);
-		map_add_class(&map, word_list[word_id], word2class[word_id]);
+		map_add_class(&map, word_list[word_id], (unsigned long)word_counts[word_id], word2class[word_id]);
 	}
 
-	sort_by_key(&map); // Secondary sort, alphabetically by key
-	//sort_by_count(&map, word_counts); // Secondary sort, by count
+	sort_by_key(&map); // Tertiary sort, alphabetically by key
+	word_class_sort_by_count(&map); // Secondary sort, by count
 	sort_by_class(&map); // Primary sort, numerically by class
+
 	struct_map_word_class *s;
 	for (s = map; s != NULL; s = (struct_map_word_class *)(s->hh.next)) {
 		fprintf(out_file, "%s\t%i\n", s->key, (s->class) + class_offset);
@@ -257,6 +259,14 @@ int count_sort(struct_map_word *a, struct_map_word *b) { // Based on uthash's do
 
 void sort_by_count(struct_map_word **map) { // Based on uthash's docs
 	HASH_SORT(*map, count_sort);
+}
+
+int word_class_count_sort(struct_map_word_class *a, struct_map_word_class *b) {
+	return (b->word_count - a->word_count); // sort descending: most frequent to least frequent
+}
+
+void word_class_sort_by_count(struct_map_word_class **map) {
+	HASH_SORT(*map, word_class_count_sort);
 }
 
 int key_sort(struct_map_word_class *a, struct_map_word_class *b) {
