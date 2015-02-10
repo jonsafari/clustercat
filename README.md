@@ -1,5 +1,5 @@
 
-# ClusterCat: Flexible, Multithreaded Word-Class Induction Software
+# ClusterCat: Fast, Flexible, Fun Word Class Clustering Software
 
 
 ## Overview
