@@ -231,18 +231,20 @@ void delete_all_bigram(struct_map_bigram **map) {
 	}
 }
 
-void print_words_and_classes(word_id_t type_count, char **unique_words, wclass_t word2class[restrict], const int class_offset) {
+void print_words_and_classes(FILE * out_file, word_id_t type_count, char **word_list, const unsigned int word_counts[const], const wclass_t word2class[const], const int class_offset) {
 	struct_map_word_class *map = NULL;
 
 	for (word_id_t word_id = 0; word_id < type_count; word_id++) { // Populate new word2class_map, so we can do fun stuff like primary- and secondary-sort easily
-		//printf("adding %s=%hu to temp word2class_map\n", unique_words[word_id], word2class[word_id]); fflush(stdout);
-		map_add_class(&map, unique_words[word_id], word2class[word_id]);
+		//printf("adding %s=%hu to temp word2class_map\n", word_list[word_id], word2class[word_id]); fflush(stdout);
+		map_add_class(&map, word_list[word_id], word2class[word_id]);
 	}
+
 	sort_by_key(&map); // Secondary sort, alphabetically by key
+	//sort_by_count(&map, word_counts); // Secondary sort, by count
 	sort_by_class(&map); // Primary sort, numerically by class
 	struct_map_word_class *s;
 	for (s = map; s != NULL; s = (struct_map_word_class *)(s->hh.next)) {
-		printf("%s\t%i\n", s->key, (s->class) + class_offset);
+		fprintf(out_file, "%s\t%i\n", s->key, (s->class) + class_offset);
 		HASH_DEL(map, s);	// delete it (map advances to next)
 		free(s->key);	// free it
 		//fprintf(stderr, "49.11: next=%zu\n", (struct_map_word_class *)(s->hh.next)); fflush(stderr);

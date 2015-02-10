@@ -25,9 +25,11 @@
 void get_usage_string(char * restrict usage_string, int usage_len);
 void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
 void free_sent_info(struct_sent_info sent_info);
-char * restrict class_algo         = NULL;
-char * restrict initial_class_file = NULL;
-char * restrict weights_string     = NULL;
+char * restrict class_algo           = NULL;
+char * restrict in_train_file_string = NULL;
+char * restrict out_file_string      = NULL;
+char * restrict initial_class_file   = NULL;
+char * restrict weights_string       = NULL;
 
 struct_map_word *ngram_map = NULL; // Must initialize to NULL
 struct_map_word_class *word2class_map = NULL; // Must initialize to NULL;  This can be global since we only update it after finding best exchange.  We can use a local conditional for thread-specific class counting.
@@ -81,7 +83,11 @@ int main(int argc, char **argv) {
 	memusage += sizeof(void *) * cmd_args.max_tune_sents;
 
 	// Fill sentence buffer
-	const unsigned long num_sents_in_buffer = fill_sent_buffer(stdin, sent_buffer, cmd_args.max_tune_sents);
+	FILE *in_train_file = stdin;
+	if (in_train_file_string)
+		in_train_file = fopen(in_train_file_string, "r");
+	const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents);
+	fclose(in_train_file);
 	//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
 	global_metadata.line_count  += num_sents_in_buffer;
 	if (cmd_args.max_tune_sents <= global_metadata.line_count) { // There are more sentences in stdin than were processed
@@ -211,8 +217,13 @@ int main(int argc, char **argv) {
 	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
 	// Now print the final word2class_map
-	if (cmd_args.verbose >= 0)
-		print_words_and_classes(global_metadata.type_count, word_list, word2class, (int)cmd_args.class_offset);
+	if (cmd_args.verbose >= 0) {
+		FILE *out_file = stdout;
+		if (out_file_string)
+			out_file = fopen(out_file_string, "w");
+		print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset);
+		fclose(out_file);
+	}
 
 	clock_t time_clustered = clock();
 	time_t time_t_end;
@@ -243,10 +254,12 @@ Options:\n\
      --class-file <file>  Initialize exchange word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
  -h, --help               Print this usage\n\
+     --in <file>          Specify input training file (default: stdin)\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
  -n, --num-classes <c>    Set number of word classes (default: square root of vocabulary size)\n\
+     --out <file>         Specify output file (default: stdout)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu sentences)\n\
@@ -277,6 +290,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--class-offset")) {
 			cmd_args->class_offset = (signed char)atoi(argv[arg_i+1]);
 			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--in")) {
+			in_train_file_string = argv[arg_i+1];
+			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
 			cmd_args->num_threads = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;
@@ -293,6 +309,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--out")) {
+			out_file_string = argv[arg_i+1];
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "-q") && strcmp(argv[arg_i], "--quiet"))) {
 			cmd_args->verbose--;
