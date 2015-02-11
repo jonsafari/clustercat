@@ -45,8 +45,8 @@ struct cmd_args cmd_args = {
 	.max_array         = 3,
 	.num_threads       = 4,
 	.num_classes       = 0,
-	.rev_alternate     = 2,
-	.tune_cycles       = 14,
+	.rev_alternate     = 3,
+	.tune_cycles       = 15,
 	.unidirectional    = 0,
 	.verbose           = 0,
 };
@@ -264,10 +264,11 @@ Options:\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu lines)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
-     --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower convergence\n\
+     --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
+                          If you want to do basic predictive exchange, use --rev-alternate 0 --unidirectional\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
 \n\
-", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles, weights_string);
+", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 // -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
@@ -793,10 +794,21 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		word_id_t prev_word = word_bigrams[word].words[i];
 		//printf(" mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
-		if (word_class_count != 0) // Can't do log(0)
-			delta -= word_class_count * log2(word_class_count);
+		if (word_class_count != 0) { // Can't do log(0)
+			if (cmd_args.unidirectional) {
+				delta -= (word_class_count * log2(word_class_count));
+			} else {
+				delta -= (word_class_count * log2(word_class_count)) * 0.6;
+			}
+		}
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
-		delta += new_word_class_count * log2(new_word_class_count);
+		if (new_word_class_count != 0) { // Can't do log(0)
+			if (cmd_args.unidirectional) {
+				delta += (new_word_class_count * log2(new_word_class_count));
+			} else {
+				delta += (new_word_class_count * log2(new_word_class_count)) * 0.6;
+			}
+		}
 		//printf(" mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%hu>, #(<v,c>)=%u, new_#(<v,c>)=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, prev_word, to_class, word_class_count, new_word_class_count, delta); fflush(stdout);
 		if (! is_tentative_move)
 			word_class_counts[prev_word * cmd_args.num_classes + to_class] = new_word_class_count;
@@ -807,8 +819,24 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
 			const word_id_t next_word = word_bigrams_rev[word].words[i];
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
+			if (word_class_rev_count != 0) { // Can't do log(0)
+				if (cmd_args.unidirectional) {
+					delta -= (word_class_rev_count * log2(word_class_rev_count));
+				} else {
+					delta -= (word_class_rev_count * log2(word_class_rev_count)) * 0.4;
+				}
+			}
 			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
-			word_class_rev_counts[next_word * cmd_args.num_classes + to_class] = new_word_class_rev_count;
+			if (new_word_class_rev_count != 0) { // Can't do log(0)
+				if (cmd_args.unidirectional) {
+					delta += (new_word_class_rev_count * log2(new_word_class_rev_count));
+				} else {
+					delta += (new_word_class_rev_count * log2(new_word_class_rev_count)) * 0.4;
+				}
+			}
+			//printf("word=%u, word_class_rev_count=%u, new_word_class_rev_count=%u, delta=%g\n", word, word_class_rev_count, new_word_class_rev_count, delta);
+			if (!is_tentative_move)
+				word_class_rev_counts[next_word * cmd_args.num_classes + to_class] = new_word_class_rev_count;
 		}
 	}
 
