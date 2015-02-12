@@ -47,7 +47,7 @@ struct cmd_args cmd_args = {
 	.num_classes       = 0,
 	.rev_alternate     = 3,
 	.tune_cycles       = 15,
-	.unidirectional    = 0,
+	.unidirectional    = false,
 	.verbose           = 0,
 };
 

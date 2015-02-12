@@ -75,7 +75,7 @@ struct cmd_args {
 	unsigned char   rev_alternate: 3; // How often to alternate using reverse pex.  0 == never, 1 == after every one normal pex cycles, ...
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;   // enum class_algos
-	unsigned char   unidirectional : 1;
+	bool unidirectional;
 };
 
 size_t sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
