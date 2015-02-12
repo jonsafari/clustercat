@@ -210,7 +210,7 @@ int main(int argc, char **argv) {
 
 	clock_t time_model_built = clock();
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
+		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f CPU secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
@@ -815,25 +815,18 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 
 	}
 
-	if ((!is_tentative_move) && cmd_args.rev_alternate) { // also update reversed word-class counts; reversed order of conditionals since the first clause here is more common in this function
+	if (cmd_args.rev_alternate) { // also update reversed word-class counts; reversed order of conditionals since the first clause here is more common in this function
 		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
 			const word_id_t next_word = word_bigrams_rev[word].words[i];
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
-			if (word_class_rev_count != 0) { // Can't do log(0)
-				if (cmd_args.unidirectional) {
-					delta -= (word_class_rev_count * log2(word_class_rev_count));
-				} else {
+			if (word_class_rev_count != 0) // Can't do log(0)
+				if (!cmd_args.unidirectional)
 					delta -= (word_class_rev_count * log2(word_class_rev_count)) * 0.4;
-				}
-			}
+
 			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
-			if (new_word_class_rev_count != 0) { // Can't do log(0)
-				if (cmd_args.unidirectional) {
-					delta += (new_word_class_rev_count * log2(new_word_class_rev_count));
-				} else {
+			if (new_word_class_rev_count != 0) // Can't do log(0)
+				if (!cmd_args.unidirectional)
 					delta += (new_word_class_rev_count * log2(new_word_class_rev_count)) * 0.4;
-				}
-			}
 			//printf("word=%u, word_class_rev_count=%u, new_word_class_rev_count=%u, delta=%g\n", word, word_class_rev_count, new_word_class_rev_count, delta);
 			if (!is_tentative_move)
 				word_class_rev_counts[next_word * cmd_args.num_classes + to_class] = new_word_class_rev_count;
@@ -879,7 +872,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					fprintf(stderr, "%s: Starting normal cycle   ", argv_0_basename);
 				else
 					fprintf(stderr, "%s: Starting reversed cycle ", argv_0_basename);
-				fprintf(stderr, "%-3u with %.2g%% (%u/%u) words exchanged last cycle.  logprob=%g, PP=%g\n", cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+				fprintf(stderr, "%-3u with %.2g%% (%u/%u) words exchanged last cycle.    \tlogprob=%g, PP=%g\n", cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 			}
 			moved_count = 0;
 
@@ -963,7 +956,8 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 		free(count_arrays);
 
 		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1); fflush(stderr);
+			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
