@@ -286,6 +286,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 				cmd_args->class_algo = BROWN;
 			else if (!strcmp(class_algo_string, "exchange"))
 				cmd_args->class_algo = EXCHANGE;
+			else if (!strcmp(class_algo_string, "exchange-then-brown"))
+				cmd_args->class_algo = EXCHANGE_BROWN;
 			else { printf("%s", usage); exit(0); }
 		} else if (!strcmp(argv[arg_i], "--class-file")) {
 			initial_class_file = argv[arg_i+1];

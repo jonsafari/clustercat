@@ -101,7 +101,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	unsigned long steps = 0;
 
-	if (cmd_args.class_algo == EXCHANGE) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
+	if (cmd_args.class_algo == EXCHANGE  ||  cmd_args.class_algo == EXCHANGE_BROWN) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
@@ -212,14 +212,14 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 				break;
 		}
 
+		if (cmd_args.verbose >= -1)
+			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1); fflush(stderr);
+			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+
 		free_count_arrays(cmd_args, temp_count_arrays);
 		free(temp_count_arrays);
 		free_count_arrays(cmd_args, count_arrays);
 		free(count_arrays);
-
-		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1); fflush(stderr);
-			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon

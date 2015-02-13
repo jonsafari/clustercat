@@ -33,7 +33,7 @@ typedef unsigned short sentlen_t; // Number of words in a sentence
 typedef unsigned int * * restrict count_arrays_t;
 #define SENT_LEN_MAX USHRT_MAX
 
-enum class_algos {EXCHANGE, BROWN};
+enum class_algos {EXCHANGE, BROWN, EXCHANGE_BROWN};
 
 #include "clustercat-data.h" // bad. chicken-and-egg typedef deps
 
