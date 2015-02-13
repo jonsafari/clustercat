@@ -216,6 +216,9 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1); fflush(stderr);
 			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
+		if (cmd_args.class_algo == EXCHANGE_BROWN)
+			post_exchange_brown_cluster(cmd_args, model_metadata, sent_store_int, word2class);
+
 		free_count_arrays(cmd_args, temp_count_arrays);
 		free(temp_count_arrays);
 		free_count_arrays(cmd_args, count_arrays);
@@ -238,3 +241,52 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 	}
 }
 
+void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const wclass_t word2class[const]) {
+
+	// Convert word2class to an array of classes pointing to arrays of words, which will successively get merged together
+	struct_class_listing class2words[cmd_args.num_classes];
+	memset(class2words, 0, sizeof(struct_class_listing) * cmd_args.num_classes);
+	get_class_listing(cmd_args, model_metadata, word2class, class2words); // invert word2class array so that we know what words are associated with a given class
+
+	// Loop through classes, finding best pair of classes to merge.  Use pex_move_word() to find best pairs. Record merges separately to reduce overhead.
+	for (wclass_t total_merges = 0; total_merges < cmd_args.num_classes-1; total_merges++) {
+		double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+		for (wclass_t class_1 = 0; class_1 < cmd_args.num_classes-1; class_1++) {
+			for (wclass_t class_2 = class_1+1; class_2 < cmd_args.num_classes; class_2++) {
+				//scores[class_2] = pex_move_word(cmd_args, word_i, word_i_count, class_2, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
+				;
+			}
+		}
+	}
+
+	free_class_listing(cmd_args, class2words);
+}
+
+
+void get_class_listing(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const wclass_t word2class[const], struct_class_listing * restrict class2words) {
+// Invert word2class array so that we know what words are associated with a given class
+
+	// First pass through the word2class array to get counts of how many words are associated with a given class, then later allocate enough memory for these
+	for (word_id_t word = 0; word < model_metadata.type_count; word++) {
+		const wclass_t class = word2class[word];
+		class2words[class].length++;
+	}
+
+	// Allocate enough memory for all words in a given class, then zero-out length values, so that we know where next word should go
+	for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
+		class2words[class].words = malloc(sizeof(word_id_t) * class2words[class].length);
+		class2words[class].length = 0;
+	}
+
+	// Now add each word to the word array, and increment local offset
+	for (word_id_t word = 0; word < model_metadata.type_count; word++) {
+		const wclass_t class = word2class[word];
+		class2words[class].words[class2words[class].length] = word;
+		class2words[class].length++; // The final value of this should be the same as before we zeroed this value out
+	}
+}
+
+void free_class_listing(const struct cmd_args cmd_args, struct_class_listing * restrict class2words) {
+	for (wclass_t class = 0; class < cmd_args.num_classes; class++)
+		free(class2words[class].words);
+}

@@ -288,7 +288,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 				cmd_args->class_algo = EXCHANGE;
 			else if (!strcmp(class_algo_string, "exchange-then-brown"))
 				cmd_args->class_algo = EXCHANGE_BROWN;
-			else { printf("%s", usage); exit(0); }
+			else { printf("%s", usage); exit(1); }
 		} else if (!strcmp(argv[arg_i], "--class-file")) {
 			initial_class_file = argv[arg_i+1];
 			arg_i++;
@@ -638,7 +638,7 @@ void free_sent_info(struct_sent_info sent_info) {
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const unsigned int word_counts[const], char * word_list[restrict]) {
 	register unsigned long word_i = 0;
 
-	if (cmd_args.class_algo == EXCHANGE) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes-1].  So it's a simple pseudo-randomized initialization.
+	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes-1].  So it's a simple pseudo-randomized initialization.
 		register wclass_t class = 0; // [0,num_classes-1]
 		for (; word_i < vocab_size; word_i++, class++) {
 			if (class == cmd_args.num_classes) // reset
