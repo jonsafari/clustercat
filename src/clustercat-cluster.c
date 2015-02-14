@@ -217,7 +217,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		if (cmd_args.class_algo == EXCHANGE_BROWN)
-			post_exchange_brown_cluster(cmd_args, model_metadata, sent_store_int, word2class);
+			post_exchange_brown_cluster(cmd_args, model_metadata, word_counts, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays);
 
 		free_count_arrays(cmd_args, temp_count_arrays);
 		free(temp_count_arrays);
@@ -241,7 +241,7 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 	}
 }
 
-void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const wclass_t word2class[const]) {
+void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const unsigned int word_counts[const], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays) {
 
 	// Convert word2class to an array of classes pointing to arrays of words, which will successively get merged together
 	struct_class_listing class2words[cmd_args.num_classes];
@@ -250,12 +250,28 @@ void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_mo
 
 	// Loop through classes, finding best pair of classes to merge.  Use pex_move_word() to find best pairs. Record merges separately to reduce overhead.
 	for (wclass_t total_merges = 0; total_merges < cmd_args.num_classes-1; total_merges++) {
-		double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+		// The scores arrays don't need to be private in the OMP parallelization, since each thread is writing to different elements in the array
+		wclass_t scores_1_which[cmd_args.num_classes];
+		double scores_1_val[cmd_args.num_classes];
+		memset(scores_1_which, 0, sizeof(wclass_t) * cmd_args.num_classes);
+		memset(scores_1_val, 0, sizeof(double) * cmd_args.num_classes);
+
+		#pragma omp parallel for num_threads(cmd_args.num_threads)
 		for (wclass_t class_1 = 0; class_1 < cmd_args.num_classes-1; class_1++) {
+			const size_t scores_2_length = cmd_args.num_classes - class_1;
+			double scores_2[scores_2_length];
+			memset(scores_2, 0, sizeof(double) * scores_2_length);
+
 			for (wclass_t class_2 = class_1+1; class_2 < cmd_args.num_classes; class_2++) {
-				//scores[class_2] = pex_move_word(cmd_args, word_i, word_i_count, class_2, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
-				;
+				for (size_t word_offset = 0; word_offset < class2words[class_2].length; word_offset++) { // Sum of all words
+					const word_id_t word = class2words[class_2].words[word_offset];
+					scores_2[class_2] += pex_move_word(cmd_args, word, word_counts[word], class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
+				}
+				scores_1_which[class_1] = which_max(scores_2, scores_2_length);
+				scores_1_val[class_1]   = max(scores_2, scores_2_length);
+
 			}
+			//const double best_pairing_val = max(scores_1_val, cmd_args.num_classes);
 		}
 	}
 
