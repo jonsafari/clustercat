@@ -349,8 +349,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 				cmd_args->print_word_vectors = TEXT_VEC;
 			else if (!strcmp(print_word_vectors_string, "binary"))
 				cmd_args->print_word_vectors = BINARY_VEC;
-			else { printf("%s", usage); exit(1); }
-			cmd_args->print_word_vectors = true;
+			else { printf("Error: Please specify either 'text' or 'binary' after the --word-vectors flag.\n\n%s", usage); exit(1); }
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
 			printf("%s", usage); fflush(stderr);
