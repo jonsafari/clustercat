@@ -33,11 +33,11 @@ Future work includes support for [Brown clustering][].
 The format of the class file has each line consisting of `word`*TAB*`class` (a word type, then tab, then class).
 
 ## Features
-- Print **word vectors** (a.k.a word embeddings) using the `--word-vectors` flag
-- Start training using an **existing word cluster mapping** from other clustering software (eg. mkcls) using the `--class-file` flag
-- Adjust the number of **threads** to use with the `--jobs` flag.  The default is 4
-- Set the **minimum count** of words to consider using the `--min-count` flag.  The default is 2
-- Adjust the **number of clusters** or vectors using the `--num-classes` flag. The default is the square root of the vocabulary size
+- Print **[word vectors][]** (a.k.a. word embeddings) using the `--word-vectors` flag.
+- Start training using an **existing word cluster mapping** from other clustering software (eg. mkcls) using the `--class-file` flag.
+- Adjust the number of **threads** to use with the `--jobs` flag.  The default is 4.
+- Set the **minimum count** of words to consider using the `--min-count` flag.  The default is 2.
+- Adjust the **number of clusters** or vectors using the `--num-classes` flag. The default is the square root of the vocabulary size.
 
 ## Citation
 ...
@@ -49,3 +49,4 @@ The format of the class file has each line consisting of `word`*TAB*`class` (a w
 [predictive]: https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 [brown clustering]: https://en.wikipedia.org/wiki/Brown_clustering
+[word vectors]: https://en.wikipedia.org/wiki/Word_embedding
