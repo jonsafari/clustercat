@@ -240,19 +240,22 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	init_count_arrays(cmd_args, count_arrays);
 	tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
 
-	fprintf(out_file, "%u %u\n", model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
+	fprintf(out_file, "%lu %u\n", (long unsigned)model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
 
 	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 		const unsigned int word_i_count = word_counts[word_i];
-		double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+		float scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array.  We use a float here to be compatible with word2vec
 
 		#pragma omp parallel for num_threads(cmd_args.num_threads)
 		for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
-			scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+			scores[class] = (float)pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
 		}
 
 		fprintf(out_file, "%s ", word_list[word_i]);
-		fprint_array(out_file, scores, cmd_args.num_classes, " "); fflush(stdout);
+		if (cmd_args.print_word_vectors == TEXT_VEC)
+			fprint_arrayf(out_file, scores, cmd_args.num_classes, " ");
+		else
+			fwrite(scores, sizeof(float), cmd_args.num_classes, out_file);
 	}
 
 	free_count_arrays(cmd_args, count_arrays);

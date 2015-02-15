@@ -39,17 +39,18 @@ size_t memusage = 0;
 
 // Defaults
 struct cmd_args cmd_args = {
-	.class_algo        = EXCHANGE,
-	.class_offset      = 0,
-	.max_tune_sents    = 10000000,
-	.min_count         = 2,
-	.max_array         = 3,
-	.num_threads       = 4,
-	.num_classes       = 0,
-	.rev_alternate     = 3,
-	.tune_cycles       = 15,
-	.unidirectional    = false,
-	.verbose           = 0,
+	.class_algo         = EXCHANGE,
+	.class_offset       = 0,
+	.max_tune_sents     = 10000000,
+	.min_count          = 2,
+	.max_array          = 3,
+	.num_threads        = 4,
+	.num_classes        = 0,
+	.print_word_vectors = NO_VEC,
+	.rev_alternate      = 3,
+	.tune_cycles        = 15,
+	.unidirectional     = false,
+	.verbose            = 0,
 };
 
 
@@ -272,7 +273,7 @@ Options:\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
                           If you want to do basic predictive exchange, use --rev-alternate 0 --unidirectional\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
-     --word-vectors       Print word vectors (a.k.a. word embeddings) instead of discrete classes\n\
+     --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.  Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
 \n\
 ", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
@@ -342,6 +343,13 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			weights_string = argv[arg_i+1];
 			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "--word-vectors"))) {
+			char * restrict print_word_vectors_string = argv[arg_i+1];
+			arg_i++;
+			if (!strcmp(print_word_vectors_string, "text"))
+				cmd_args->class_algo = TEXT_VEC;
+			else if (!strcmp(print_word_vectors_string, "binary"))
+				cmd_args->class_algo = BINARY_VEC;
+			else { printf("%s", usage); exit(1); }
 			cmd_args->print_word_vectors = true;
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);

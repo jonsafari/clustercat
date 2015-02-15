@@ -35,6 +35,7 @@ typedef unsigned int * restrict count_array_t;
 #define SENT_LEN_MAX USHRT_MAX
 
 enum class_algos {EXCHANGE, BROWN, EXCHANGE_BROWN};
+enum print_word_vectors {NO_VEC, TEXT_VEC, BINARY_VEC};
 
 #include "clustercat-data.h" // bad. chicken-and-egg typedef deps
 
@@ -76,8 +77,8 @@ struct cmd_args {
 	unsigned char   rev_alternate: 3; // How often to alternate using reverse pex.  0 == never, 1 == after every one normal pex cycles, ...
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;   // enum class_algos
+	unsigned char print_word_vectors : 2; // enum print_word_vectors
 	bool unidirectional;
-	bool print_word_vectors;
 };
 
 size_t sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
