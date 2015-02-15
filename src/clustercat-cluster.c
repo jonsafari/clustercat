@@ -147,8 +147,8 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
-				const double delta_remove_word = 0.0;  // Not really necessary
-				const double delta_remove_word_rev = 0.0;  // Not really necessary
+				//const double delta_remove_word = 0.0;  // Not really necessary
+				//const double delta_remove_word_rev = 0.0;  // Not really necessary
 
 				//printf("cluster(): 43: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
 				//	printf("c_%u=%u, ", i, count_arrays[0][i]);
@@ -157,15 +157,10 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
-					//if (old_class == class) {
-					//	scores[class] = 0.0;
-					//	continue;
-					//}
-
 					if (is_nonreversed_cycle) {
-						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
 					} else { // This is the reversed one
-						scores[class] = delta_remove_word_rev + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], true);
+						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], true);
 					}
 					steps++;
 				}
@@ -182,7 +177,6 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					//}
 				}
 
-				//if (scores[old_class] > best_hypothesis_score) { // We've improved
 				if (old_class != best_hypothesis_class) { // We've improved
 					moved_count++;
 
@@ -246,7 +240,7 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	init_count_arrays(cmd_args, count_arrays);
 	tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
 
-	fprintf(out_file, "%u %u\n", model_metadata.type_count, cmd_args.num_classes);
+	fprintf(out_file, "%u %u\n", model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
 
 	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 		const unsigned int word_i_count = word_counts[word_i];
