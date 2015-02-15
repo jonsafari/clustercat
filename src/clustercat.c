@@ -346,9 +346,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			char * restrict print_word_vectors_string = argv[arg_i+1];
 			arg_i++;
 			if (!strcmp(print_word_vectors_string, "text"))
-				cmd_args->class_algo = TEXT_VEC;
+				cmd_args->print_word_vectors = TEXT_VEC;
 			else if (!strcmp(print_word_vectors_string, "binary"))
-				cmd_args->class_algo = BINARY_VEC;
+				cmd_args->print_word_vectors = BINARY_VEC;
 			else { printf("%s", usage); exit(1); }
 			cmd_args->print_word_vectors = true;
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag

@@ -248,7 +248,7 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 
 		#pragma omp parallel for num_threads(cmd_args.num_threads)
 		for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
-			scores[class] = (float)pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
 		}
 
 		fprintf(out_file, "%s ", word_list[word_i]);

@@ -77,7 +77,7 @@ struct cmd_args {
 	unsigned char   rev_alternate: 3; // How often to alternate using reverse pex.  0 == never, 1 == after every one normal pex cycles, ...
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;   // enum class_algos
-	unsigned char print_word_vectors : 2; // enum print_word_vectors
+	unsigned char   print_word_vectors : 2; // enum print_word_vectors
 	bool unidirectional;
 };
 
