@@ -1,15 +1,15 @@
 #include "clustercat-cluster.h"
 #include "clustercat-array.h"
 
-inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
-	const unsigned int count_class = count_arrays[0][from_class];
+	const unsigned int count_class = count_array[from_class];
 	const unsigned int new_count_class = count_class - word_count;
 	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
 	//printf("rm42: word=%u, word_count=%u, from_class=%u, count_class=%u, new_count_class=%u (count_class - word_count), delta=%g\n", word, word_count, from_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
-		count_arrays[0][from_class] = new_count_class;
+		count_array[from_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
@@ -40,9 +40,9 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_
 	return delta;
 }
 
-inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays, const bool is_tentative_move) {
+inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
-	unsigned int count_class = count_arrays[0][to_class];
+	unsigned int count_class = count_array[to_class];
 	if (!count_class) // class is empty
 		count_class = 1;
 	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
@@ -50,7 +50,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g, is_tentative_move=%d\n", word, word_count, to_class, count_class, new_count_class, delta, is_tentative_move); fflush(stdout);
 
 	if (! is_tentative_move)
-		count_arrays[0][to_class] = new_count_class;
+		count_array[to_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 		word_id_t prev_word = word_bigrams[word].words[i];
@@ -98,7 +98,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	return delta;
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
+void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE  ||  cmd_args.class_algo == EXCHANGE_BROWN) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -163,9 +163,9 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					//}
 
 					if (is_nonreversed_cycle) {
-						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
+						scores[class] = delta_remove_word + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
 					} else { // This is the reversed one
-						scores[class] = delta_remove_word_rev + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays, true);
+						scores[class] = delta_remove_word_rev + pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], true);
 					}
 					steps++;
 				}
@@ -198,11 +198,11 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 					}
 
 					if (is_nonreversed_cycle) {
-						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], false);
 					} else { // This is the reversed one
-						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays, false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays, false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays[0], false);
 					}
 				}
 			}
@@ -241,6 +241,30 @@ void cluster(const struct cmd_args cmd_args, const struct_sent_int_info * const 
 	}
 }
 
+void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
+	count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
+	init_count_arrays(cmd_args, count_arrays);
+	tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
+
+	fprintf(out_file, "%u %u\n", model_metadata.type_count, cmd_args.num_classes);
+
+	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
+		const unsigned int word_i_count = word_counts[word_i];
+		double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+
+		#pragma omp parallel for num_threads(cmd_args.num_threads)
+		for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
+			scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+		}
+
+		fprintf(out_file, "%s ", word_list[word_i]);
+		fprint_array(out_file, scores, cmd_args.num_classes, " "); fflush(stdout);
+	}
+
+	free_count_arrays(cmd_args, count_arrays);
+	free(count_arrays);
+}
+
 void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const unsigned int word_counts[const], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays) {
 
 	// Convert word2class to an array of classes pointing to arrays of words, which will successively get merged together
@@ -265,7 +289,7 @@ void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_mo
 			for (wclass_t class_2 = class_1+1; class_2 < cmd_args.num_classes; class_2++) {
 				for (size_t word_offset = 0; word_offset < class2words[class_2].length; word_offset++) { // Sum of all words
 					const word_id_t word = class2words[class_2].words[word_offset];
-					scores_2[class_2] += pex_move_word(cmd_args, word, word_counts[word], class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
+					scores_2[class_2] += pex_move_word(cmd_args, word, word_counts[word], class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
 				}
 				scores_1_which[class_1] = which_max(scores_2, scores_2_length);
 				scores_1_val[class_1]   = max(scores_2, scores_2_length);

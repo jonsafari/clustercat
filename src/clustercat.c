@@ -215,14 +215,18 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
-	cluster(cmd_args, sent_store_int, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
+	cluster(cmd_args, global_metadata, sent_store_int, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
 	// Now print the final word2class mapping
 	if (cmd_args.verbose >= 0) {
 		FILE *out_file = stdout;
 		if (out_file_string)
 			out_file = fopen(out_file_string, "w");
-		print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset);
+		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
+			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset);
+		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
+			print_words_and_vectors(out_file, cmd_args, global_metadata, sent_store_int, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
+		}
 		fclose(out_file);
 	}
 
@@ -268,6 +272,7 @@ Options:\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
                           If you want to do basic predictive exchange, use --rev-alternate 0 --unidirectional\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
+     --word-vectors       Print word vectors (a.k.a. word embeddings) instead of discrete classes\n\
 \n\
 ", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
@@ -336,6 +341,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!(strcmp(argv[arg_i], "-w") && strcmp(argv[arg_i], "--weights"))) {
 			weights_string = argv[arg_i+1];
 			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "--word-vectors"))) {
+			cmd_args->print_word_vectors = true;
 		} else if (!strncmp(argv[arg_i], "-", 1)) { // Unknown flag
 			printf("%s: Unknown command-line argument: %s\n\n", argv_0_basename, argv[arg_i]);
 			printf("%s", usage); fflush(stderr);

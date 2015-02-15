@@ -31,6 +31,7 @@ typedef unsigned short sentlen_t; // Number of words in a sentence
 //typedef unsigned short wclass_t;  // Defined in clustercat-map.h
 //typedef unsigned int   word_id_t; // Defined in clustercat-map.h
 typedef unsigned int * * restrict count_arrays_t;
+typedef unsigned int * restrict count_array_t;
 #define SENT_LEN_MAX USHRT_MAX
 
 enum class_algos {EXCHANGE, BROWN, EXCHANGE_BROWN};
@@ -76,6 +77,7 @@ struct cmd_args {
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;   // enum class_algos
 	bool unidirectional;
+	bool print_word_vectors;
 };
 
 size_t sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
