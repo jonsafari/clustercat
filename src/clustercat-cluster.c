@@ -119,6 +119,8 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
+		time_t time_start_cycles;
+		time(&time_start_cycles);
 		unsigned short cycle = 1; // Keep this around afterwards to print out number of actually-completed cycles
 		word_id_t moved_count = 0;
 		count_arrays_t temp_count_arrays = malloc(cmd_args.max_array * sizeof(void *));
@@ -130,12 +132,26 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, temp_count_arrays);
 			double queried_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, temp_count_arrays, -1, 1);
 
+			// ETA stuff
+			const time_t time_this_cycle = time(NULL);
+			const double time_elapsed = difftime(time_this_cycle, time_start_cycles);
+			const double time_avg_per_cycle = (time_elapsed / ((double)cycle-1));
+			const unsigned int remaining_cycles = cmd_args.tune_cycles - cycle + 1;
+			const double time_remaining = ( time_avg_per_cycle * remaining_cycles);
+			const time_t eta = time_this_cycle + time_remaining;
+
 			if (cmd_args.verbose >= -1) {
 				if (is_nonreversed_cycle)
-					fprintf(stderr, "%s: Starting normal cycle   ", argv_0_basename);
+					fprintf(stderr, "ccat: Normal cycle %-2u", cycle);
 				else
-					fprintf(stderr, "%s: Starting reversed cycle ", argv_0_basename);
-				fprintf(stderr, "%-3u with %.2g%% (%u/%u) words exchanged last cycle.    \tlogprob=%g, PP=%g\n", cycle, (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+					fprintf(stderr, "ccat: Rev cycle    %-2u", cycle);
+				if (cycle > 1) {
+					fprintf(stderr, "  Words moved last cycle: %.2g%% (%u/%u). LL=%.3g PP=%g", (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count)));
+					fprintf(stderr, "  Time left: %lim %lis. ETA: %s", (long)time_remaining/60, ((long)time_remaining % 60), ctime(&eta)); // ctime() adds a newline
+				}
+				else
+					fprintf(stderr, "\n");
+				fflush(stderr);
 			}
 			moved_count = 0;
 
