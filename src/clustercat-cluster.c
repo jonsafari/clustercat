@@ -134,7 +134,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 
 			// ETA stuff
 			const time_t time_this_cycle = time(NULL);
-			const double time_elapsed = difftime(time_this_cycle, time_start_cycles);
+			const double time_elapsed = difftime(time_this_cycle, time_start_cycles) + 1.0; // one is added since early cycles tend to be too optimistic
 			const double time_avg_per_cycle = (time_elapsed / ((double)cycle-1));
 			const unsigned int remaining_cycles = cmd_args.tune_cycles - cycle + 1;
 			const double time_remaining = ( time_avg_per_cycle * remaining_cycles);
