@@ -1,11 +1,12 @@
+#include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC, etc.
 #include "clustercat-cluster.h"
 #include "clustercat-array.h"
 
-inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
+inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	const unsigned int count_class = count_array[from_class];
 	const unsigned int new_count_class = count_class - word_count;
-	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
+	register double delta = count_class * log2f(count_class)  -  new_count_class * log2f(new_count_class);
 	//printf("rm42: word=%u, word_count=%u, from_class=%u, count_class=%u, new_count_class=%u (count_class - word_count), delta=%g\n", word, word_count, from_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
@@ -16,9 +17,9 @@ inline float pex_remove_word(const struct cmd_args cmd_args, const struct_model_
 		//printf(" rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + from_class];
 		if (word_class_count != 0) // Can't do log(0)
-			delta -= word_class_count * log2(word_class_count);
+			delta -= word_class_count * log2f(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
-		delta += new_word_class_count * log2(new_word_class_count);
+		delta += new_word_class_count * log2f(new_word_class_count);
 		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
@@ -46,7 +47,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	if (!count_class) // class is empty
 		count_class = 1;
 	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
-	register double delta = count_class * log2(count_class)  -  new_count_class * log2(new_count_class);
+	register double delta = count_class * log2f(count_class)  -  new_count_class * log2f(new_count_class);
 	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g, is_tentative_move=%d\n", word, word_count, to_class, count_class, new_count_class, delta, is_tentative_move); fflush(stdout);
 
 	if (! is_tentative_move)
@@ -58,17 +59,17 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
 		if (word_class_count != 0) { // Can't do log(0)
 			if (cmd_args.unidirectional) {
-				delta -= (word_class_count * log2(word_class_count));
+				delta -= (word_class_count * log2f(word_class_count));
 			} else {
-				delta -= (word_class_count * log2(word_class_count)) * 0.6;
+				delta -= (word_class_count * log2f(word_class_count)) * 0.6;
 			}
 		}
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
 		if (new_word_class_count != 0) { // Can't do log(0)
 			if (cmd_args.unidirectional) {
-				delta += (new_word_class_count * log2(new_word_class_count));
+				delta += (new_word_class_count * log2f(new_word_class_count));
 			} else {
-				delta += (new_word_class_count * log2(new_word_class_count)) * 0.6;
+				delta += (new_word_class_count * log2f(new_word_class_count)) * 0.6;
 			}
 		}
 		//printf(" mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%hu>, #(<v,c>)=%u, new_#(<v,c>)=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, prev_word, to_class, word_class_count, new_word_class_count, delta); fflush(stdout);
@@ -83,12 +84,12 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
 			if (word_class_rev_count != 0) // Can't do log(0)
 				if (!cmd_args.unidirectional)
-					delta -= (word_class_rev_count * log2(word_class_rev_count)) * 0.4;
+					delta -= (word_class_rev_count * log2f(word_class_rev_count)) * 0.4;
 
 			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
 			if (new_word_class_rev_count != 0) // Can't do log(0)
 				if (!cmd_args.unidirectional)
-					delta += (new_word_class_rev_count * log2(new_word_class_rev_count)) * 0.4;
+					delta += (new_word_class_rev_count * log2f(new_word_class_rev_count)) * 0.4;
 			//printf("word=%u, word_class_rev_count=%u, new_word_class_rev_count=%u, delta=%g\n", word, word_class_rev_count, new_word_class_rev_count, delta);
 			if (!is_tentative_move)
 				word_class_rev_counts[next_word * cmd_args.num_classes + to_class] = new_word_class_rev_count;
