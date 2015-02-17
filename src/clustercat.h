@@ -27,17 +27,18 @@
 #define MAX_WORD_LEN 255
 #define MAX_WORD_PREDECESSORS 1000000
 
-typedef unsigned short sentlen_t; // Number of words in a sentence
-//typedef unsigned short wclass_t;  // Defined in clustercat-map.h
-//typedef unsigned int   word_id_t; // Defined in clustercat-map.h
-typedef unsigned int * * restrict count_arrays_t;
-typedef unsigned int * restrict count_array_t;
-#define SENT_LEN_MAX USHRT_MAX
-
 enum class_algos {EXCHANGE, BROWN, EXCHANGE_BROWN};
 enum print_word_vectors {NO_VEC, TEXT_VEC, BINARY_VEC};
 
 #include "clustercat-data.h" // bad. chicken-and-egg typedef deps
+
+typedef unsigned short sentlen_t; // Number of words in a sentence
+#define SENT_LEN_MAX USHRT_MAX
+//typedef unsigned short wclass_t;  // Defined in clustercat-map.h
+//typedef unsigned int   word_id_t; // Defined in clustercat-map.h
+typedef word_count_t * * restrict count_arrays_t;
+typedef word_count_t * restrict count_array_t;
+
 
 typedef struct {
 	char **sent;
@@ -60,8 +61,8 @@ typedef struct {
 
 typedef struct { // This is for an array pointing to this struct having a pointer to an array of successors to a given word, as well as the length of that array
 	word_id_t * words;
-	unsigned int * counts;
-	unsigned int length;
+	word_bigram_count_t * counts;
+	unsigned long length;
 } struct_word_bigram_entry;
 
 char *argv_0_basename; // Allow for global access to filename
@@ -83,7 +84,7 @@ struct cmd_args {
 
 size_t sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], const word_id_t type_count);
-void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], unsigned int word_counts[restrict], const word_id_t type_count);
+void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], word_count_t word_counts[restrict], const word_id_t type_count);
 
 void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i);
 void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t class_sent[const], short start_position, const sentlen_t i);
@@ -93,10 +94,10 @@ unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const u
 unsigned long process_str_sent(char * restrict sent_str);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
-void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const unsigned int word_counts[const], char * word_list[restrict]);
+void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]);
 size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse);
-void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse);
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class);
+void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse);
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const word_count_t word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class);
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 void clear_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);

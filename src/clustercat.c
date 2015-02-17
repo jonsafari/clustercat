@@ -117,8 +117,8 @@ int main(int argc, char **argv) {
 	get_keys(&ngram_map, word_list);
 
 	// Build array of word_counts
-	unsigned int * restrict word_counts = malloc(sizeof(unsigned int) * global_metadata.type_count);
-	memusage += sizeof(unsigned int) * global_metadata.type_count;
+	word_count_t * restrict word_counts = malloc(sizeof(word_count_t) * global_metadata.type_count);
+	memusage += sizeof(word_count_t) * global_metadata.type_count;
 	build_word_count_array(&ngram_map, word_list, word_counts, global_metadata.type_count);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
@@ -180,25 +180,25 @@ int main(int argc, char **argv) {
 
 
 	// Build <v,c> counts, which consists of a word followed by a given class
-	unsigned int * restrict word_class_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+	word_class_count_t * restrict word_class_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(word_class_count_t));
 	if (word_class_counts == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Maybe increase --min-count\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Maybe increase --min-count\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / (double)1048576 )); fflush(stderr);
 		exit(13);
 	}
-	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int);
-	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(uint)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(unsigned int)); fflush(stderr);
+	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
+	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
 	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count, false);
 
 	// Build reverse: <c,v> counts: class followed by word.  This and the normal one are both pretty fast, so no need to parallelize this
-	unsigned int * restrict word_class_rev_counts = NULL;
+	word_class_count_t * restrict word_class_rev_counts = NULL;
 	if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
-		word_class_rev_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(unsigned int));
+		word_class_rev_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(word_class_count_t));
 		if (word_class_rev_counts == NULL) {
-			fprintf(stderr,  "%s: Warning: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Falling back to --rev-alternate 0\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / (double)1048576 )); fflush(stderr);
+			fprintf(stderr,  "%s: Warning: Unable to allocate enough memory for <v,c>.  %'.1f MB needed.  Falling back to --rev-alternate 0\n", argv_0_basename, ((cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / (double)1048576 )); fflush(stderr);
 			cmd_args.rev_alternate = 0;
 		} else {
-			memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int);
-			fprintf(stderr, "%s: Allocating %'.1f MB for word_class_rev_counts: num_classes=%u x type_count=%u x sizeof(uint)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(unsigned int)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(unsigned int)); fflush(stderr);
+			memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
+			fprintf(stderr, "%s: Allocating %'.1f MB for word_class_rev_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
 			build_word_class_counts(cmd_args, word_class_rev_counts, word2class, sent_store_int, global_metadata.line_count, true);
 		}
 
@@ -206,8 +206,8 @@ int main(int argc, char **argv) {
 
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
-		memusage += 2 * (powi(cmd_args.num_classes, i) * sizeof(unsigned int));
-		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), memusage);
+		memusage += 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t));
+		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), memusage);
 	}
 
 	clock_t time_model_built = clock();
@@ -410,7 +410,7 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 	return local_memusage;
 }
 
-void build_word_count_array(struct_map_word **ngram_map, char * restrict word_list[const], unsigned int word_counts[restrict], const word_id_t type_count) {
+void build_word_count_array(struct_map_word **ngram_map, char * restrict word_list[const], word_count_t word_counts[restrict], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
 		word_counts[i] = map_find_count(ngram_map, word_list[i]);
 	}
@@ -649,7 +649,7 @@ void free_sent_info(struct_sent_info sent_info) {
 	free(sent_info.sent);
 }
 
-void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const unsigned int word_counts[const], char * word_list[restrict]) {
+void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]) {
 	register unsigned long word_i = 0;
 
 	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes-1].  So it's a simple pseudo-randomized initialization.
@@ -696,7 +696,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	register word_id_t word_2_last = 0;
 	register unsigned int length = 0;
 	word_id_t * word_buffer     = malloc(sizeof(word_id_t) * MAX_WORD_PREDECESSORS);
-	unsigned int * count_buffer = malloc(sizeof(unsigned int) * MAX_WORD_PREDECESSORS);
+	word_bigram_count_t * count_buffer = malloc(sizeof(word_bigram_count_t) * MAX_WORD_PREDECESSORS);
 
 	// Iterate through bigram map to get counts of word_2's, so we know how much to allocate for each predecessor list
 	struct_map_bigram *entry, *tmp;
@@ -712,9 +712,9 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 			word_bigrams[word_2_last].words  = malloc(length * sizeof(word_id_t));
 			memcpy(word_bigrams[word_2_last].words,  word_buffer, length * sizeof(word_id_t));
 			memusage += length * sizeof(word_id_t);
-			word_bigrams[word_2_last].counts = malloc(length * sizeof(unsigned int));
-			memcpy(word_bigrams[word_2_last].counts, count_buffer , length * sizeof(unsigned int));
-			memusage += length * sizeof(unsigned int);
+			word_bigrams[word_2_last].counts = malloc(length * sizeof(word_bigram_count_t));
+			memcpy(word_bigrams[word_2_last].counts, count_buffer , length * sizeof(word_bigram_count_t));
+			memusage += length * sizeof(word_bigram_count_t);
 			//printf("\nword_2_last=%u, length=%u word_1s: ", word_2_last, length);
 			//for (unsigned int i = 0; i < length; i++) {
 			//	printf("<%u,%u> ", word_bigrams[word_2_last].words[i], word_bigrams[word_2_last].counts[i]);
@@ -735,7 +735,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	return memusage;
 }
 
-void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
+void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
 
 	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
@@ -757,7 +757,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, unsigned int * rest
 }
 
 
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const unsigned int word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
+double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const word_count_t word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
@@ -788,9 +788,9 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const wclass_t class_i = class_sent[i];
 			//wclass_t class_i_entry[CLASSLEN] = {0};
 			//class_i_entry[0] = class_i;
-			const unsigned int word_i_count = word_counts[word_i];
-			//const unsigned int class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
-			const unsigned int class_i_count = count_arrays[0][class_i];
+			const word_count_t word_i_count = word_counts[word_i];
+			//const wclass_count_t class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
+			const wclass_count_t class_i_count = count_arrays[0][class_i];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 3) {
 				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
@@ -884,18 +884,18 @@ void print_sent_info(struct_sent_info * restrict sent_info) {
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays) {
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
-		count_arrays[i-1] = calloc(powi(cmd_args.num_classes, i), sizeof(unsigned int)); // powi() is in clustercat-math.c
+		count_arrays[i-1] = calloc(powi(cmd_args.num_classes, i), sizeof(wclass_count_t)); // powi() is in clustercat-math.c
 		if (count_arrays[i-1] == NULL) {
-			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB per thread (%zuB * %u^%u).  Reduce the number of desired classes using --num-classes (current value: %u)\n", argv_0_basename, i, sizeof(unsigned int) * powi(cmd_args.num_classes, i) / 1048576, sizeof(unsigned int), cmd_args.num_classes, i, cmd_args.num_classes ); fflush(stderr);
+			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB per thread (%zuB * %u^%u).  Reduce the number of desired classes using --num-classes (current value: %u)\n", argv_0_basename, i, sizeof(wclass_count_t) * powi(cmd_args.num_classes, i) / 1048576, sizeof(wclass_count_t), cmd_args.num_classes, i, cmd_args.num_classes ); fflush(stderr);
 			exit(12);
 		}
-		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(unsigned int)), cmd_args.num_classes, i, sizeof(unsigned int));
+		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), cmd_args.num_classes, i, sizeof(wclass_count_t));
 	}
 }
 
 void clear_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays) {
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
-		memset(count_arrays[i-1], 0, powi(cmd_args.num_classes, i) * sizeof(unsigned int)); // powi() is in clustercat-math.c
+		memset(count_arrays[i-1], 0, powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)); // powi() is in clustercat-math.c
 	}
 }
 

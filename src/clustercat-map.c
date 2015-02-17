@@ -14,7 +14,7 @@ inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigr
 	}
 }
 
-inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsigned int count) { // Based on uthash's docs
+inline void map_add_entry(struct_map_word **map, char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
 	struct_map_word *local_s;
 
 	//HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
@@ -28,7 +28,7 @@ inline void map_add_entry(struct_map_word **map, char * restrict entry_key, unsi
 	local_s->count = count;
 }
 
-inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned long word_count, const unsigned short entry_class) {
+inline void map_add_class(struct_map_word_class **map, const char * restrict entry_key, const unsigned long word_count, const wclass_t entry_class) {
 	struct_map_word_class *local_s;
 
 	//HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
@@ -68,7 +68,7 @@ inline void map_set_word_id(struct_map_word **map, const char * restrict entry_k
 	local_s->word_id = word_id;
 }
 
-inline unsigned int map_increment_count(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
+inline word_count_t map_increment_count(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
 	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
 	#pragma omp critical
@@ -89,7 +89,7 @@ inline unsigned int map_increment_count(struct_map_word **map, const char * rest
 	return local_s->count;
 }
 
-inline unsigned int map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs
+inline wclass_count_t map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
 	//printf("map++: sizeof_key=%zu, CLASSLEN=%u, cls_entry=[%hu,%hu,%hu,%hu]\n", sizeof_key, CLASSLEN, entry_key[0], entry_key[1], entry_key[2], entry_key[3]);
@@ -112,10 +112,10 @@ inline unsigned int map_increment_count_fixed_width(struct_map_class **map, cons
 	return local_s->count;
 }
 
-inline unsigned int map_find_count_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]) { // Based on uthash's docs
+inline wclass_count_t map_find_count_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]) { // Based on uthash's docs
 	struct_map_class *local_s;
 	size_t sizeof_key = sizeof(wclass_t) * CLASSLEN;
-	unsigned int local_count = 0;
+	wclass_count_t local_count = 0;
 
 	HASH_FIND(hh, *map, entry_key, sizeof_key, local_s); // id already in the hash?
 	if (local_s != NULL) { // Deal with OOV
@@ -125,7 +125,7 @@ inline unsigned int map_find_count_fixed_width(struct_map_class *map[const], con
 	return local_count;
 }
 
-inline unsigned int map_update_count(struct_map_word **map, const char * restrict entry_key, const unsigned int count) { // Based on uthash's docs
+inline word_count_t map_update_count(struct_map_word **map, const char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
 	struct_map_word *local_s;
 
 	#pragma omp critical
@@ -145,9 +145,9 @@ inline unsigned int map_update_count(struct_map_word **map, const char * restric
 	return local_s->count;
 }
 
-inline unsigned int map_find_count(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
+inline word_count_t map_find_count(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
 	struct_map_word *local_s;
-	unsigned int local_count = 0;
+	word_count_t local_count = 0;
 
 	HASH_FIND_STR(*map, entry_key, local_s);	// local_s: output pointer
 	if (local_s != NULL) { // Deal with OOV
@@ -174,7 +174,7 @@ struct_map_word map_find_entry(struct_map_word *map[const], const char * restric
 	return *local_s;
 }
 
-inline unsigned short get_class(struct_map_word_class *map[const], const char * restrict entry_key, const unsigned short unk) {
+inline wclass_t get_class(struct_map_word_class *map[const], const char * restrict entry_key, const wclass_t unk) {
 	struct_map_word_class *local_s;
 
 	HASH_FIND_STR(*map, entry_key, local_s);	// local_s: output pointer
@@ -185,9 +185,9 @@ inline unsigned short get_class(struct_map_word_class *map[const], const char * 
 	}
 }
 
-unsigned int get_keys(struct_map_word *map[const], char *keys[]) {
+word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 	struct_map_word *entry, *tmp;
-	unsigned int number_of_keys = 0;
+	word_id_t number_of_keys = 0;
 
 	HASH_ITER(hh, *map, entry, tmp) {
 		// Build-up array of keys
@@ -232,7 +232,7 @@ void delete_all_bigram(struct_map_bigram **map) {
 	}
 }
 
-void print_words_and_classes(FILE * out_file, word_id_t type_count, char **word_list, const unsigned int word_counts[const], const wclass_t word2class[const], const int class_offset) {
+void print_words_and_classes(FILE * out_file, word_id_t type_count, char **word_list, const word_count_t word_counts[const], const wclass_t word2class[const], const int class_offset) {
 	struct_map_word_class *map = NULL;
 
 	for (word_id_t word_id = 0; word_id < type_count; word_id++) { // Populate new word2class_map, so we can do fun stuff like primary- and secondary-sort easily
@@ -302,7 +302,7 @@ unsigned long map_count(struct_map_word *map[const]) {
 	return HASH_COUNT(*map);
 }
 
-unsigned long map_print_entries(struct_map_word **map, const char * restrict prefix, const char sep_char, const unsigned int min_count) {
+unsigned long map_print_entries(struct_map_word **map, const char * restrict prefix, const char sep_char, const word_count_t min_count) {
 	struct_map_word *entry, *tmp;
 	unsigned long number_of_entries = 0;
 
