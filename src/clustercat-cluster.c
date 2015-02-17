@@ -4,9 +4,13 @@
 
 inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
+	register double delta = 0.0;
 	const unsigned int count_class = count_array[from_class];
+	if (count_class)
+		delta = count_class * log2f(count_class);
 	const unsigned int new_count_class = count_class - word_count;
-	register double delta = count_class * log2f(count_class)  -  new_count_class * log2f(new_count_class);
+	if (new_count_class)
+		delta -= new_count_class * log2f(new_count_class);
 	//printf("rm42: word=%u, word_count=%u, from_class=%u, count_class=%u, new_count_class=%u (count_class - word_count), delta=%g\n", word, word_count, from_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
@@ -19,7 +23,8 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2f(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
-		delta += new_word_class_count * log2f(new_word_class_count);
+		if (new_word_class_count != 0) // Can't do log(0)
+			delta += new_word_class_count * log2f(new_word_class_count);
 		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
@@ -163,7 +168,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				const unsigned int word_i_count = word_counts[word_i];
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
-				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_class_counts, count_arrays, true);
+				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
 				//const double delta_remove_word = 0.0;  // Not really necessary
 				//const double delta_remove_word_rev = 0.0;  // Not really necessary
 
