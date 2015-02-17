@@ -23,8 +23,7 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 		if (word_class_count != 0) // Can't do log(0)
 			delta -= word_class_count * log2f(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
-		if (new_word_class_count != 0) // Can't do log(0)
-			delta += new_word_class_count * log2f(new_word_class_count);
+		delta += new_word_class_count * log2f(new_word_class_count);
 		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
