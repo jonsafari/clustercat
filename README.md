@@ -38,6 +38,7 @@ The format of the class file has each line consisting of `word`*TAB*`class` (a w
 - Adjust the number of **threads** to use with the `--jobs` flag.  The default is 4.
 - Set the **minimum count** of words to consider using the `--min-count` flag.  The default is 2.
 - Adjust the **number of clusters** or vector dimensions using the `--num-classes` flag. The default is the square root of the vocabulary size.
+- ClusterCat prints regular updates of approximately how much time remains, and about **what time it will finish**.
 
 ## Citation
 ...
