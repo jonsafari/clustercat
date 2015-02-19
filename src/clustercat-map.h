@@ -2,6 +2,7 @@
 #define INCLUDE_CLUSTERCAT_MAP_HEADER
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "uthash.h"
 
 #ifdef ATA_STORE_KHASH
@@ -86,7 +87,7 @@ void sort_bigrams(struct_map_bigram **map);
 unsigned long map_count(struct_map_word *map[const]);
 
 unsigned long map_print_entries(struct_map_word **map, const char * restrict prefix, const char sep_char, const word_count_t min_count);
-void print_words_and_classes(FILE * out_file, word_id_t type_count, char **word_list, const word_count_t word_counts[const], const wclass_t word2class[const], const int class_offset);
+void print_words_and_classes(FILE * out_file, word_id_t type_count, char **word_list, const word_count_t word_counts[const], const wclass_t word2class[const], const int class_offset, const bool print_freqs);
 
 void delete_all(struct_map_word **map);
 void delete_all_class(struct_map_class **map);

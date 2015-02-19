@@ -46,6 +46,7 @@ struct cmd_args cmd_args = {
 	.max_array          = 3,
 	.num_threads        = 4,
 	.num_classes        = 0,
+	.print_freqs        = false,
 	.print_word_vectors = NO_VEC,
 	.rev_alternate      = 3,
 	.tune_cycles        = 15,
@@ -224,7 +225,7 @@ int main(int argc, char **argv) {
 		if (out_file_string)
 			out_file = fopen(out_file_string, "w");
 		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
-			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset);
+			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset, cmd_args.print_freqs);
 		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
 			print_words_and_vectors(out_file, cmd_args, global_metadata, sent_store_int, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 		}
@@ -266,6 +267,7 @@ Options:\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
  -n, --num-classes <c>    Set number of word classes (default: square root of vocabulary size)\n\
      --out <file>         Specify output file (default: stdout)\n\
+     --print-freqs        Print word frequencies after words and classes in final clustering output (useful for visualization)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu lines)\n\
@@ -324,6 +326,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--out")) {
 			out_file_string = argv[arg_i+1];
 			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "--print-freqs"))) {
+			cmd_args->print_freqs = true;
 		} else if (!(strcmp(argv[arg_i], "-q") && strcmp(argv[arg_i], "--quiet"))) {
 			cmd_args->verbose--;
 		} else if (!strcmp(argv[arg_i], "--rev-alternate")) {
