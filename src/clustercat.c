@@ -264,7 +264,7 @@ Options:\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
- -n, --num-classes <c>    Set number of word classes (default: square root of vocabulary size)\n\
+ -n, --num-classes <hu>   Set number of word classes (default: square root of vocabulary size)\n\
      --out <file>         Specify output file (default: stdout)\n\
      --print-freqs        Print word frequencies after words and classes in final clustering output (useful for visualization)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
@@ -272,7 +272,7 @@ Options:\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu lines)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
-                          If you want to do basic predictive exchange, use --rev-alternate 0 --unidirectional\n\
+                          If you want to do basic predictive exchange, use:  --rev-alternate 0 --unidirectional\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
      --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.\n\
                           Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
