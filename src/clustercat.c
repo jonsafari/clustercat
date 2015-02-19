@@ -257,7 +257,6 @@ Usage:    clustercat [options] < corpus.tok.txt > classes.tsv \n\
 Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
-     --class-algo <s>     Set class-induction algorithm {brown,exchange} (default: exchange)\n\
      --class-file <file>  Initialize exchange word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
  -h, --help               Print this usage\n\
@@ -275,10 +274,12 @@ Options:\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
                           If you want to do basic predictive exchange, use --rev-alternate 0 --unidirectional\n\
  -v, --verbose            Print additional info to stderr.  Use additional -v for more verbosity\n\
-     --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.  Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
+     --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.\n\
+                          Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
 \n\
 ", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
+//     --class-algo <s>     Set class-induction algorithm {brown,exchange,exchange-then-brown} (default: exchange)\n\
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 // -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
 
