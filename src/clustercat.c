@@ -42,7 +42,7 @@ struct cmd_args cmd_args = {
 	.class_algo         = EXCHANGE,
 	.class_offset       = 0,
 	.max_tune_sents     = 10000000,
-	.min_count          = 2,
+	.min_count          = 3,
 	.max_array          = 3,
 	.num_threads        = 4,
 	.num_classes        = 0,
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
 		exit(3);
 	} else if (cmd_args.num_classes == 0) { // User did not manually set number of classes at all
-		cmd_args.num_classes = (wclass_t) sqrt(global_metadata.type_count);
+		cmd_args.num_classes = (wclass_t) (sqrt(global_metadata.type_count) * 1.2);
 	}
 
 	// Get list of unique words
@@ -267,7 +267,7 @@ Options:\n\
  -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
- -n, --num-classes <hu>   Set number of word classes (default: square root of vocabulary size)\n\
+ -n, --num-classes <hu>   Set number of word classes (default: 1.2 * square root of vocabulary size)\n\
      --out <file>         Specify output file (default: stdout)\n\
      --print-freqs        Print word frequencies after words and classes in final clustering output (useful for visualization)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
