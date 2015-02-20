@@ -24,7 +24,7 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 		word_id_t prev_word = word_bigrams[word].words[i];
 		//printf(" rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + from_class];
-		if (word_class_count != 0) // Can't do log(0)
+		if (word_class_count > 1) // Can't do log(0); no need for 1
 			delta -= word_class_count * log2f(word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
 		delta += new_word_class_count * log2f(new_word_class_count);
@@ -65,7 +65,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		word_id_t prev_word = word_bigrams[word].words[i];
 		//printf(" mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
-		if (word_class_count != 0) { // Can't do log(0)
+		if (word_class_count > 1) { // Can't do log(0); no need for 1
 			if (cmd_args.unidirectional) {
 				delta -= (word_class_count * log2f(word_class_count));
 			} else {
@@ -73,7 +73,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 			}
 		}
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
-		if (new_word_class_count != 0) { // Can't do log(0)
+		if (new_word_class_count > 1) { // Can't do log(0)
 			if (cmd_args.unidirectional) {
 				delta += (new_word_class_count * log2f(new_word_class_count));
 			} else {
@@ -90,12 +90,12 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
 			const word_id_t next_word = word_bigrams_rev[word].words[i];
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
-			if (word_class_rev_count != 0) // Can't do log(0)
+			if (word_class_rev_count > 1) // Can't do log(0); no need for 1
 				if (!cmd_args.unidirectional)
 					delta -= (word_class_rev_count * log2f(word_class_rev_count)) * 0.4;
 
 			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
-			if (new_word_class_rev_count != 0) // Can't do log(0)
+			if (new_word_class_rev_count > 1) // Can't do log(0); no need for 1
 				if (!cmd_args.unidirectional)
 					delta += (new_word_class_rev_count * log2f(new_word_class_rev_count)) * 0.4;
 			//printf("word=%u, word_class_rev_count=%u, new_word_class_rev_count=%u, delta=%g\n", word, word_class_rev_count, new_word_class_rev_count, delta);
@@ -142,7 +142,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 
 			// ETA stuff
 			const time_t time_this_cycle = time(NULL);
-			const double time_elapsed = difftime(time_this_cycle, time_start_cycles) + 1.0; // one is added since early cycles tend to be too optimistic
+			const double time_elapsed = difftime(time_this_cycle, time_start_cycles) + 2.0; // a little is added since early cycles tend to be too optimistic
 			const double time_avg_per_cycle = (time_elapsed / ((double)cycle-1));
 			const unsigned int remaining_cycles = cmd_args.tune_cycles - cycle + 1;
 			const double time_remaining = ( time_avg_per_cycle * remaining_cycles);
