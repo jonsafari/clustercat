@@ -2,19 +2,26 @@
 #include "clustercat-cluster.h"
 #include "clustercat-array.h"
 
-double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move);
-double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move);
+float entropy_term(const float entropy_terms[const], const unsigned long i);
+double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
+double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
 
+inline float entropy_term(const float entropy_terms[const], const unsigned long i) {
+	if (i < ENTROPY_TERMS_MAX)
+		return entropy_terms[i];
+	else
+		return i * log2f(i);
+}
 
-inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
+inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	register double delta = 0.0;
 	const unsigned int count_class = count_array[from_class];
-	if (count_class)
-		delta = count_class * log2f(count_class);
+	if (count_class > 1)
+		delta = entropy_term(entropy_terms, count_class);
 	const unsigned int new_count_class = count_class - word_count;
-	if (new_count_class)
-		delta -= new_count_class * log2f(new_count_class);
+	if (new_count_class > 1)
+		delta -= entropy_term(entropy_terms, new_count_class);
 	//printf("rm42: word=%u, word_count=%u, from_class=%u, count_class=%u, new_count_class=%u (count_class - word_count), delta=%g\n", word, word_count, from_class, count_class, new_count_class, delta); fflush(stdout);
 
 	if (! is_tentative_move)
@@ -25,9 +32,9 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 		//printf(" rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + from_class];
 		if (word_class_count > 1) // Can't do log(0); no need for 1
-			delta -= word_class_count * log2f(word_class_count);
+			delta -= entropy_term(entropy_terms, word_class_count);
 		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
-		delta += new_word_class_count * log2f(new_word_class_count);
+		delta += entropy_term(entropy_terms, new_word_class_count);
 		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
 		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
@@ -49,13 +56,13 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 	return delta;
 }
 
-inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const bool is_tentative_move) {
+inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_array[to_class];
 	if (!count_class) // class is empty
 		count_class = 1;
 	const unsigned int new_count_class = count_class + word_count; // Differs from paper: replace "-" with "+"
-	register double delta = count_class * log2f(count_class)  -  new_count_class * log2f(new_count_class);
+	register double delta = entropy_term(entropy_terms, count_class)  -  entropy_term(entropy_terms, new_count_class);
 	//printf("mv42: word=%u, word_count=%u, to_class=%u, count_class=%u, new_count_class=%u, delta=%g, is_tentative_move=%d\n", word, word_count, to_class, count_class, new_count_class, delta, is_tentative_move); fflush(stdout);
 
 	if (! is_tentative_move)
@@ -67,17 +74,17 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
 		if (word_class_count > 1) { // Can't do log(0); no need for 1
 			if (cmd_args.unidirectional) {
-				delta -= (word_class_count * log2f(word_class_count));
+				delta -= entropy_term(entropy_terms, word_class_count);
 			} else {
-				delta -= (word_class_count * log2f(word_class_count)) * 0.6;
+				delta -= entropy_term(entropy_terms, word_class_count) * 0.6;
 			}
 		}
 		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
 		if (new_word_class_count > 1) { // Can't do log(0)
 			if (cmd_args.unidirectional) {
-				delta += (new_word_class_count * log2f(new_word_class_count));
+				delta += entropy_term(entropy_terms, new_word_class_count);
 			} else {
-				delta += (new_word_class_count * log2f(new_word_class_count)) * 0.6;
+				delta += entropy_term(entropy_terms, new_word_class_count) * 0.6;
 			}
 		}
 		//printf(" mv45: word=%u; prev_word=%u, to_class=%u, i=%u, word_count=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%hu>, #(<v,c>)=%u, new_#(<v,c>)=%u, delta=%g\n", word, prev_word, to_class, i, word_count, count_class, new_count_class, prev_word, to_class, word_class_count, new_word_class_count, delta); fflush(stdout);
@@ -92,12 +99,13 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
 			if (word_class_rev_count > 1) // Can't do log(0); no need for 1
 				if (!cmd_args.unidirectional)
-					delta -= (word_class_rev_count * log2f(word_class_rev_count)) * 0.4;
+					delta -= entropy_term(entropy_terms, word_class_rev_count) * 0.4;
 
 			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
 			if (new_word_class_rev_count > 1) // Can't do log(0); no need for 1
 				if (!cmd_args.unidirectional)
-					delta += (new_word_class_rev_count * log2f(new_word_class_rev_count)) * 0.4;
+					//delta += entropy_term(entropy_terms, word_class_rev_count) * 0.4;
+					delta += entropy_term(entropy_terms, new_word_class_rev_count) * 0.4;
 			//printf("word=%u, word_class_rev_count=%u, new_word_class_rev_count=%u, delta=%g\n", word, word_class_rev_count, new_word_class_rev_count, delta);
 			if (!is_tentative_move)
 				word_class_rev_counts[next_word * cmd_args.num_classes + to_class] = new_word_class_rev_count;
@@ -115,6 +123,10 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
 		tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
+
+		// Build precomputed entropy terms
+		float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
+		build_entropy_terms(cmd_args, entropy_terms, ENTROPY_TERMS_MAX);
 
 		if (cmd_args.verbose > 3) {
 			printf("cluster(): 42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
@@ -183,9 +195,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
 					if (is_nonreversed_cycle) {
-						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 					} else { // This is the reversed one
-						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], true);
+						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, true);
 					}
 					steps++;
 				}
@@ -217,11 +229,11 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					}
 
 					if (is_nonreversed_cycle) {
-						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, false);
 					} else { // This is the reversed one
-						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays[0], false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, false);
 					}
 				}
 			}
@@ -242,6 +254,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		free(temp_count_arrays);
 		free_count_arrays(cmd_args, count_arrays);
 		free(count_arrays);
+		free(entropy_terms);
 
 	} else if (cmd_args.class_algo == BROWN) { // Agglomerative clustering.  Stops when the number of current clusters is equal to the desired number in cmd_args.num_classes
 		// "Things equal to nothing else are equal to each other." --Anon
@@ -265,6 +278,10 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	init_count_arrays(cmd_args, count_arrays);
 	tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
 
+	// Build precomputed entropy terms
+	float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
+	build_entropy_terms(cmd_args, entropy_terms, ENTROPY_TERMS_MAX);
+
 	fprintf(out_file, "%lu %u\n", (long unsigned)model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
 
 	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
@@ -273,7 +290,7 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 
 		#pragma omp parallel for num_threads(cmd_args.num_threads)
 		for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
-			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 		}
 
 		fprintf(out_file, "%s ", word_list[word_i]);
@@ -285,9 +302,14 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 
 	free_count_arrays(cmd_args, count_arrays);
 	free(count_arrays);
+	free(entropy_terms);
 }
 
 void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const unsigned int word_counts[const], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays) {
+
+	// Build precomputed entropy terms
+	float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
+	build_entropy_terms(cmd_args, entropy_terms, ENTROPY_TERMS_MAX);
 
 	// Convert word2class to an array of classes pointing to arrays of words, which will successively get merged together
 	struct_class_listing class2words[cmd_args.num_classes];
@@ -311,7 +333,7 @@ void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_mo
 			for (wclass_t class_2 = class_1+1; class_2 < cmd_args.num_classes; class_2++) {
 				for (size_t word_offset = 0; word_offset < class2words[class_2].length; word_offset++) { // Sum of all words
 					const word_id_t word = class2words[class_2].words[word_offset];
-					scores_2[class_2] += pex_move_word(cmd_args, word, word_counts[word], class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], true);
+					scores_2[class_2] += pex_move_word(cmd_args, word, word_counts[word], class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 				}
 				scores_1_which[class_1] = which_max(scores_2, scores_2_length);
 				scores_1_val[class_1]   = max(scores_2, scores_2_length);
@@ -322,6 +344,7 @@ void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_mo
 	}
 
 	free_class_listing(cmd_args, class2words);
+	free(entropy_terms);
 }
 
 
@@ -351,4 +374,11 @@ void get_class_listing(const struct cmd_args cmd_args, const struct_model_metada
 void free_class_listing(const struct cmd_args cmd_args, struct_class_listing * restrict class2words) {
 	for (wclass_t class = 0; class < cmd_args.num_classes; class++)
 		free(class2words[class].words);
+}
+
+void build_entropy_terms(const struct cmd_args cmd_args, float * restrict entropy_terms, const unsigned int entropy_terms_max) {
+	entropy_terms[0] = 0.0;
+	#pragma omp parallel for num_threads(cmd_args.num_threads)
+	for (unsigned long i = 1; i < entropy_terms_max; i++)
+		entropy_terms[i] = i * log2f(i);
 }

@@ -68,6 +68,9 @@ int main(int argc, char **argv) {
 	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
 	parse_cmd_args(argc, argv, usage, &cmd_args);
 
+	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN)
+		memusage += sizeof(float) * ENTROPY_TERMS_MAX; // We'll build the precomputed entropy terms after reporting memusage
+
 	struct_model_metadata global_metadata;
 	global_metadata.token_count = 0;
 	global_metadata.line_count  = 0;
