@@ -2,11 +2,11 @@
 #include "clustercat-cluster.h"
 #include "clustercat-array.h"
 
-float entropy_term(const float entropy_terms[const], const unsigned long i);
+float entropy_term(const float entropy_terms[const], const unsigned int i);
 double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
 double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
 
-inline float entropy_term(const float entropy_terms[const], const unsigned long i) {
+inline float entropy_term(const float entropy_terms[const], const unsigned int i) {
 	if (i < ENTROPY_TERMS_MAX)
 		return entropy_terms[i];
 	else
