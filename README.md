@@ -11,8 +11,8 @@ It is programmed in modern C, with few external libraries.
 ## System Requirements
 - A **Unix**-like system (eg. Linux, FreeBSD, Mac OS X, Cygwin) that includes `make`.
 - A modern **C** compiler that supports [C99][], and preferably [OpenMP][] v3.1+ .
-  The OpenMP pragmas (for multi-threaded use) may be ignored by older compilers, and will not affect the output of the programs.
-  - GCC 4.7+
+  The OpenMP pragmas (for multi-threaded use) may be ignored by older compilers, and will not affect the output of the program.
+  - GCC 4.7+ (recommended)
   - Clang 3.0+  current stable versions simply ignore OpenMP pragmas, which is ok. The program will give the same output, but without multithreaded support it will take longer.
   - Probably other modern C compilers that fully support C99 (not MSVC)
 - That's it!
@@ -22,15 +22,18 @@ It is programmed in modern C, with few external libraries.
 
 ## Commands
 The binary program `clustercat` gets compiled into the `bin` directory.
-Command-line argument usage may be obtained by running with program with the **`--help`** flag.
 
 **Clustering** preprocessed text (already tokenized, normalized, etc) is pretty simple:
 
-      clustercat [options] < train.tok.txt > output.txt
+      bin/clustercat [options] < train.tok.txt > output.txt
 
 The word-classes are induced from a bidirectional [predictive][] [exchange algorithm][].
 Future work includes support for [Brown clustering][].
 The format of the class file has each line consisting of `word`*TAB*`class` (a word type, then tab, then class).
+
+Command-line argument usage may be obtained by running with program with the **`--help`** flag:
+
+      bin/clustercat --help
 
 ## Features
 - Print **[word vectors][]** (a.k.a. word embeddings) using the `--word-vectors` flag.
