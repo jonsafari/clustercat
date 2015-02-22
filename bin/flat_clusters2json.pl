@@ -1,13 +1,11 @@
 #!/usr/bin/env perl
 ## By Jon Dehdari 2015
-## Converts boring tsv clustering format to json for visualization
+## Converts boring flat tsv clustering format to json for visualization
 ## Usage: perl clusters2json.pl [options] < in > out
 
 use strict;
 use Getopt::Long;
 
-## Defaults
-#...
 
 my $usage     = <<"END_OF_USAGE";
 clusters2json.pl    (c) 2015 Jon Dehdari - LGPL v3 or Mozilla Public License v2
@@ -65,6 +63,8 @@ END
 	}
 
 	print "\"name\": \"$word\", \"size\": $freq";
+
+	$freq = undef; # in case no freqs are provided
 } # end while (<>) loop
 
 print <<END;
