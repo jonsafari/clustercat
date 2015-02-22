@@ -260,7 +260,8 @@ Usage:    clustercat [options] < corpus.tok.txt > classes.tsv \n\
 Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
-     --class-file <file>  Initialize exchange word classes from a tsv file (default: pseudo-random initialization for exchange)\n\
+     --class-file <file>  Initialize exchange word classes from an existing clustering tsv file (default: pseudo-random initialization\n\
+                          for exchange). If you use this option, you probably can set --tune-cycles to 3 or so\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\

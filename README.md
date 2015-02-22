@@ -39,7 +39,7 @@ Command-line argument usage may be obtained by running with program with the **`
 - Print **[word vectors][]** (a.k.a. word embeddings) using the `--word-vectors` flag.
 - Start training using an **existing word cluster mapping** from other clustering software (eg. mkcls) using the `--class-file` flag.
 - Adjust the number of **threads** to use with the `--jobs` flag.  The default is 4.
-- Set the **minimum count** of words to consider using the `--min-count` flag.  The default is 2.
+- Set the **minimum count** of words to consider using the `--min-count` flag.  The default is 3.
 - Adjust the **number of clusters** or vector dimensions using the `--num-classes` flag. The default is proportional to the square root of the vocabulary size.
 - ClusterCat prints regular updates of approximately how much time remains, and about **what time it will finish**.
 
