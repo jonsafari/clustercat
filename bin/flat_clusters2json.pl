@@ -6,6 +6,7 @@
 use strict;
 use Getopt::Long;
 
+my $word_labels = undef;
 
 my $usage     = <<"END_OF_USAGE";
 clusters2json.pl    (c) 2015 Jon Dehdari - LGPL v3 or Mozilla Public License v2
@@ -15,12 +16,15 @@ Usage:    perl $0 [options] < in > out
 Function: Converts tsv clustering format to json for visualization
 
 Options:
- -h, --help        Print this usage
+ -h, --help         Print this usage
+     --word-labels  Use the first word in a cluster series as the cluster label.
+                    This option is useful if the input is already sorted by frequency.
 
 END_OF_USAGE
 
 GetOptions(
-    'h|help|?'		=> sub { print $usage; exit; },
+	'h|help|?'		=> sub { print $usage; exit; },
+	'word-labels'	=> \$word_labels,
 ) or die $usage;
 
 my ($word, $cluster, $freq) = undef;
@@ -53,8 +57,18 @@ while (<>) {
 END
 		}
 		$last_cluster = $cluster;
-		print <<END;
+
+		if ($word_labels) {
+			print <<END;
+      "name": "$word",
+END
+		} else {
+			print <<END;
       "name": "$cluster",
+END
+		}
+
+		print <<END;
       "children": [
 END
 		print "        {";
