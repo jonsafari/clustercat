@@ -770,7 +770,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 	double sum_log_probs = 0.0; // For perplexity calculation
 
 	unsigned long current_sent_num;
-	//#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
+	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
 	for (current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) {
 
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
