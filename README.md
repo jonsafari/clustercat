@@ -25,7 +25,7 @@ The binary program `clustercat` gets compiled into the `bin` directory.
 
 **Clustering** preprocessed text (already tokenized, normalized, etc) is pretty simple:
 
-      bin/clustercat [options] < train.tok.txt > output.txt
+      bin/clustercat [options] < train.tok.txt > clusters.tsv
 
 The word-classes are induced from a bidirectional [predictive][] [exchange algorithm][].
 Future work includes support for [Brown clustering][].
@@ -43,6 +43,20 @@ Command-line argument usage may be obtained by running with program with the **`
 - Adjust the **number of clusters** or vector dimensions using the `--num-classes` flag. The default is proportional to the square root of the vocabulary size.
 - ClusterCat prints regular updates of approximately how much time remains, and about **what time it will finish**.
 
+## Visualization
+See [bl.ocks.org][] for cool data visualization of the clusters for various languages, including English, German, Persian, Hindi, Czech, and Catalan.
+
+You can generate your own graphics from ClusterCat's output.
+Add the flag  `--print-freqs`  to ClusterCat, then type the command:
+
+      bin/flat_clusters2json.pl --word-labels < clusters.tsv > visualization/d3/clusters.json
+
+You can either upload the [JSON][] file to [gist.github.com][], following instructions on the [bl.ocks.org](http://bl.ocks.org) front page, or you can view the graphic locally by running a minimal webserver in the `visualization/d3` directory:
+
+      python -m SimpleHTTPServer 8116
+
+Then open a tab in your browser to [localhost:8116](http://localhost:8116) .
+
 ## Citation
 ...
 
@@ -54,3 +68,6 @@ Command-line argument usage may be obtained by running with program with the **`
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 [brown clustering]: https://en.wikipedia.org/wiki/Brown_clustering
 [word vectors]: https://en.wikipedia.org/wiki/Word_embedding
+[bl.ocks.org]: http://bl.ocks.org/jonsafari
+[JSON]: https://en.wikipedia.org/wiki/JSON
+[gist.github.com]: https://gist.github.com
