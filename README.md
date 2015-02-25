@@ -53,7 +53,7 @@ Add the flag  `--print-freqs`  to ClusterCat, then type the command:
 
 You can either upload the [JSON][] file to [gist.github.com][], following instructions on the [bl.ocks.org](http://bl.ocks.org) front page, or you can view the graphic locally by running a minimal webserver in the `visualization/d3` directory:
 
-      python -m SimpleHTTPServer 8116
+      python -m SimpleHTTPServer 8116 2>/dev/null &
 
 Then open a tab in your browser to [localhost:8116](http://localhost:8116) .
 
