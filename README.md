@@ -44,7 +44,7 @@ Command-line argument usage may be obtained by running with program with the **`
 - ClusterCat prints regular updates of approximately how much time remains, and about **what time it will finish**.
 
 ## Visualization
-See [bl.ocks.org][] for cool data visualization of the clusters for various languages, including English, German, Persian, Hindi, Czech, and Catalan.
+See [bl.ocks.org][] for cool data visualization of the clusters for various languages, including English, German, Persian, Hindi, Czech, Catalan, Tajik, Basque, Russian, French, and Maltese.
 
 You can generate your own graphics from ClusterCat's output.
 Add the flag  `--print-freqs`  to ClusterCat, then type the command:
@@ -56,6 +56,9 @@ You can either upload the [JSON][] file to [gist.github.com][], following instru
       python -m SimpleHTTPServer 8116 2>/dev/null &
 
 Then open a tab in your browser to [localhost:8116](http://localhost:8116) .
+
+The default settings are sensible for normal usage, but for visualization you probably want much fewer word types and clusters -- less than 10,000 word types and 120 clusters.
+Your browser will thank you.
 
 ## Citation
 ...
