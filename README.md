@@ -42,6 +42,7 @@ Command-line argument usage may be obtained by running with program with the **`
 - Set the **minimum count** of words to consider using the `--min-count` flag.  The default is 3.
 - Adjust the **number of clusters** or vector dimensions using the `--num-classes` flag. The default is proportional to the square root of the vocabulary size.
 - ClusterCat prints regular updates of approximately how much time remains, and about **what time it will finish**.
+- Includes **compatibility wrapper script ` bin/mkcls `** that can be run just like mkcls.  You can use more classes now :-)
 
 ## Visualization
 See [bl.ocks.org][] for cool data visualization of the clusters for various languages, including English, German, Persian, Hindi, Czech, Catalan, Tajik, Basque, Russian, French, and Maltese.
