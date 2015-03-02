@@ -815,6 +815,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 
 
 			// Calculate transition probs
+			// The array for probs/weights is:  w_{i-2}  w_{i-1}  w_i  w_{i+1}  w_{i+2}
 			float weights_class[] = {0.4, 0.16, 0.01, 0.1, 0.33};
 			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
 			//float weights_class[] = {0.0, 0.99, 0.01, 0.0, 0.0};
