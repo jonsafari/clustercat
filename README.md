@@ -10,9 +10,9 @@ It is programmed in modern C, with few external libraries.
 
 ## System Requirements
 - A **Unix**-like system (eg. Linux, FreeBSD, Mac OS X, Cygwin) that includes `make`.
-- A modern **C** compiler that supports [C99][], and preferably [OpenMP][] v3.1+ .
+- A modern **C** compiler that supports [C99][], and preferably [OpenMP][] v3.0+ .
   The OpenMP pragmas (for multi-threaded use) may be ignored by older compilers, and will not affect the output of the program.
-  - GCC 4.7+ (recommended)
+  - GCC 4.6+ (recommended)
   - Clang 3.0+  current stable versions simply ignore OpenMP pragmas, which is ok. The program will give the same output, but without multithreaded support it will take longer.
   - Probably other modern C compilers that fully support C99 (not MSVC)
 - That's it!
