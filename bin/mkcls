@@ -31,7 +31,8 @@ Ignored arguments:
   -y<f>       use special criterion, and set sigma distortion (default: 5.0)
 '
 
-cmd_string="$(dirname $0)/clustercat "
+## Set default min-count to 1 (like mkcls) unless it's overwritten latter by -m
+cmd_string="$(dirname $0)/clustercat --min-count 1 "
 
 
 while [ $# -gt 0 ]; do
