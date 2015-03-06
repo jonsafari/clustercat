@@ -31,8 +31,8 @@ Ignored arguments:
   -y<f>       use special criterion, and set sigma distortion (default: 5.0)
 '
 
-## Set default min-count to 1 (like mkcls) unless it's overwritten latter by -m
-cmd_string="$(dirname $0)/clustercat --min-count 1 "
+## Set defaults to be like mkcls, unless they're overwritten latter by manually specifying them
+cmd_string="$(dirname $0)/clustercat --min-count 1 --num-classes 100 --in train   "
 
 
 while [ $# -gt 0 ]; do
