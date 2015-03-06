@@ -70,7 +70,6 @@ while [ $# -gt 0 ]; do
 		shift
 		;;
 	esac
-
 done
 
 echo 'Executing:' >&2
