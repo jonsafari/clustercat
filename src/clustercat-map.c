@@ -56,7 +56,7 @@ inline void map_update_class(struct_map_word_class **map, const char * restrict 
 inline void map_set_word_id(struct_map_word **map, const char * restrict entry_key, const word_id_t word_id) {
 	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
-	#pragma omp critical
+	#pragma omp critical (map_set_word_id_lookup)
 	{
 		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 	}
@@ -64,14 +64,14 @@ inline void map_set_word_id(struct_map_word **map, const char * restrict entry_k
 		printf("Error: word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
 		exit(5);
 	}
-	#pragma omp atomic write
-	local_s->word_id = word_id;
+	#pragma omp critical (map_set_word_id_assignment)
+	{ local_s->word_id = word_id; }
 }
 
 inline word_count_t map_increment_count(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
 	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
-	#pragma omp critical
+	#pragma omp critical (map_increment_count_lookup)
 	{
 		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 		if (local_s == NULL) {
@@ -83,8 +83,8 @@ inline word_count_t map_increment_count(struct_map_word **map, const char * rest
 			HASH_ADD_KEYPTR(hh, *map, local_s->key, strlen_entry_key, local_s);
 		}
 	}
-	#pragma omp atomic
-	++local_s->count;
+	#pragma omp critical (map_increment_count_increment)
+	{ ++local_s->count; }
 	//printf("map: count of %s is now %u\n", entry_key, local_s->count);
 	return local_s->count;
 }
@@ -106,8 +106,8 @@ inline wclass_count_t map_increment_count_fixed_width(struct_map_class **map, co
 		}
 		//printf("\t***42***: count: %u\n", local_s->count); fflush(stdout);
 	}
-	#pragma omp atomic
-	++local_s->count;
+	#pragma omp critical (map_increment_count_fixed_width_increment)
+	{ ++local_s->count; }
 	//printf("map: count of [%hu,%hu,%hu,%hu] is now %u\n", entry_key[0],entry_key[1],entry_key[2],entry_key[3], local_s->count);
 	return local_s->count;
 }
