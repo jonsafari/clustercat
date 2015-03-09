@@ -149,8 +149,11 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			const bool is_nonreversed_cycle = (cmd_args.rev_alternate == 0) || (cycle % (cmd_args.rev_alternate+1)); // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles; if rev_alternate==0 then always do this part.
 
 			clear_count_arrays(cmd_args, temp_count_arrays);
-			tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, temp_count_arrays);
-			double queried_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, temp_count_arrays, -1, 1);
+			double queried_log_prob = 0.0;
+			if (model_metadata.token_count < 1e8  || ((cycle == cmd_args.tune_cycles) || cycle == 2 || cycle == 3)) { // For large training sets, only calculate PP on the interesting iterations
+				tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, temp_count_arrays);
+				queried_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, temp_count_arrays, -1, 1);
+			}
 
 			// ETA stuff
 			const time_t time_this_cycle = time(NULL);
@@ -166,8 +169,13 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				else
 					fprintf(stderr, "ccat: Rev cycle    %-2u", cycle);
 				if (cycle > 1) {
-					fprintf(stderr, "  Words moved last cycle: %.2g%% (%u/%u). LL=%.3g PP=%g", (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count, queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count)));
-					fprintf(stderr, "  Time left: %lim %lis. ETA: %s", (long)time_remaining/60, ((long)time_remaining % 60), ctime(&eta)); // ctime() adds a newline
+					fprintf(stderr, " Words moved last cycle: %.2g%% (%u/%u).", (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count);
+					char * eta_string = ctime(&eta);
+					eta_string[strlen(eta_string)-1] = '\0'; // ctime() adds a newline :-(
+					fprintf(stderr, " Time left: %lim %lis. ETA: %s", (long)time_remaining/60, ((long)time_remaining % 60), eta_string);
+					if (queried_log_prob)
+						fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count)));
+					fprintf(stderr, "\n");
 				}
 				else
 					fprintf(stderr, "\n");

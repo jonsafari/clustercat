@@ -9,7 +9,7 @@ mkcls command-line arguments:
   -p<file>    training input text file (default: train)
   -V<file>    cluster output file
   -c<i>       number of word clusters (default: 100)
-  -m<i>       minimum word count (default: 0)
+  -m<i>       minimum word count (default: 1)
   -v<i>       verbose mode
 
 Ignored arguments:
