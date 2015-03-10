@@ -44,7 +44,7 @@ struct cmd_args cmd_args = {
 	.max_tune_sents     = 10000000,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
 	.max_array          = 3,
-	.num_threads        = 4,
+	.num_threads        = 8,
 	.num_classes        = 0,
 	.print_freqs        = false,
 	.print_word_vectors = NO_VEC,
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 
 	// Check or set number of classes
 	if (cmd_args.num_classes >= global_metadata.type_count) { // User manually set number of classes is too low
-		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --num-classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
+		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
 		exit(3);
 	} else if (cmd_args.num_classes == 0) { // User did not manually set number of classes at all
 		cmd_args.num_classes = (wclass_t) (sqrt(global_metadata.type_count) * 1.2);
@@ -260,19 +260,19 @@ Usage:    clustercat [options] < corpus.tok.txt > classes.tsv \n\
 Function: Induces word categories from plaintext\n\
 \n\
 Options:\n\
+ -c, --classes <hu>       Set number of word classes (default: 1.2 * square root of vocabulary size)\n\
      --class-file <file>  Initialize exchange word classes from an existing clustering tsv file (default: pseudo-random initialization\n\
                           for exchange). If you use this option, you probably can set --tune-cycles to 3 or so\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\
- -j, --jobs <hu>          Set number of threads to run simultaneously (default: %d threads)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
- -n, --num-classes <hu>   Set number of word classes (default: 1.2 * square root of vocabulary size)\n\
      --out <file>         Specify output file (default: stdout)\n\
      --print-freqs        Print word frequencies after words and classes in final clustering output (useful for visualization)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
+ -j, --threads <hu>       Set number of threads to run simultaneously (default: %d threads)\n\
      --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu lines)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
@@ -281,7 +281,7 @@ Options:\n\
      --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.\n\
                           Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
 \n\
-", cmd_args.class_offset, cmd_args.num_threads, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.class_offset, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.max_tune_sents, cmd_args.tune_cycles);
 }
 //     --class-algo <s>     Set class-induction algorithm {brown,exchange,exchange-then-brown} (default: exchange)\n\
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
@@ -311,7 +311,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--in")) {
 			in_train_file_string = argv[arg_i+1];
 			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--jobs"))) {
+		} else if (!(strcmp(argv[arg_i], "-j") && strcmp(argv[arg_i], "--threads") && strcmp(argv[arg_i], "--jobs"))) {
 			cmd_args->num_threads = (unsigned int) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--min-count")) {
@@ -325,7 +325,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 				exit(10);
 			}
 			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--num-classes"))) {
+		} else if (!(strcmp(argv[arg_i], "-c") && strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--classes") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--out")) {
@@ -896,7 +896,7 @@ void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arra
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) { // Start with unigrams in count_arrays[0], ...
 		count_arrays[i-1] = calloc(powi(cmd_args.num_classes, i), sizeof(wclass_count_t)); // powi() is in clustercat-math.c
 		if (count_arrays[i-1] == NULL) {
-			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB per thread (%zuB * %u^%u).  Reduce the number of desired classes using --num-classes (current value: %u)\n", argv_0_basename, i, sizeof(wclass_count_t) * powi(cmd_args.num_classes, i) / 1048576, sizeof(wclass_count_t), cmd_args.num_classes, i, cmd_args.num_classes ); fflush(stderr);
+			fprintf(stderr,  "%s: Error: Unable to allocate enough memory for %u-grams.  I tried to allocate %zu MB per thread (%zuB * %u^%u).  Reduce the number of desired classes using --classes (current value: %u)\n", argv_0_basename, i, sizeof(wclass_count_t) * powi(cmd_args.num_classes, i) / 1048576, sizeof(wclass_count_t), cmd_args.num_classes, i, cmd_args.num_classes ); fflush(stderr);
 			exit(12);
 		}
 		//printf("Allocating %zu B (cmd_args.num_classes=%u^i=%u * sizeof(uint)=%zu)\n", (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), cmd_args.num_classes, i, sizeof(wclass_count_t));
