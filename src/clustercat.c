@@ -715,7 +715,12 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 		if (word_2 == word_2_last) { // Within successive entry; ie. 2nd entry or greater
 			word_buffer[length]  = (entry->key).word_1;
 			count_buffer[length] = entry->count;
-			length++;
+			if (length < MAX_WORD_PREDECESSORS)
+				length++;
+			else {
+				printf("Error: MAX_WORD_PREDECESSORS exceeded (%lu).  Increase it in clustercat.h and recompile.  Add the -B flag to 'make' to force recompilation.\n", (long unsigned int)MAX_WORD_PREDECESSORS); fflush(stderr);
+				exit(14);
+			}
 		} else { // New entry; process previous entry
 			word_bigrams[word_2_last].length = length;
 			word_bigrams[word_2_last].words  = malloc(length * sizeof(word_id_t));
