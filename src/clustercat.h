@@ -22,10 +22,10 @@
 #define UNKNOWN_WORD         "<unk>"
 // Number of characters to read-in for each line
 #define BUFLEN 8192
-#define STDIN_SENT_MAX_CHARS 40000
+#define STDIN_SENT_MAX_CHARS 15000
 #define STDIN_SENT_MAX_WORDS 1024
-#define MAX_WORD_LEN 255
-#define MAX_WORD_PREDECESSORS 1000000
+#define MAX_WORD_LEN 128
+#define MAX_WORD_PREDECESSORS 20000000
 #define ENTROPY_TERMS_MAX 10000000
 
 enum class_algos {EXCHANGE, BROWN, EXCHANGE_BROWN};
