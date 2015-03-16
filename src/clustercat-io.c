@@ -1,4 +1,3 @@
-#include <zlib.h>		// Strongly recommended to use zlib-1.2.5 or newer
 #include <stdio.h>
 #include "clustercat.h"
 #include "clustercat-data.h"
