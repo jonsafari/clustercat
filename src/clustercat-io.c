@@ -4,7 +4,7 @@
 #include "clustercat-array.h"
 #include "clustercat-io.h"
 
-long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_sents_in_buffer) {
+long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_sents_in_buffer, size_t * memusage) {
 	char line_in[STDIN_SENT_MAX_CHARS];
 	long sent_buffer_num = 0;
 	unsigned int strlen_line_in = 0;
@@ -17,6 +17,7 @@ long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_
 			if (strlen_line_in == STDIN_SENT_MAX_CHARS-1)
 				fprintf(stderr, "\n%s: Notice: Input line too long (> %lu chars), at buffer line %li. The line started with:    %.250s ...\n", argv_0_basename, (long unsigned int) STDIN_SENT_MAX_CHARS, sent_buffer_num+1, line_in);
 			sent_buffer[sent_buffer_num] = (char *)malloc(1+ strlen_line_in * sizeof(char *));
+			*memusage += 1+ strlen_line_in * sizeof(char *);
 			strncpy(sent_buffer[sent_buffer_num], line_in, 1+strlen_line_in);
 			//printf("fill_sent_buffer 7: sent_buffer_num=%li, line_in=<<%s>>, strlen_line_in=%u, sent_in=<<%s>>\n", sent_buffer_num, line_in, strlen_line_in, sent_buffer[sent_buffer_num]); fflush(stdout);
 			sent_buffer_num++;

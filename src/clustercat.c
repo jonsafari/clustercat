@@ -35,6 +35,7 @@ char * restrict weights_string       = NULL;
 struct_map_word *ngram_map = NULL; // Must initialize to NULL
 char usage[USAGE_LEN];
 size_t memusage = 0;
+size_t memusage_max = 0;
 
 
 // Defaults
@@ -92,9 +93,11 @@ int main(int argc, char **argv) {
 	FILE *in_train_file = stdin;
 	if (in_train_file_string)
 		in_train_file = fopen(in_train_file_string, "r");
-	const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents);
+	size_t sent_buffer_memusage = 0;
+	const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
+	memusage += sent_buffer_memusage;
 	fclose(in_train_file);
-	//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer);
+	//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu; memusage: %'.1fMB\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer, (double)memusage / 1048576);
 	global_metadata.line_count  += num_sents_in_buffer;
 	if (cmd_args.max_tune_sents <= global_metadata.line_count) { // There are more sentences in stdin than were processed
 		fprintf(stderr, "%s: Warning: Sentence buffer is full.  You probably should increase it using --tune-sents .  Current value: %lu\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
@@ -134,8 +137,10 @@ int main(int argc, char **argv) {
 		exit(8);
 	}
 	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
+	const size_t memusage_max = memusage;
 	memusage += sent_buffer2sent_store_int(&ngram_map, sent_buffer, sent_store_int, global_metadata.line_count);
 	// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
+	memusage -= sent_buffer_memusage;
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
@@ -218,7 +223,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f CPU secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Approximate mem usage: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
+		fprintf(stderr, "%s: Approximate mem usage at clustering: %'.1fMB (max was: %'.1fMB)\n", argv_0_basename, (double)memusage / 1048576, (double)memusage_max / 1048576); fflush(stderr);
 
 	cluster(cmd_args, global_metadata, sent_store_int, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
@@ -471,53 +476,6 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 	return number_of_deleted_words;
 }
 
-void increment_ngram_variable_width(struct_map_word **ngram_map, char * restrict sent[const], const short * restrict word_lengths, short start_position, const sentlen_t i) {
-	short j;
-	size_t sizeof_char = sizeof(char); // We use this multiple times
-	unsigned char ngram_len = 0; // Terminating char '\0' is same size as joining tab, so we'll just count that later
-
-	// We first build the longest n-gram string, then successively remove the leftmost word
-
-	for (j = i; j >= start_position ; j--) { // Determine length of longest n-gram string, starting with smallest to ensure longest string is less than 255 chars
-		if (ngram_len + sizeof_char + word_lengths[j]  < UCHAR_MAX ) { // Ensure n-gram string is less than 255 chars
-			ngram_len += sizeof_char + word_lengths[j]; // the additional sizeof_char is for either a space for words in the history, or for a \0 for word_i
-		} else { // It's too big; ensmallen n-gram
-			start_position++;
-		}
-
-		//printf("increment_ngram1: start_position=%d, ngram_len=%u, j=%d, len(j)=%u, w_j=%s, i=%i, w_i=%s\n", start_position, ngram_len, j, word_lengths[j], sent[j], i, sent[i]);
-	}
-
-	if (!ngram_len) // We couldn't do anything with this n-gram because it was too long.  Wa, wa, wa
-		return;
-
-	char ngram[ngram_len];
-	strcpy(ngram, sent[start_position]);
-	// For single words, append \0 instead of space
-	if (start_position < i)
-		strcat(ngram, SECONDARY_SEP_STRING);
-	else
-		ngram[ngram_len] = '\0';
-	//printf("increment_ngram1.5: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram);
-
-	for (j = start_position+1; j <= i ; ++j) { // Build longest n-gram string.  We do this as a separate loop than before since malloc'ing a bunch of times is probably more expensive than the first cheap loop
-		strcat(ngram, sent[j]);
-		if (j < i) // But wait! There's more!
-			strcat(ngram, SECONDARY_SEP_STRING);
-	}
-	//printf("increment_ngram3: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram);
-
-	char * restrict jp = ngram;
-	short diff = i - start_position;
-	for (j = start_position; j <= i; ++j, --diff) { // Traverse longest n-gram string
-		//if (cmd_args.verbose)
-			//printf("increment_ngram4: start_position=%d, i=%i, w_i=%s, ngram_len=%d, ngram=<<%s>>, jp=<<%s>>\n", start_position, i, sent[i], ngram_len, ngram, jp);
-		map_increment_count(ngram_map, jp);
-		//if (diff > 0) // 0 allows for unigrams
-			jp += sizeof_char + word_lengths[j];
-	}
-}
-
 void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t sent[const], short start_position, const sentlen_t i) {
 
 	// n-grams handled using a dense array for each n-gram order
@@ -598,16 +556,15 @@ unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_
 	// it's simpler to have a more uniform way of building these up.
 
 	tokenize_sent(sent_str, &sent_info);
-	unsigned long token_count = sent_info.length;
+	const unsigned long token_count = sent_info.length;
 	//if (cmd_args.verbose > 2) {
 	//	print_sent_info(&sent_info);
 	//	fflush(stdout);
 	//}
 
 	register sentlen_t i;
-	for (i = 0; i < sent_info.length; i++) {
-		increment_ngram_variable_width(&ngram_map, sent_info.sent, sent_info.word_lengths, i, i); // N-grams starting point is 0, for <s>;  We only need unigrams for visible words
-	}
+	for (i = 0; i < sent_info.length; i++)
+		map_increment_count(&ngram_map, sent_info.sent[i]);
 
 	free(sent_info.sent);
 	return token_count;

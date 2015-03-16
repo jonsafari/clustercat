@@ -5,6 +5,6 @@
 #include "clustercat-data.h"
 
 // Import
-long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_sents_in_buffer);
+long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_sents_in_buffer, size_t * memusage);
 
 #endif // INCLUDE_HEADER
