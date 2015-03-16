@@ -510,27 +510,6 @@ void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_se
 	}
 }
 
-void tally_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
-
-	for (unsigned long current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) { // loop over sentences
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-		register word_id_t word_id;
-		wclass_t class_sent[STDIN_SENT_MAX_WORDS];
-
-		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
-			word_id = sent_store_int[current_sent_num].sent[i];
-			if (word_id == temp_word) { // This word matches the temp word
-				class_sent[i] = temp_class;
-			} else { // This word doesn't match temp word
-				class_sent[i] = word2class[word_id];
-			}
-
-			sentlen_t start_position_class = (i >= CLASSLEN-1) ? i - (CLASSLEN-1) : 0; // N-grams starting point is 0, for <s>
-			increment_ngram_fixed_width(cmd_args, count_arrays, class_sent, start_position_class, i);
-		}
-	}
-}
-
 unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer) {
 	unsigned long token_count = 0;
 	char local_sent_copy[STDIN_SENT_MAX_CHARS];
