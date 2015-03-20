@@ -109,24 +109,11 @@ int main(int argc, char **argv) {
 	// Filter out infrequent words
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
 
-	// Check or set number of classes
-	if (cmd_args.num_classes >= global_metadata.type_count) { // User manually set number of classes is too low
-		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
-		exit(3);
-	} else if (cmd_args.num_classes == 0) { // User did not manually set number of classes at all
-		cmd_args.num_classes = (wclass_t) (sqrt(global_metadata.type_count) * 1.2);
-	}
-
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
 	sort_by_count(&ngram_map); // Speeds up lots of stuff later
 	get_keys(&ngram_map, word_list);
-
-	// Build array of word_counts
-	word_count_t * restrict word_counts = malloc(sizeof(word_count_t) * global_metadata.type_count);
-	memusage += sizeof(word_count_t) * global_metadata.type_count;
-	build_word_count_array(&ngram_map, word_list, word_counts, global_metadata.type_count);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, word_list, global_metadata.type_count);
@@ -144,6 +131,19 @@ int main(int argc, char **argv) {
 	free(sent_buffer);
 	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
+
+	// Check or set number of classes
+	if (cmd_args.num_classes >= global_metadata.type_count) { // User manually set number of classes is too low
+		fprintf(stderr, "%s: Error: Number of classes (%u) is not less than vocabulary size (%u).  Decrease the value of --classes\n", argv_0_basename, cmd_args.num_classes, global_metadata.type_count); fflush(stderr);
+		exit(3);
+	} else if (cmd_args.num_classes == 0) { // User did not manually set number of classes at all
+		cmd_args.num_classes = (wclass_t) (sqrt(global_metadata.type_count) * 1.2);
+	}
+
+	// Build array of word_counts
+	word_count_t * restrict word_counts = malloc(sizeof(word_count_t) * global_metadata.type_count);
+	memusage += sizeof(word_count_t) * global_metadata.type_count;
+	build_word_count_array(&ngram_map, word_list, word_counts, global_metadata.type_count);
 
 	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
