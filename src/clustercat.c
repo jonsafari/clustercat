@@ -1,5 +1,5 @@
 /** Induces word categories
- *  By Jon Dehdari, 2014
+ *  By Jon Dehdari, 2014-2015
  *  Usage: ./clustercat [options] < corpus.tok.txt > classes.tsv
 **/
 
@@ -32,7 +32,9 @@ char * restrict out_file_string      = NULL;
 char * restrict initial_class_file   = NULL;
 char * restrict weights_string       = NULL;
 
-struct_map_word *ngram_map = NULL; // Must initialize to NULL
+struct_map_word *ngram_map = NULL; // Must initialize to NULL; ?? rename this later to initial_word_map
+//struct_map_word *initial_word_map = NULL; // Must initialize to NULL
+struct_map_word *initial_bigram_map = NULL; // Must initialize to NULL
 char usage[USAGE_LEN];
 size_t memusage = 0;
 size_t memusage_max = 0;
@@ -94,10 +96,12 @@ int main(int argc, char **argv) {
 	if (in_train_file_string)
 		in_train_file = fopen(in_train_file_string, "r");
 	size_t sent_buffer_memusage = 0;
-	const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
+	const struct_model_metadata input_model_metadata = process_input(in_train_file, &ngram_map, &initial_bigram_map, &sent_buffer_memusage);
+	//const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
+	const unsigned long num_sents_in_buffer = 0;
 	memusage += sent_buffer_memusage;
 	fclose(in_train_file);
-	//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu; memusage: %'.1fMB\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer, (double)memusage / 1048576);
+	printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu; memusage: %'.1fMB\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer, (double)memusage / 1048576);
 	global_metadata.line_count  += num_sents_in_buffer;
 	if (cmd_args.max_tune_sents <= global_metadata.line_count) { // There are more sentences in stdin than were processed
 		fprintf(stderr, "%s: Warning: Sentence buffer is full.  You probably should increase it using --tune-sents .  Current value: %lu\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
