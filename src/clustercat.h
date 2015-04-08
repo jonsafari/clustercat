@@ -91,6 +91,7 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays);
 unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer);
 unsigned long process_str_sent(char * restrict sent_str);
+void remap_bigram_map(const struct cmd_args cmd_args, const struct_model_metadata global_metadata, struct_map_bigram ** initial_bigram_map, word_id_t * restrict word_id_remap);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map, word_id_t * restrict word_id_remap);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]);

@@ -72,7 +72,7 @@ struct_map_word map_find_entry(struct_map_word *map[const], const char * restric
 word_count_t map_find_count(struct_map_word *map[const], const char * restrict entry_key);
 wclass_count_t map_find_count_fixed_width(struct_map_class *map[const], const wclass_t entry_key[const]);
 
-word_id_t map_find_int(struct_map_word *map[const], const char * restrict entry_key);
+word_id_t map_find_id(struct_map_word *map[const], const char * restrict entry_key);
 
 wclass_t get_class(struct_map_word_class *map[const], const char * restrict entry_key, const wclass_t unk);
 

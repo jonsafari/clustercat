@@ -28,7 +28,7 @@ void import_class_file(struct_map_word **word_map, word_id_t vocab_size, wclass_
 			exit(13);
 		}
 		//printf("keylen=%i, key=<<%s>>, class=<<%d>>\n", keylen, key, class);
-		word_id_t key_int = map_find_int(word_map, key);
+		word_id_t key_int = map_find_id(word_map, key);
 		word2class[key_int] = class;
 	}
 
