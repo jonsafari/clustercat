@@ -7,7 +7,6 @@
 struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_map, struct_map_bigram ** initial_bigram_map, size_t *memuage) {
 	struct_model_metadata model_metadata = {0};
 	char curr_word[MAX_WORD_LEN + 1]; curr_word[MAX_WORD_LEN] = '\0';
-	//char bigram[2*MAX_WORD_LEN + 2]; strncpy(bigram, "<s>", 4); bigram[2*MAX_WORD_LEN+1] = '\0';
 	int ch, prev_ch = 0;
 	unsigned int curr_word_pos = 0;
 	map_update_count(initial_word_map, UNKNOWN_WORD, 0, 0); // initialize entry for <unk>, <s>, and </s>
@@ -40,9 +39,9 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 				const struct_word_bigram bigram = {prev_word_id, curr_word_id};
 				map_increment_bigram(initial_bigram_map, &bigram);
 
-				printf("curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
+				//printf("curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
 				if (ch == '\n') { // end of line
-					const struct_word_bigram bigram = {prev_word_id, end_id};
+					const struct_word_bigram bigram = {curr_word_id, end_id};
 					map_increment_bigram(initial_bigram_map, &bigram); // increment previous+</s> bigram in bigram map
 					prev_ch = 0;
 					prev_word_id = start_id;
