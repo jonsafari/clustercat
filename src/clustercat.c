@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
 	size_t bigram_memusage = 0; size_t bigram_rev_memusage = 0;
 	struct_word_bigram_entry * restrict word_bigrams = NULL;
 	struct_word_bigram_entry * restrict word_bigrams_rev = NULL;
+	sort_bigrams(&initial_bigram_map); // speeds things up later
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
 
@@ -158,7 +159,7 @@ int main(int argc, char **argv) {
 		{
 			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count, false);
+			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, &initial_bigram_map, global_metadata.line_count, false);
 		}
 
 		// Initialize and set *reverse* word bigram listing
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
 			if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
 				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, sent_store_int, global_metadata.line_count, true);
+				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, &initial_bigram_map, global_metadata.line_count, true);
 			}
 		}
 	}
@@ -602,27 +603,27 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
+size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, struct_map_bigram ** initial_bigram_map, const unsigned long line_count, const bool reverse) {
 	// We first build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
 
 	struct_map_bigram *map_bigram = NULL;
 	struct_word_bigram bigram;
 
-	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
+	//for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
+	//	register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 
-		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
-			if (reverse) {
-				bigram.word_2 = sent_store_int[current_sent_num].sent[i-1];
-				bigram.word_1 = sent_store_int[current_sent_num].sent[i];
-			} else { // Normal direction
-				bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
-				bigram.word_2 = sent_store_int[current_sent_num].sent[i];
-			}
-			map_increment_bigram(&map_bigram, &bigram);
-		}
-	}
+	//	for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
+	//		if (reverse) {
+	//			bigram.word_2 = sent_store_int[current_sent_num].sent[i-1];
+	//			bigram.word_1 = sent_store_int[current_sent_num].sent[i];
+	//		} else { // Normal direction
+	//			bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
+	//			bigram.word_2 = sent_store_int[current_sent_num].sent[i];
+	//		}
+	//		map_increment_bigram(&map_bigram, &bigram);
+	//	}
+	//}
 
 	sort_bigrams(&map_bigram); // really speeds up the next step
 
