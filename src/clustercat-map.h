@@ -77,6 +77,7 @@ word_id_t map_find_int(struct_map_word *map[const], const char * restrict entry_
 wclass_t get_class(struct_map_word_class *map[const], const char * restrict entry_key, const wclass_t unk);
 
 word_id_t get_keys(struct_map_word *map[const], char *keys[]);
+word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]);
 
 void sort_by_class(struct_map_word_class **map);
 void sort_by_key(struct_map_word_class **map);

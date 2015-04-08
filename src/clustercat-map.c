@@ -201,6 +201,18 @@ word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 	return number_of_keys;
 }
 
+word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]) { // most useful if map is already sorted by count; then you can directly map from old id to new id.
+	struct_map_word *entry, *tmp;
+	word_id_t number_of_keys = 0;
+
+	HASH_ITER(hh, *map, entry, tmp) {
+		//word_ids[number_of_keys] = entry->word_id; // Build-up array of word_id's, from new id to old one
+		word_ids[entry->word_id] = number_of_keys; // Build-up array of word_id's, from old id to new one
+		number_of_keys++;
+	}
+	return number_of_keys;
+}
+
 void delete_entry(struct_map_word **map, struct_map_word *entry) { // Based on uthash's docs
 	HASH_DEL(*map, entry);	// entry: pointer to deletee
 	free(entry->key); // key is a malloc'd string

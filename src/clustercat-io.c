@@ -14,7 +14,6 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 	map_update_count(initial_word_map, "</s>", 0, 2);
 	const word_id_t start_id = map_find_int(initial_word_map, "<s>");
 	const word_id_t end_id = map_find_int(initial_word_map, "</s>");
-	printf("start_id=%u, end_id=%u\n", start_id, end_id);
 	unsigned int prev_word_id = start_id;
 	model_metadata.type_count = 3; // start with <unk>, <s>, and </s>, and <unk>.
 
@@ -64,7 +63,6 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 	// Set counts of <s> and </s> once, based on line_count
 	map_increment_count(initial_word_map, "<s>", model_metadata.line_count);
 	map_increment_count(initial_word_map, "</s>", model_metadata.line_count);
-	printf("line_count=%lu; token_count=%lu; type_count=%u\n", model_metadata.line_count, model_metadata.token_count, model_metadata.type_count);
 	return model_metadata;
 }
 

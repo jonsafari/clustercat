@@ -32,8 +32,7 @@ char * restrict out_file_string      = NULL;
 char * restrict initial_class_file   = NULL;
 char * restrict weights_string       = NULL;
 
-struct_map_word *ngram_map = NULL; // Must initialize to NULL; ?? rename this later to initial_word_map
-//struct_map_word *initial_word_map = NULL; // Must initialize to NULL
+struct_map_word *initial_word_map = NULL; // Must initialize to NULL
 struct_map_bigram *initial_bigram_map = NULL; // Must initialize to NULL
 char usage[USAGE_LEN];
 size_t memusage = 0;
@@ -44,7 +43,6 @@ size_t memusage_max = 0;
 struct cmd_args cmd_args = {
 	.class_algo         = EXCHANGE,
 	.class_offset       = 0,
-	.max_tune_sents     = 10000000,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
 	.max_array          = 2,
 	.num_threads        = 8,
@@ -75,65 +73,56 @@ int main(int argc, char **argv) {
 		memusage += sizeof(float) * ENTROPY_TERMS_MAX; // We'll build the precomputed entropy terms after reporting memusage
 
 	struct_model_metadata global_metadata;
-	global_metadata.token_count = 0;
-	global_metadata.line_count  = 0;
-
 
 	// The list of unique words should always include <s>, unknown word, and </s>
-	map_update_count(&ngram_map, UNKNOWN_WORD, 0, 0); // Should always be first
-	map_update_count(&ngram_map, "<s>", 0, 1);
-	map_update_count(&ngram_map, "</s>", 0, 2);
+	map_update_count(&initial_word_map, UNKNOWN_WORD, 0, 0); // Should always be first
+	map_update_count(&initial_word_map, "<s>", 0, 1);
+	map_update_count(&initial_word_map, "</s>", 0, 2);
 
-	char * * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
-	if (sent_buffer == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %'lu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
-		exit(7);
-	}
-	memusage += sizeof(void *) * cmd_args.max_tune_sents;
-
-	// Fill sentence buffer
+	// Process input sentences
 	FILE *in_train_file = stdin;
 	if (in_train_file_string)
 		in_train_file = fopen(in_train_file_string, "r");
 	size_t sent_buffer_memusage = 0;
-	const struct_model_metadata input_model_metadata = process_input(in_train_file, &ngram_map, &initial_bigram_map, &sent_buffer_memusage);
+	const struct_model_metadata input_model_metadata = process_input(in_train_file, &initial_word_map, &initial_bigram_map, &sent_buffer_memusage);
 	//const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
-	const unsigned long num_sents_in_buffer = 0;
 	memusage += sent_buffer_memusage;
 	fclose(in_train_file);
-	printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu; memusage: %'.1fMB\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer, (double)memusage / 1048576);
-	global_metadata.line_count  += num_sents_in_buffer;
-	if (cmd_args.max_tune_sents <= global_metadata.line_count) { // There are more sentences in stdin than were processed
-		fprintf(stderr, "%s: Warning: Sentence buffer is full.  You probably should increase it using --tune-sents .  Current value: %lu\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
-	}
+	printf("line_count=%lu; type_count=%u; token_count=%lu, memusage: %'.1fMB\n", input_model_metadata.line_count, input_model_metadata.type_count, input_model_metadata.token_count, (double)memusage / 1048576);
 
-	global_metadata.token_count += process_str_sents_in_buffer(sent_buffer, num_sents_in_buffer);
-	global_metadata.type_count   = map_count(&ngram_map);
+	global_metadata.line_count  = input_model_metadata.line_count;
+	global_metadata.token_count = input_model_metadata.token_count;
+	global_metadata.type_count  = map_count(&initial_word_map);
 
-	// Filter out infrequent words
-	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &ngram_map);
+	// Filter out infrequent words and then remap word_id's
+	sort_by_count(&initial_word_map);
+	word_id_t * restrict word_id_remap = malloc(sizeof(word_id_t) * input_model_metadata.type_count);
+	get_ids(&initial_word_map, word_id_remap);
+	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &initial_word_map, word_id_remap);
+	// Remap word_id's in initial_bigram_map
+	// ??
+	free(word_id_remap);
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	sort_by_count(&ngram_map); // Speeds up lots of stuff later
-	get_keys(&ngram_map, word_list);
+	sort_by_count(&initial_word_map); // Speeds up lots of stuff later
+	get_keys(&initial_word_map, word_list);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
-	populate_word_ids(&ngram_map, word_list, global_metadata.type_count);
+	populate_word_ids(&initial_word_map, word_list, global_metadata.type_count);
 
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * global_metadata.line_count);
 	if (sent_store_int == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
+		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents\n", argv_0_basename); fflush(stderr);
 		exit(8);
 	}
 	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
-	const size_t memusage_max = memusage;
-	memusage += sent_buffer2sent_store_int(&ngram_map, sent_buffer, sent_store_int, global_metadata.line_count);
-	// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
-	memusage -= sent_buffer_memusage;
-	free(sent_buffer);
-	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
+	//const size_t memusage_max = memusage;
+	////memusage += sent_buffer2sent_store_int(&initial_word_map, sent_buffer, sent_store_int, global_metadata.line_count);
+	//// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
+	////memusage -= sent_buffer_memusage;
+	//memusage -= sizeof(void *) * cmd_args.max_tune_sents;
 
 
 	// Check or set number of classes
@@ -147,15 +136,15 @@ int main(int argc, char **argv) {
 	// Build array of word_counts
 	word_count_t * restrict word_counts = malloc(sizeof(word_count_t) * global_metadata.type_count);
 	memusage += sizeof(word_count_t) * global_metadata.type_count;
-	build_word_count_array(&ngram_map, word_list, word_counts, global_metadata.type_count);
+	build_word_count_array(&initial_word_map, word_list, word_counts, global_metadata.type_count);
 
 	// Initialize clusters, and possibly read-in external class file
 	wclass_t * restrict word2class = malloc(sizeof(wclass_t) * global_metadata.type_count);
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class, word_counts, word_list);
 	if (initial_class_file != NULL)
-		import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
-	delete_all(&ngram_map);
+		import_class_file(&initial_word_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
+	delete_all(&initial_word_map);
 
 
 	// Initialize and set word bigram listing
@@ -282,7 +271,6 @@ Options:\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
  -j, --threads <hu>       Set number of threads to run simultaneously (default: %d threads)\n\
-     --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu lines)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
                           If you want to do basic predictive exchange, use:  --rev-alternate 0 --unidirectional\n\
@@ -290,7 +278,7 @@ Options:\n\
      --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.\n\
                           Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
 \n\
-", cmd_args.class_offset, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.class_offset, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.tune_cycles);
 }
 //     --class-algo <s>     Set class-induction algorithm {brown,exchange,exchange-then-brown} (default: exchange)\n\
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
@@ -346,9 +334,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			cmd_args->verbose--;
 		} else if (!strcmp(argv[arg_i], "--rev-alternate")) {
 			cmd_args->rev_alternate = (unsigned char) atoi(argv[arg_i+1]);
-			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--tune-sents")) {
-			cmd_args->max_tune_sents = atol(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--tune-cycles")) {
 			cmd_args->tune_cycles = (unsigned short) atol(argv[arg_i+1]);
@@ -441,7 +426,7 @@ void populate_word_ids(struct_map_word **ngram_map, char * restrict word_list[co
 	}
 }
 
-word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map) {
+word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** word_map, word_id_t * restrict word_id_remap) {
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
@@ -455,25 +440,25 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 
 	char **local_word_list = (char **)malloc(model_metadata->type_count * sizeof(char*));
 	//char * local_word_list[model_metadata->type_count];
-	if (vocab_size != get_keys(ngram_map, local_word_list)) {
+	if (vocab_size != get_keys(word_map, local_word_list)) {
 		printf("Error: model_metadata->type_count != get_keys()\n"); fflush(stderr);
 		exit(4);
 	}
 
 	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
-		unsigned long word_i_count = map_find_count(ngram_map, local_word_list[word_i]);  // We'll use this a couple times
+		unsigned long word_i_count = map_find_count(word_map, local_word_list[word_i]);  // We'll use this a couple times
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
-			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count, 0);
+			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			if (cmd_args.verbose > 3)
-				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
+				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
 			struct_map_word *local_s;
-			HASH_FIND_STR(*ngram_map, local_word_list[word_i], local_s);
-			delete_entry(ngram_map, local_s);
+			HASH_FIND_STR(*word_map, local_word_list[word_i], local_s);
+			delete_entry(word_map, local_s);
 		}
 		//else
-			//printf("Keeping word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
+			//printf("Keeping word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD));
 	}
 
 	free(local_word_list);
@@ -547,7 +532,7 @@ unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_
 
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++)
-		map_increment_count(&ngram_map, sent_info.sent[i], 0);
+		map_increment_count(&initial_word_map, sent_info.sent[i], 0);
 
 	free(sent_info.sent);
 	return token_count;
