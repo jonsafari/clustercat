@@ -60,7 +60,7 @@ void map_update_class(struct_map_word_class **map, const char * restrict entry_k
 
 void map_set_word_id(struct_map_word **map, const char * restrict entry_key, const word_id_t word_id);
 
-word_count_t map_increment_count(struct_map_word **map, const char * restrict entry_key);
+word_id_t map_increment_count(struct_map_word **map, const char * restrict entry_key, const word_id_t word_id);
 
 wclass_count_t map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]);
 

@@ -68,7 +68,7 @@ inline void map_set_word_id(struct_map_word **map, const char * restrict entry_k
 	{ local_s->word_id = word_id; }
 }
 
-inline word_count_t map_increment_count(struct_map_word **map, const char * restrict entry_key) { // Based on uthash's docs
+inline word_id_t map_increment_count(struct_map_word **map, const char * restrict entry_key, const word_id_t word_id) { // Based on uthash's docs
 	struct_map_word *local_s; // local_s->word_id uninitialized here; assign value after filtering
 
 	#pragma omp critical (map_increment_count_lookup)
@@ -77,6 +77,7 @@ inline word_count_t map_increment_count(struct_map_word **map, const char * rest
 		if (local_s == NULL) {
 			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = 0;
+			local_s->word_id = word_id;
 			unsigned short strlen_entry_key = strlen(entry_key);
 			local_s->key = malloc(strlen_entry_key + 1);
 			strcpy(local_s->key, entry_key);
@@ -86,7 +87,7 @@ inline word_count_t map_increment_count(struct_map_word **map, const char * rest
 	#pragma omp critical (map_increment_count_increment)
 	{ ++local_s->count; }
 	//printf("map: count of %s is now %u\n", entry_key, local_s->count);
-	return local_s->count;
+	return local_s->word_id;
 }
 
 inline wclass_count_t map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]) { // Based on uthash's docs

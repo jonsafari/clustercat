@@ -34,7 +34,7 @@ char * restrict weights_string       = NULL;
 
 struct_map_word *ngram_map = NULL; // Must initialize to NULL; ?? rename this later to initial_word_map
 //struct_map_word *initial_word_map = NULL; // Must initialize to NULL
-struct_map_word *initial_bigram_map = NULL; // Must initialize to NULL
+struct_map_bigram *initial_bigram_map = NULL; // Must initialize to NULL
 char usage[USAGE_LEN];
 size_t memusage = 0;
 size_t memusage_max = 0;
@@ -547,7 +547,7 @@ unsigned long process_str_sent(char * restrict sent_str) { // Uses global ngram_
 
 	register sentlen_t i;
 	for (i = 0; i < sent_info.length; i++)
-		map_increment_count(&ngram_map, sent_info.sent[i]);
+		map_increment_count(&ngram_map, sent_info.sent[i], 0);
 
 	free(sent_info.sent);
 	return token_count;
