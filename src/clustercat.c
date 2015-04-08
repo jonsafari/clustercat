@@ -80,9 +80,9 @@ int main(int argc, char **argv) {
 
 
 	// The list of unique words should always include <s>, unknown word, and </s>
-	map_update_count(&ngram_map, UNKNOWN_WORD, 0); // Should always be first
-	map_update_count(&ngram_map, "<s>", 0);
-	map_update_count(&ngram_map, "</s>", 0);
+	map_update_count(&ngram_map, UNKNOWN_WORD, 0, 0); // Should always be first
+	map_update_count(&ngram_map, "<s>", 0, 1);
+	map_update_count(&ngram_map, "</s>", 0, 2);
 
 	char * * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
 	if (sent_buffer == NULL) {
@@ -464,7 +464,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		unsigned long word_i_count = map_find_count(ngram_map, local_word_list[word_i]);  // We'll use this a couple times
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
-			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count);
+			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count, 0);
 			if (cmd_args.verbose > 3)
 				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
