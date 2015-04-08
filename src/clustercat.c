@@ -88,7 +88,10 @@ int main(int argc, char **argv) {
 	//const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
 	memusage += sent_buffer_memusage;
 	fclose(in_train_file);
-	printf("line_count=%lu; type_count=%u; token_count=%lu, memusage: %'.1fMB\n", input_model_metadata.line_count, input_model_metadata.type_count, input_model_metadata.token_count, (double)memusage / 1048576);
+
+	clock_t time_input_processed = clock();
+	if (cmd_args.verbose >= -1)
+		fprintf(stderr, "%s: Corpus processed in %'.2f CPU secs. %'lu lines, %'u types, %'lu tokens, current memusage: %'.1fMB\n", argv_0_basename, (double)(time_input_processed - time_start)/CLOCKS_PER_SEC, input_model_metadata.line_count, input_model_metadata.type_count, input_model_metadata.token_count, (double)memusage / 1048576); fflush(stderr);
 
 	global_metadata.line_count  = input_model_metadata.line_count;
 	global_metadata.token_count = input_model_metadata.token_count;
