@@ -28,19 +28,21 @@ inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram 
 	}
 }
 
-void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram * new_bigram_map, struct_map_bigram * new_bigram_map_rev, word_id_t * restrict word_id_remap) {
+void remap_and_rev_bigram_map(struct_map_bigram * initial_bigram_map, struct_map_bigram * new_bigram_map, struct_map_bigram * new_bigram_map_rev, word_id_t * restrict word_id_remap) {
 	// Iterates through initial bigram hash map and builds a new hash map based on the mapping of old word id's to new ids.  Alongside this, it also builds a reversed counterpart.
 	struct_map_bigram *entry, *tmp;
 	struct_word_bigram bigram, bigram_rev;
 	word_id_t w_1, w_2;
 	word_bigram_count_t count;
+	printf("initial_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map));
 
-	HASH_ITER(hh, *initial_bigram_map, entry, tmp) {
+	HASH_ITER(hh, initial_bigram_map, entry, tmp) {
 		count      = entry->count;
 		bigram     = entry->key;
 		w_1        = word_id_remap[bigram.word_1];
 		w_2        = word_id_remap[bigram.word_2];
 		bigram_rev = (struct_word_bigram) {w_2, w_1};
+		printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, bigram.word_1, w_1, bigram.word_2, w_2);
 
 		//#pragma omp parallel sections // Both bigram listing and reverse bigram listing can be done in parallel
 		{
@@ -50,6 +52,7 @@ void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_ma
 			{ map_update_bigram(&new_bigram_map_rev, &bigram_rev, count); }
 		}
 	}
+	printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map));
 }
 
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
