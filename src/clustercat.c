@@ -615,7 +615,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
 
 	struct_map_bigram *map_bigram = NULL;
-	struct_word_bigram bigram;
+	//struct_word_bigram bigram;
 
 	//for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
 	//	register sentlen_t sent_length = sent_store_int[current_sent_num].length;
