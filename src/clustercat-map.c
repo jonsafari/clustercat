@@ -14,6 +14,9 @@ inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigr
 	}
 }
 
+void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram * new_bigram_map, struct_map_bigram * new_bigram_map_rev, word_id_t * restrict word_id_remap) {
+}
+
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
 	struct_map_word *local_s;
 

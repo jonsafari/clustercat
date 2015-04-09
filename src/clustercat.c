@@ -102,9 +102,12 @@ int main(int argc, char **argv) {
 	word_id_t * restrict word_id_remap = malloc(sizeof(word_id_t) * input_model_metadata.type_count);
 	get_ids(&word_map, word_id_remap);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
+
 	// Remap word_id's in initial_bigram_map
-	//remap_bigram_map(cmd_args, global_metadata, &initial_bigram_map, word_id_remap);
-	//free(word_id_remap);
+	struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
+	struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
+	remap_and_rev_bigram_map(&initial_bigram_map, new_bigram_map, new_bigram_map_rev, word_id_remap);
+	free(word_id_remap);
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
@@ -152,7 +155,9 @@ int main(int argc, char **argv) {
 	size_t bigram_memusage = 0; size_t bigram_rev_memusage = 0;
 	struct_word_bigram_entry * restrict word_bigrams = NULL;
 	struct_word_bigram_entry * restrict word_bigrams_rev = NULL;
+
 	sort_bigrams(&initial_bigram_map); // speeds things up later
+
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
 
@@ -427,13 +432,11 @@ void populate_word_ids(struct_map_word **ngram_map, char * restrict word_list[co
 	}
 }
 
-void remap_bigram_map(const struct cmd_args cmd_args, const struct_model_metadata global_metadata, struct_map_bigram ** initial_bigram_map, word_id_t * restrict word_id_remap) {
-}
-
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** word_map, word_id_t * restrict word_id_remap) { // word_map must already be sorted by word frequency!
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
+	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD);
 
 	// Get keys
 	// Iterate over keys
@@ -453,6 +456,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		unsigned long word_i_count = map_find_count(word_map, local_word_list[word_i]);  // We'll use this a couple times
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
+			word_id_remap[map_find_id(word_map, local_word_list[word_i])] = unk_id; // set value of dud word in remap to unk
 			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			if (cmd_args.verbose > 3)
 				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
@@ -628,7 +632,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	//	}
 	//}
 
-	sort_bigrams(&map_bigram); // really speeds up the next step
+	//sort_bigrams(&map_bigram); // really speeds up the next step
 
 	register size_t memusage = 0;
 	register word_id_t word_2;
