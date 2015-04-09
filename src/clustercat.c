@@ -459,19 +459,22 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		unsigned long word_i_count = map_find_count(word_map, local_word_list[word_i]);  // We'll use this a couple times
 		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
+			if (cmd_args.verbose > 3)
+				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
 			word_id_remap[map_find_id(word_map, local_word_list[word_i])] = unk_id; // set value of dud word in remap to unk
 			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
-			if (cmd_args.verbose > 3)
-				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
 			model_metadata->type_count--;
 			struct_map_word *local_s;
 			HASH_FIND_STR(*word_map, local_word_list[word_i], local_s);
 			delete_entry(word_map, local_s);
 		} else {
-			map_set_word_id(word_map, local_word_list[word_i], word_i+2); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
-			//printf("Keeping word: %s (%lu < %hu);\tcount(%s)=%u; id=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD), map_find_id(word_map, local_word_list[word_i]));
+			printf("Keeping word: %s (old id=%u, new id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", local_word_list[word_i], map_find_id(word_map, local_word_list[word_i]), word_i+3, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD));
+			map_set_word_id(word_map, local_word_list[word_i], word_i+3); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
 		}
 	}
+	map_set_word_id(word_map, UNKNOWN_WORD, 0); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	map_set_word_id(word_map, "<s>", 1); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	map_set_word_id(word_map, "</s>", 2); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
 
 	free(local_word_list);
 	return number_of_deleted_words;

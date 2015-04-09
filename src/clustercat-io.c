@@ -38,7 +38,7 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 				const struct_word_bigram bigram = {prev_word_id, curr_word_id};
 				map_increment_bigram(initial_bigram_map, &bigram);
 
-				//printf("curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
+				printf("curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
 				if (ch == '\n') { // end of line
 					const struct_word_bigram bigram = {curr_word_id, end_id};
 					map_increment_bigram(initial_bigram_map, &bigram); // increment previous+</s> bigram in bigram map
@@ -61,8 +61,8 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 	}
 
 	// Set counts of <s> and </s> once, based on line_count
-	map_increment_count(initial_word_map, "<s>", model_metadata.line_count);
-	map_increment_count(initial_word_map, "</s>", model_metadata.line_count);
+	map_update_count(initial_word_map, "<s>", model_metadata.line_count, 1);
+	map_update_count(initial_word_map, "</s>", model_metadata.line_count, 2);
 	return model_metadata;
 }
 

@@ -102,7 +102,7 @@ inline void map_set_word_id(struct_map_word **map, const char * restrict entry_k
 		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 	}
 	if (local_s == NULL) {
-		printf("Error: word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
+		printf("Error: map_set_word_id(): word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
 		exit(5);
 	}
 	#pragma omp critical (map_set_word_id_assignment)
