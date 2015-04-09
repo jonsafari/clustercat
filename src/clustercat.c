@@ -103,12 +103,6 @@ int main(int argc, char **argv) {
 	get_ids(&word_map, word_id_remap);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
 
-	// Remap word_id's in initial_bigram_map
-	struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
-	struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
-	remap_and_rev_bigram_map(&initial_bigram_map, new_bigram_map, new_bigram_map_rev, word_id_remap);
-	free(word_id_remap);
-
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
@@ -150,13 +144,20 @@ int main(int argc, char **argv) {
 	delete_all(&word_map);
 
 
+	// Remap word_id's in initial_bigram_map
+	struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
+	struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
+	remap_and_rev_bigram_map(&initial_bigram_map, new_bigram_map, new_bigram_map_rev, word_id_remap);
+	free(word_id_remap);
+	delete_all_bigram(&initial_bigram_map);
+	sort_bigrams(&new_bigram_map); // speeds things up later
+	sort_bigrams(&new_bigram_map_rev); // speeds things up later
+
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
 	size_t bigram_memusage = 0; size_t bigram_rev_memusage = 0;
 	struct_word_bigram_entry * restrict word_bigrams = NULL;
 	struct_word_bigram_entry * restrict word_bigrams_rev = NULL;
-
-	sort_bigrams(&initial_bigram_map); // speeds things up later
 
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
@@ -167,7 +168,7 @@ int main(int argc, char **argv) {
 		{
 			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, &initial_bigram_map, global_metadata.line_count, false);
+			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, &new_bigram_map, global_metadata.line_count, false);
 		}
 
 		// Initialize and set *reverse* word bigram listing
@@ -176,11 +177,13 @@ int main(int argc, char **argv) {
 			if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
 				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, &initial_bigram_map, global_metadata.line_count, true);
+				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, &new_bigram_map_rev, global_metadata.line_count, true);
 			}
 		}
 	}
 
+	delete_all_bigram(&new_bigram_map);
+	delete_all_bigram(&new_bigram_map_rev);
 	memusage += bigram_memusage + bigram_rev_memusage;
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= -1)
