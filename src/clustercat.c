@@ -727,7 +727,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t 
 		for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
 			word_id_t prev_word = word_bigrams[word].words[i];
 			const wclass_t class_i = word2class[word];
-			word_class_counts[prev_word * cmd_args.num_classes + class_i] += word_counts[word];
+			word_class_counts[prev_word * cmd_args.num_classes + class_i] += word_bigrams[word].counts[i];
 			//printf("i=%hu, sent_len=%u, sent_num=%lu, line_count=%lu, <v,w>=<%u,%u>, <v,c>=<%u,%u>, num_classes=%u, offset=%u (%u * %u + %u), orig_val=%u, rev=%d\n", i, sent_length, current_sent_num, line_count, sent_store_int[current_sent_num].sent[i-1], sent_store_int[current_sent_num].sent[i], word_id_i_minus_1, class_i, cmd_args.num_classes, word_id_i_minus_1 * cmd_args.num_classes + class_i, word_id_i_minus_1, cmd_args.num_classes, class_i, word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i], reverse); fflush(stdout);
 			printf("<%u,%u>=%u at pos %zu\n", prev_word, class_i, word_class_counts[prev_word * cmd_args.num_classes + class_i], ((size_t)prev_word * cmd_args.num_classes + class_i)); fflush(stdout);
 		}
