@@ -38,7 +38,7 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 				const struct_word_bigram bigram = {prev_word_id, curr_word_id};
 				map_increment_bigram(initial_bigram_map, &bigram);
 
-				printf("curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
+				//printf("process_input(): curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
 				if (ch == '\n') { // end of line
 					const struct_word_bigram bigram = {curr_word_id, end_id};
 					map_increment_bigram(initial_bigram_map, &bigram); // increment previous+</s> bigram in bigram map

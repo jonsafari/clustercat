@@ -34,7 +34,8 @@ void remap_and_rev_bigram_map(struct_map_bigram * initial_bigram_map, struct_map
 	struct_word_bigram bigram, bigram_rev;
 	word_id_t w_1, w_2;
 	word_bigram_count_t count;
-	printf("initial_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map));
+	//printf("initial_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map));
+	//printf("word_id_remap71: [%u,%u,%u,%u,%u,%u,...]\n", word_id_remap[0], word_id_remap[1], word_id_remap[2], word_id_remap[3], word_id_remap[4], word_id_remap[5]);
 
 	HASH_ITER(hh, initial_bigram_map, entry, tmp) {
 		count      = entry->count;
@@ -42,7 +43,7 @@ void remap_and_rev_bigram_map(struct_map_bigram * initial_bigram_map, struct_map
 		w_1        = word_id_remap[bigram.word_1];
 		w_2        = word_id_remap[bigram.word_2];
 		bigram_rev = (struct_word_bigram) {w_2, w_1};
-		printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, bigram.word_1, w_1, bigram.word_2, w_2);
+		//printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, bigram.word_1, w_1, bigram.word_2, w_2); fflush(stdout);
 
 		//#pragma omp parallel sections // Both bigram listing and reverse bigram listing can be done in parallel
 		{
@@ -52,7 +53,8 @@ void remap_and_rev_bigram_map(struct_map_bigram * initial_bigram_map, struct_map
 			{ map_update_bigram(&new_bigram_map_rev, &bigram_rev, count); }
 		}
 	}
-	printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map));
+	printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
+	printf("new_bigram_map_rev hash_count=%u\n", HASH_COUNT(new_bigram_map_rev)); fflush(stdout);
 }
 
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
@@ -244,11 +246,15 @@ word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 
 word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]) { // most useful if map is already sorted by count; then you can directly map from old id to new id.
 	struct_map_word *entry, *tmp;
-	word_id_t number_of_keys = 0;
+	word_id_t number_of_keys = 3; // 0-2 are reserved for <unk>, <s>, and </s>
 
 	HASH_ITER(hh, *map, entry, tmp) {
 		//word_ids[number_of_keys] = entry->word_id; // Build-up array of word_id's, from new id to old one
-		word_ids[entry->word_id] = number_of_keys; // Build-up array of word_id's, from old id to new one
+		const word_id_t word_id = entry->word_id;
+		if (word_id < 3) // don't change id's for <unk>, <s>, or </s>
+			continue;
+		word_ids[word_id] = number_of_keys; // Build-up array of word_id's, from old id to new one
+		//printf("get_ids: old_id=%u, new_id=%u\n", word_id, number_of_keys); fflush(stdout);
 		number_of_keys++;
 	}
 	return number_of_keys;

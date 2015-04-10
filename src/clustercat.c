@@ -102,6 +102,7 @@ int main(int argc, char **argv) {
 	word_id_t * restrict word_id_remap = malloc(sizeof(word_id_t) * input_model_metadata.type_count);
 	get_ids(&word_map, word_id_remap);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
+	word_id_remap[0] = 0; word_id_remap[1] = 1; word_id_remap[2] = 2; // Keep ID for <unk>, <s>, and </s>
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
@@ -148,6 +149,8 @@ int main(int argc, char **argv) {
 	struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
 	struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
 	remap_and_rev_bigram_map(initial_bigram_map, new_bigram_map, new_bigram_map_rev, word_id_remap);
+	printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
+	printf("new_bigram_map_rev hash_count=%u\n", HASH_COUNT(new_bigram_map_rev)); fflush(stdout);
 	free(word_id_remap);
 	delete_all_bigram(&initial_bigram_map);
 	sort_bigrams(&new_bigram_map); // speeds things up later
@@ -455,21 +458,28 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		exit(4);
 	}
 
-	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
-		unsigned long word_i_count = map_find_count(word_map, local_word_list[word_i]);  // We'll use this a couple times
-		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
+	unsigned long new_id = 3;
+	for (unsigned long word_i = 0; word_i < vocab_size; word_i++, new_id++) {
+		char * word = local_word_list[word_i];
+		if ((!strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) || (!strncmp(word, "<s>", MAX_WORD_LEN)) || (!strncmp(word, "</s>", MAX_WORD_LEN))) { // Deal with <unk>, <s>, and </s>
+			new_id--;
+			continue;
+		}
+
+		unsigned long word_i_count = map_find_count(word_map, word);  // We'll use this a couple times
+		if ((word_i_count < cmd_args.min_count) && (strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
 			number_of_deleted_words++;
 			if (cmd_args.verbose > 3)
-				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
-			word_id_remap[map_find_id(word_map, local_word_list[word_i])] = unk_id; // set value of dud word in remap to unk
+				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%u\n", word, word_i, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
+			word_id_remap[map_find_id(word_map, word)] = unk_id; // set value of dud word in remap to unk
 			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			model_metadata->type_count--;
 			struct_map_word *local_s;
-			HASH_FIND_STR(*word_map, local_word_list[word_i], local_s);
+			HASH_FIND_STR(*word_map, word, local_s);
 			delete_entry(word_map, local_s);
-		} else {
-			printf("Keeping word: %s (old id=%u, new id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", local_word_list[word_i], map_find_id(word_map, local_word_list[word_i]), word_i+3, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD));
-			map_set_word_id(word_map, local_word_list[word_i], word_i+3); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+		} else { // Keep word
+			//printf("Keeping word: %s (old id=%u, new id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", word, map_find_id(word_map, word), new_id, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
+			map_set_word_id(word_map, word, new_id); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
 		}
 	}
 	map_set_word_id(word_map, UNKNOWN_WORD, 0); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
