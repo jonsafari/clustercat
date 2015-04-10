@@ -148,14 +148,14 @@ int main(int argc, char **argv) {
 
 
 	// Remap word_id's in initial_bigram_map
+	printf("remap_and_rev_bigram_map() ... "); fflush(stdout);
 	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap);
+	printf("done\n"); fflush(stdout);
 	printf("6: init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
 	printf("6: new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
 	printf("6: new_bigram_map_rev hash_count=%u\n", HASH_COUNT(new_bigram_map_rev)); fflush(stdout);
 	free(word_id_remap);
 	delete_all_bigram(&initial_bigram_map);
-	sort_bigrams(&new_bigram_map); // speeds things up later
-	sort_bigrams(&new_bigram_map_rev); // speeds things up later
 
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
@@ -170,6 +170,7 @@ int main(int argc, char **argv) {
 	{
 		#pragma omp section
 		{
+			//sort_bigrams(&new_bigram_map); // speeds things up later
 			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
 			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, new_bigram_map, global_metadata.line_count, false);
@@ -179,6 +180,7 @@ int main(int argc, char **argv) {
 		#pragma omp section
 		{
 			if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
+				//sort_bigrams(&new_bigram_map_rev); // speeds things up later
 				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
 				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, new_bigram_map_rev, global_metadata.line_count, true);

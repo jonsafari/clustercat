@@ -56,9 +56,6 @@ void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_ma
 			{ map_update_bigram(new_bigram_map_rev, &new_bigram_rev, count); }
 		}
 	}
-	printf("5: init_bigram_map hash_count=%u\n", HASH_COUNT(*initial_bigram_map)); fflush(stdout);
-	printf("5: new_bigram_map hash_count=%u\n", HASH_COUNT(*new_bigram_map)); fflush(stdout);
-	printf("5: new_bigram_map_rev hash_count=%u\n", HASH_COUNT(*new_bigram_map_rev)); fflush(stdout);
 }
 
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
