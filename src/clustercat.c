@@ -34,6 +34,8 @@ char * restrict weights_string       = NULL;
 
 struct_map_word *word_map = NULL; // Must initialize to NULL
 struct_map_bigram *initial_bigram_map = NULL; // Must initialize to NULL
+struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
+struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
 char usage[USAGE_LEN];
 size_t memusage = 0;
 size_t memusage_max = 0;
@@ -146,11 +148,10 @@ int main(int argc, char **argv) {
 
 
 	// Remap word_id's in initial_bigram_map
-	struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
-	struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
-	remap_and_rev_bigram_map(initial_bigram_map, new_bigram_map, new_bigram_map_rev, word_id_remap);
-	printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
-	printf("new_bigram_map_rev hash_count=%u\n", HASH_COUNT(new_bigram_map_rev)); fflush(stdout);
+	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap);
+	printf("6: init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
+	printf("6: new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
+	printf("6: new_bigram_map_rev hash_count=%u\n", HASH_COUNT(new_bigram_map_rev)); fflush(stdout);
 	free(word_id_remap);
 	delete_all_bigram(&initial_bigram_map);
 	sort_bigrams(&new_bigram_map); // speeds things up later
@@ -221,7 +222,7 @@ int main(int argc, char **argv) {
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
 		memusage += 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t));
-		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), memusage);
+		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), memusage); fflush(stdout);
 	}
 
 	clock_t time_model_built = clock();
@@ -661,7 +662,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	struct_map_bigram *entry, *tmp;
 	HASH_ITER(hh, bigram_map, entry, tmp) {
 		word_2 = (entry->key).word_2;
-		printf("[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
+		//printf("[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
 		if (word_2 == word_2_last) { // Within successive entry; ie. 2nd entry or greater
 			word_buffer[length]  = (entry->key).word_1;
 			count_buffer[length] = entry->count;
