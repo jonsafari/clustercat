@@ -188,7 +188,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			//for (word_id_t word_i = model_metadata.type_count-1; word_i != -1; word_i--) {
 				if (cycle < 3 && word_i < cmd_args.num_classes) // don't move high-frequency words in the first (few) iteration(s)
 					continue;
-				const unsigned int word_i_count = word_counts[word_i];
+				const word_count_t word_i_count = word_counts[word_i];
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);

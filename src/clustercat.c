@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
 	}
 	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
 	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
-	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count, false);
+	build_word_class_counts(cmd_args, word_class_counts, word2class, word_bigrams, word_counts, global_metadata.type_count);
 
 	// Build reverse: <c,v> counts: class followed by word.  This and the normal one are both pretty fast, so no need to parallelize this
 	word_class_count_t * restrict word_class_rev_counts = NULL;
@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
 		} else {
 			memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
 			fprintf(stderr, "%s: Allocating %'.1f MB for word_class_rev_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
-			build_word_class_counts(cmd_args, word_class_rev_counts, word2class, sent_store_int, global_metadata.line_count, true);
+			build_word_class_counts(cmd_args, word_class_rev_counts, word2class, word_bigrams_rev, word_counts, global_metadata.type_count);
 		}
 
 	}
@@ -702,8 +702,9 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	return memusage;
 }
 
-void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
+void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_word_bigram_entry * const word_bigrams, const word_count_t word_counts[const], const word_id_t type_count) {
 
+#if 0
 	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
 		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
 		register wclass_t class_i;
@@ -717,8 +718,18 @@ void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t 
 				class_i           = word2class[sent_store_int[current_sent_num].sent[i]];
 				word_id_i_minus_1 = sent_store_int[current_sent_num].sent[i-1];
 			}
-			//printf("i=%hu, sent_len=%u, sent_num=%lu, line_count=%lu, <v,w>=<%u,%u>, <v,c>=<%u,%u>, num_classes=%u, offset=%u (%u * %u + %u), orig_val=%u, rev=%d\n", i, sent_length, current_sent_num, line_count, sent_store_int[current_sent_num].sent[i-1], sent_store_int[current_sent_num].sent[i], word_id_i_minus_1, class_i, cmd_args.num_classes, word_id_i_minus_1 * cmd_args.num_classes + class_i, word_id_i_minus_1, cmd_args.num_classes, class_i, word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i], reverse); fflush(stdout);
 			word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i]++;
+		}
+	}
+#endif
+	// set <v,c> counts
+	for (word_id_t word = 0; word < type_count; word++) {
+		for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
+			word_id_t prev_word = word_bigrams[word].words[i];
+			const wclass_t class_i = word2class[word];
+			word_class_counts[prev_word * cmd_args.num_classes + class_i] += word_counts[word];
+			//printf("i=%hu, sent_len=%u, sent_num=%lu, line_count=%lu, <v,w>=<%u,%u>, <v,c>=<%u,%u>, num_classes=%u, offset=%u (%u * %u + %u), orig_val=%u, rev=%d\n", i, sent_length, current_sent_num, line_count, sent_store_int[current_sent_num].sent[i-1], sent_store_int[current_sent_num].sent[i], word_id_i_minus_1, class_i, cmd_args.num_classes, word_id_i_minus_1 * cmd_args.num_classes + class_i, word_id_i_minus_1, cmd_args.num_classes, class_i, word_class_counts[word_id_i_minus_1 * cmd_args.num_classes + class_i], reverse); fflush(stdout);
+			printf("<%u,%u>=%u at pos %zu\n", prev_word, class_i, word_class_counts[prev_word * cmd_args.num_classes + class_i], ((size_t)prev_word * cmd_args.num_classes + class_i)); fflush(stdout);
 		}
 	}
 }
