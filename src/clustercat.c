@@ -198,6 +198,7 @@ int main(int argc, char **argv) {
 	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
 	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
 	build_word_class_counts(cmd_args, word_class_counts, word2class, sent_store_int, global_metadata.line_count, false, word_list);
+	//print_word_class_counts(cmd_args, global_metadata, word_class_counts);
 
 	// Build reverse: <c,v> counts: class followed by word.  This and the normal one are both pretty fast, so no need to parallelize this
 	word_class_count_t * restrict word_class_rev_counts = NULL;
@@ -645,7 +646,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	word_bigram_count_t * count_buffer = malloc(sizeof(word_bigram_count_t) * MAX_WORD_PREDECESSORS);
 
 	// Add a dummy entry at the end of the hash map in order to simplify iterating through it, since it must track changes in head words.
-	struct_word_bigram dummy = {0, 1};
+	struct_word_bigram dummy = {-1, -1}; // Make sure this bigram is new, so that it's appended to end
 	map_update_bigram(&map_bigram, &dummy, 0);
 
 	// Iterate through bigram map to get counts of word_2's, so we know how much to allocate for each predecessor list
