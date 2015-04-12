@@ -65,6 +65,7 @@ word_count_t map_increment_count(struct_map_word **map, const char * restrict en
 wclass_count_t map_increment_count_fixed_width(struct_map_class **map, const wclass_t entry_key[const]);
 
 void map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram);
+void map_update_bigram(struct_map_bigram **map, const struct_word_bigram * bigram, const word_bigram_count_t count);
 
 word_count_t map_update_count(struct_map_word **map, const char * restrict entry_key, const word_count_t count);
 

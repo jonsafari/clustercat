@@ -14,6 +14,20 @@ inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigr
 	}
 }
 
+inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram * bigram, const word_bigram_count_t count) {
+	struct_map_bigram *local_s;
+	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
+	if (local_s == NULL) {
+		local_s = (struct_map_bigram *)malloc(sizeof(struct_map_bigram));
+		//memcpy(local_s->key, bigram, sizeof(struct_word_bigram));
+		local_s->key = *bigram;
+		local_s->count = count;
+		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
+	} else {
+		local_s->count += count;
+	}
+}
+
 inline void map_add_entry(struct_map_word **map, char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
 	struct_map_word *local_s;
 
