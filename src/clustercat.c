@@ -663,7 +663,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 
 	// Add a dummy entry at the end of the hash map in order to simplify iterating through it, since it must track changes in head words.
 	struct_word_bigram dummy = {-1, -1}; // Make sure this bigram is new, so that it's appended to end
-	map_update_bigram(&map_bigram, &dummy, 0);
+	map_update_bigram(&bigram_map, &dummy, 0);
 
 	// Iterate through bigram map to get counts of word_2's, so we know how much to allocate for each predecessor list
 	struct_map_bigram *entry, *tmp;
