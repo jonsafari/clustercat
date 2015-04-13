@@ -195,6 +195,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "in %'.2f CPU secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
 
+	//print_word_bigrams(cmd_args, global_metadata, word_bigrams, word_list);
 
 	// Build <v,c> counts, which consists of a word followed by a given class
 	word_class_count_t * restrict word_class_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(word_class_count_t));
@@ -659,6 +660,10 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	register unsigned int length = 0;
 	word_id_t * word_buffer     = malloc(sizeof(word_id_t) * MAX_WORD_PREDECESSORS);
 	word_bigram_count_t * count_buffer = malloc(sizeof(word_bigram_count_t) * MAX_WORD_PREDECESSORS);
+
+	// Add a dummy entry at the end of the hash map in order to simplify iterating through it, since it must track changes in head words.
+	struct_word_bigram dummy = {-1, -1}; // Make sure this bigram is new, so that it's appended to end
+	map_update_bigram(&map_bigram, &dummy, 0);
 
 	// Iterate through bigram map to get counts of word_2's, so we know how much to allocate for each predecessor list
 	struct_map_bigram *entry, *tmp;

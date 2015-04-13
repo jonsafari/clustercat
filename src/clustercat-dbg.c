@@ -11,6 +11,15 @@ void print_word_class_counts(const struct cmd_args cmd_args, const struct_model_
 	fflush(stdout);
 }
 
-void print_word_bigrams(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry * restrict word_bigrams) {
-	;
+void print_word_bigrams(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry * restrict word_bigrams, char ** restrict word_list) {
+	printf("word_bigrams:\n"); fflush(stdout);
+	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
+		printf("  %18s=%u -> {%lu, [", word_list[word_i], word_i, word_bigrams[word_i].length); fflush(stdout);
+		for (word_id_t word_j = 0; word_j < word_bigrams[word_i].length; word_j++) {
+			if (word_j > 0)
+				printf(", ");
+			printf("%s=%u (%ux)", word_list[word_bigrams[word_i].words[word_j]], word_bigrams[word_i].words[word_j], word_bigrams[word_i].counts[word_j]);
+		}
+		printf("]}\n"); fflush(stdout);
+	}
 }
