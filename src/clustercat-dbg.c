@@ -18,7 +18,7 @@ void print_word_bigrams(const struct cmd_args cmd_args, const struct_model_metad
 		for (word_id_t word_j = 0; word_j < word_bigrams[word_i].length; word_j++) {
 			if (word_j > 0)
 				printf(", ");
-			printf("%s=%u (%ux)", word_list[word_bigrams[word_i].words[word_j]], word_bigrams[word_i].words[word_j], word_bigrams[word_i].counts[word_j]);
+			printf("%s=%u (%ux)", word_list[word_bigrams[word_i].predecessors[word_j]], word_bigrams[word_i].predecessors[word_j], word_bigrams[word_i].bigram_counts[word_j]);
 		}
 		printf("]}\n"); fflush(stdout);
 	}

@@ -61,8 +61,8 @@ typedef struct {
 // typedef {...} struct_word_bigram; // see clustercat-map.h
 
 typedef struct { // This is for an array pointing to this struct having a pointer to an array of successors to a given word, as well as the length of that array
-	word_id_t * words;
-	word_bigram_count_t * counts;
+	word_id_t * predecessors;
+	word_bigram_count_t * bigram_counts;
 	unsigned long length;
 } struct_word_bigram_entry;
 
