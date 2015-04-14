@@ -470,7 +470,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 			number_of_deleted_words++;
 			map_update_count(ngram_map, UNKNOWN_WORD, word_i_count);
 			if (cmd_args.verbose > 3)
-				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(ngram_map, UNKNOWN_WORD));
+				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%lu\n", local_word_list[word_i], (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(ngram_map, UNKNOWN_WORD));
 			model_metadata->type_count--;
 			struct_map_word *local_s;
 			HASH_FIND_STR(*ngram_map, local_word_list[word_i], local_s);
@@ -751,10 +751,10 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			const wclass_count_t class_i_count = count_arrays[0][class_i];
 			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
 			if (cmd_args.verbose > 3) {
-				printf("qry_snts_n_stor: i=%d\tcnt=%d\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
+				printf("qry_snts_n_stor: i=%d\tcnt=%lu\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, (unsigned long)word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
 				fflush(stdout);
 				if (class_i_count < word_i_count) { // Shouldn't happen
-					printf("Error: class_%hu_count=%u < word_id[%u]_count=%u\n", class_i, class_i_count, word_i, word_i_count); fflush(stderr);
+					printf("Error: class_%hu_count=%u < word_id[%u]_count=%lu\n", class_i, class_i_count, word_i, (unsigned long)word_i_count); fflush(stderr);
 					exit(5);
 				}
 			}
