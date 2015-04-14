@@ -373,7 +373,7 @@ unsigned long map_print_entries(struct_map_word **map, const char * restrict pre
 
 	HASH_ITER(hh, *map, entry, tmp) {
 		if (entry->count >= min_count) {
-			printf("%s%s%c%i\n", prefix, entry->key, sep_char, entry->count);
+			printf("%s%s%c%lu\n", prefix, entry->key, sep_char, (unsigned long)entry->count);
 			number_of_entries++;
 		}
 	}

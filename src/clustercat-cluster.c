@@ -3,8 +3,8 @@
 #include "clustercat-array.h"
 
 float entropy_term(const float entropy_terms[const], const unsigned int i);
-double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
-double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
+double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const word_count_t word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
+double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
 
 inline float entropy_term(const float entropy_terms[const], const unsigned int i) {
 	if (i < ENTROPY_TERMS_MAX)
@@ -13,7 +13,7 @@ inline float entropy_term(const float entropy_terms[const], const unsigned int i
 		return i * log2f(i);
 }
 
-inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const unsigned int word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
+inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const word_count_t word_count, const wclass_t from_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	register double delta = 0.0;
 	const unsigned int count_class = count_array[from_class];
@@ -56,7 +56,7 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 	return delta;
 }
 
-inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const unsigned int word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
+inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_array[to_class];
 	if (!count_class) // class is empty
@@ -115,7 +115,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	return delta;
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
+void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const word_count_t word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE  ||  cmd_args.class_algo == EXCHANGE_BROWN) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -130,7 +130,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 
 		if (cmd_args.verbose > 3) {
 			printf("cluster(): 42: "); long unsigned int class_sum=0; for (wclass_t i = 0; i < cmd_args.num_classes; i++) {
-				printf("c_%u=%u, ", i, count_arrays[0][i]);
+				printf("c_%u=%lu, ", i, (unsigned long)count_arrays[0][i]);
 				class_sum += count_arrays[0][i];
 			} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
 		}
@@ -188,7 +188,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			//for (word_id_t word_i = model_metadata.type_count-1; word_i != -1; word_i--) {
 				if (cycle < 3 && word_i < cmd_args.num_classes) // don't move high-frequency words in the first (few) iteration(s)
 					continue;
-				const word_count_t word_i_count = word_counts[word_i];
+				const word_count_t word_i_count = word_bigrams[word_i].headword_count;
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
 				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
@@ -226,7 +226,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					moved_count++;
 
 					if (cmd_args.verbose > 0)
-						fprintf(stderr, " Moving id=%-7u count=%-7u %-18s %u -> %u\t(%g -> %g)\n", word_i, word_counts[word_i], word_list[word_i], old_class, best_hypothesis_class, scores[old_class], best_hypothesis_score); fflush(stderr);
+						fprintf(stderr, " Moving id=%-7u count=%-7lu %-18s %u -> %u\t(%g -> %g)\n", word_i, (unsigned long)word_bigrams[word_i].headword_count, word_list[word_i], old_class, best_hypothesis_class, scores[old_class], best_hypothesis_score); fflush(stderr);
 					//word2class[word_i] = best_hypothesis_class;
 					word2class[word_i] = best_hypothesis_class;
 					if (isnan(best_hypothesis_score)) { // shouldn't happen
@@ -281,7 +281,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 	}
 }
 
-void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const unsigned int word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
+void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const word_count_t word_counts[const], char * word_list[restrict], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 	init_count_arrays(cmd_args, count_arrays);
 	tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
@@ -293,7 +293,7 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	fprintf(out_file, "%lu %u\n", (long unsigned)model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
 
 	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
-		const unsigned int word_i_count = word_counts[word_i];
+		const word_count_t word_i_count = word_bigrams[word_i].headword_count;
 		float scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array.  We use a float here to be compatible with word2vec
 
 		#pragma omp parallel for num_threads(cmd_args.num_threads)
@@ -313,7 +313,7 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	free(entropy_terms);
 }
 
-void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const unsigned int word_counts[const], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays) {
+void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_count_t word_counts[const], wclass_t word2class[], struct_word_bigram_entry * restrict word_bigrams, struct_word_bigram_entry * restrict word_bigrams_rev, unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_arrays_t count_arrays) {
 
 	// Build precomputed entropy terms
 	float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
@@ -341,7 +341,7 @@ void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_mo
 			for (wclass_t class_2 = class_1+1; class_2 < cmd_args.num_classes; class_2++) {
 				for (size_t word_offset = 0; word_offset < class2words[class_2].length; word_offset++) { // Sum of all words
 					const word_id_t word = class2words[class_2].words[word_offset];
-					scores_2[class_2] += pex_move_word(cmd_args, word, word_counts[word], class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
+					scores_2[class_2] += pex_move_word(cmd_args, word, word_bigrams[word].headword_count, class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 				}
 				scores_1_which[class_1] = which_max(scores_2, scores_2_length);
 				scores_1_val[class_1]   = max(scores_2, scores_2_length);
