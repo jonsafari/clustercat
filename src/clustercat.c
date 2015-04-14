@@ -174,6 +174,9 @@ int main(int argc, char **argv) {
 			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
 			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, new_bigram_map, global_metadata.line_count, false);
+			// Copy entries in word_counts to struct_word_bigram_entry.headword_count since that struct entry is already loaded when clustering
+			for (word_id_t word = 0; word < global_metadata.type_count; word++)
+				word_bigrams[word].headword_count = word_counts[word];
 		}
 
 		// Initialize and set *reverse* word bigram listing
@@ -184,6 +187,9 @@ int main(int argc, char **argv) {
 				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
 				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, new_bigram_map_rev, global_metadata.line_count, true);
+				// Copy entries in word_counts to struct_word_bigram_entry.headword_count since that struct entry is already loaded when clustering
+				for (word_id_t word = 0; word < global_metadata.type_count; word++)
+					word_bigrams_rev[word].headword_count = word_counts[word];
 			}
 		}
 	}
@@ -632,7 +638,8 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 }
 
 size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, struct_map_bigram * bigram_map, const unsigned long line_count, const bool reverse) {
-	// We first build a hash map of bigrams, since we need random access when traversing the corpus.
+
+	// Build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
 
 	//struct_map_bigram *map_bigram = NULL;
