@@ -28,14 +28,14 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 		count_array[from_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
-		word_id_t prev_word = word_bigrams[word].words[i];
+		word_id_t prev_word = word_bigrams[word].predecessors[i];
 		//printf(" rm43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * from_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + from_class), prev_word, cmd_args.num_classes, from_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + from_class];
 		if (word_class_count > 1) // Can't do log(0); no need for 1
 			delta -= entropy_term(entropy_terms, word_class_count);
-		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].counts[i];
+		const unsigned int new_word_class_count = word_class_count - word_bigrams[word].bigram_counts[i];
 		delta += entropy_term(entropy_terms, new_word_class_count);
-		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].counts[i], delta); fflush(stdout);
+		//printf(" rm45: word=%u (#=%u), prev_word=%u, #(<v,w>)=%u, from_class=%u, i=%u, count_class=%u, new_count_class=%u, <v,c>=<%u,%u>, #(<v,c>)=%u, new_#(<v,c>)=%u (w-c - %u), delta=%g\n", word, word_count, prev_word, word_bigrams[word].bigram_counts[i], from_class, i, count_class, new_count_class, prev_word, from_class, word_class_count, new_word_class_count, word_bigrams[word].bigram_counts[i], delta); fflush(stdout);
 		//print_word_class_counts(cmd_args, model_metadata, word_class_counts);
 		if (! is_tentative_move)
 			word_class_counts[prev_word * cmd_args.num_classes + from_class] = new_word_class_count;
@@ -44,9 +44,9 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 
 	if (cmd_args.rev_alternate && (!is_tentative_move)) { // also update reversed word-class counts
 		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
-			const word_id_t next_word = word_bigrams_rev[word].words[i];
+			const word_id_t next_word = word_bigrams_rev[word].predecessors[i];
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + from_class];
-			const unsigned int new_word_class_rev_count = word_class_rev_count - word_bigrams_rev[word].counts[i];
+			const unsigned int new_word_class_rev_count = word_class_rev_count - word_bigrams_rev[word].bigram_counts[i];
 			//printf(" rm47: rev_next_word=%u, rev_#(<v,c>)=%u, rev_new_#(<v,c>)=%u\n", next_word, word_class_rev_count, new_word_class_rev_count); fflush(stdout);
 			//print_word_class_counts(cmd_args, model_metadata, word_class_rev_counts);
 			word_class_rev_counts[next_word * cmd_args.num_classes + from_class] = new_word_class_rev_count;
@@ -69,7 +69,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 		count_array[to_class] = new_count_class;
 
 	for (unsigned int i = 0; i < word_bigrams[word].length; i++) {
-		word_id_t prev_word = word_bigrams[word].words[i];
+		word_id_t prev_word = word_bigrams[word].predecessors[i];
 		//printf(" mv43: i=%u, len=%u, word=%u, offset=%u (prev_word=%u + num_classes=%u * to_class=%u)\n", i, word_bigrams[word].length, word,  (prev_word * cmd_args.num_classes + to_class), prev_word, cmd_args.num_classes, to_class); fflush(stdout);
 		const unsigned int word_class_count = word_class_counts[prev_word * cmd_args.num_classes + to_class];
 		if (word_class_count > 1) { // Can't do log(0); no need for 1
@@ -79,7 +79,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 				delta -= entropy_term(entropy_terms, word_class_count) * 0.6;
 			}
 		}
-		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].counts[i]; // Differs from paper: replace "-" with "+"
+		const unsigned int new_word_class_count = word_class_count + word_bigrams[word].bigram_counts[i]; // Differs from paper: replace "-" with "+"
 		if (new_word_class_count > 1) { // Can't do log(0)
 			if (cmd_args.unidirectional) {
 				delta += entropy_term(entropy_terms, new_word_class_count);
@@ -95,13 +95,13 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 
 	if (cmd_args.rev_alternate) { // also update reversed word-class counts; reversed order of conditionals since the first clause here is more common in this function
 		for (unsigned int i = 0; i < word_bigrams_rev[word].length; i++) {
-			const word_id_t next_word = word_bigrams_rev[word].words[i];
+			const word_id_t next_word = word_bigrams_rev[word].predecessors[i];
 			const unsigned int word_class_rev_count = word_class_rev_counts[next_word * cmd_args.num_classes + to_class];
 			if (word_class_rev_count > 1) // Can't do log(0); no need for 1
 				if (!cmd_args.unidirectional)
 					delta -= entropy_term(entropy_terms, word_class_rev_count) * 0.4;
 
-			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].counts[i];
+			const unsigned int new_word_class_rev_count = word_class_rev_count + word_bigrams_rev[word].bigram_counts[i];
 			if (new_word_class_rev_count > 1) // Can't do log(0); no need for 1
 				if (!cmd_args.unidirectional)
 					//delta += entropy_term(entropy_terms, word_class_rev_count) * 0.4;
