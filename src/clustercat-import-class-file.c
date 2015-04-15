@@ -7,6 +7,7 @@
 void import_class_file(struct_map_word **word_map, wclass_t word2class[restrict], const char * restrict class_file_name, const wclass_t num_classes) {
 	char * restrict line_end;
 	char * restrict line = calloc(MAX_WORD_LEN + 9, 1);
+	const word_id_t unk_id = map_find_int(word_map, UNKNOWN_WORD, -1);
 
 	FILE *file = fopen(class_file_name, "r");
 	if (!file) {
@@ -28,7 +29,7 @@ void import_class_file(struct_map_word **word_map, wclass_t word2class[restrict]
 			exit(13);
 		}
 		//printf("keylen=%i, key=<<%s>>, class=<<%d>>\n", keylen, key, class);
-		word_id_t key_int = map_find_int(word_map, key);
+		word_id_t key_int = map_find_int(word_map, key, unk_id);
 		word2class[key_int] = class;
 	}
 
