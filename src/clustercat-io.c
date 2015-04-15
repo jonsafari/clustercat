@@ -4,7 +4,7 @@
 #include "clustercat-array.h"
 #include "clustercat-io.h"
 
-struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_map, struct_map_bigram ** initial_bigram_map, size_t *memuage) {
+struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_map, struct_map_bigram ** initial_bigram_map, size_t *memusage) {
 	struct_model_metadata model_metadata = {0};
 	char curr_word[MAX_WORD_LEN + 1]; curr_word[MAX_WORD_LEN] = '\0';
 	int ch, prev_ch = 0;
