@@ -4,7 +4,7 @@
 #include "clustercat-map.h"
 
 // Parse TSV file input and overwrite relevant word mappings
-void import_class_file(struct_map_word **word_map, word_id_t vocab_size, wclass_t word2class[restrict], const char * restrict class_file_name, const wclass_t num_classes) {
+void import_class_file(struct_map_word **word_map, wclass_t word2class[restrict], const char * restrict class_file_name, const wclass_t num_classes) {
 	char * restrict line_end;
 	char * restrict line = calloc(MAX_WORD_LEN + 9, 1);
 
