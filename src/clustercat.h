@@ -17,8 +17,6 @@
 #define SECONDARY_SEP_CHAR   ' '
 #define SECONDARY_SEP_STRING " "
 #define TOK_CHARS            " \t\n"
-#define UNKNOWN_WORD_CLASS   0
-#define UNKNOWN_WORD_ID      0
 #define UNKNOWN_WORD         "<unk>"
 // Number of characters to read-in for each line
 #define BUFLEN 8192

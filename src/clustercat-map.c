@@ -170,9 +170,9 @@ inline word_count_t map_find_count(struct_map_word *map[const], const char * res
 	return local_count;
 }
 
-inline word_id_t map_find_int(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
+inline word_id_t map_find_int(struct_map_word *map[const], const char * restrict entry_key, const word_id_t unknown_id) { // Based on uthash's docs
 	struct_map_word *local_s;
-	word_id_t local_id = 0;
+	word_id_t local_id = unknown_id;
 
 	HASH_FIND_STR(*map, entry_key, local_s);
 	if (local_s != NULL) { // Deal with OOV

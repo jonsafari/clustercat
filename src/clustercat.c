@@ -382,6 +382,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 
 size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
 	size_t local_memusage = 0;
+	const word_id_t unk_id = map_find_int(ngram_map, UNKNOWN_WORD, -1);
 
 	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
 		if (sent_buffer[i] == NULL) // No more sentences in buffer
@@ -397,7 +398,7 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 		pch = strtok(sent_i, TOK_CHARS);
 
 		// Initialize first element in sentence to <s>
-		sent_int_temp[0] = map_find_int(ngram_map, "<s>");
+		sent_int_temp[0] = map_find_int(ngram_map, "<s>", -1);
 
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
@@ -407,14 +408,14 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 				break;
 			}
 
-			sent_int_temp[w_i] = map_find_int(ngram_map, pch);
-			//printf("pch=%s, int=%u, count=%u\n", pch, sent_int_temp[w_i], sent_counts_int_temp[w_i]);
+			sent_int_temp[w_i] = map_find_int(ngram_map, pch, unk_id);
+			//printf("pch=%s, int=%u\n", pch, sent_int_temp[w_i]);
 
 			pch = strtok(NULL, TOK_CHARS);
 		}
 
 		// Initialize first element in sentence to </s>
-		sent_int_temp[w_i] = map_find_int(ngram_map, "</s>");
+		sent_int_temp[w_i] = map_find_int(ngram_map, "</s>", -1);
 
 		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
 		sent_store_int[i].length = sent_length;
@@ -440,7 +441,6 @@ void build_word_count_array(struct_map_word **ngram_map, char * restrict word_li
 
 void populate_word_ids(struct_map_word **ngram_map, char * restrict word_list[const], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
-		//printf("%s=%u\n", word_list[i], i);
 		map_set_word_id(ngram_map, word_list[i], i);
 	}
 }
