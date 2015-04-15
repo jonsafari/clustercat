@@ -251,7 +251,7 @@ int main(int argc, char **argv) {
 		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
 			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset, cmd_args.print_freqs);
 		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
-			print_words_and_vectors(out_file, cmd_args, global_metadata, sent_store_int, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
+			print_words_and_vectors(out_file, cmd_args, global_metadata, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 		}
 		fclose(out_file);
 	}
@@ -386,6 +386,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 
 size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
 	size_t local_memusage = 0;
+	const word_id_t unk_id = map_find_int(ngram_map, UNKNOWN_WORD, -1);
 
 	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
 		if (sent_buffer[i] == NULL) // No more sentences in buffer
@@ -401,7 +402,7 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 		pch = strtok(sent_i, TOK_CHARS);
 
 		// Initialize first element in sentence to <s>
-		sent_int_temp[0] = map_find_id(ngram_map, "<s>");
+		sent_int_temp[0] = map_find_id(ngram_map, "<s>", -1);
 
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
@@ -411,14 +412,14 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 				break;
 			}
 
-			sent_int_temp[w_i] = map_find_id(ngram_map, pch);
-			//printf("pch=%s, int=%u, count=%u\n", pch, sent_int_temp[w_i], sent_counts_int_temp[w_i]);
+			sent_int_temp[w_i] = map_find_id(ngram_map, pch, unk_id);
+			//printf("pch=%s, int=%u\n", pch, sent_int_temp[w_i]);
 
 			pch = strtok(NULL, TOK_CHARS);
 		}
 
 		// Initialize first element in sentence to </s>
-		sent_int_temp[w_i] = map_find_id(ngram_map, "</s>");
+		sent_int_temp[w_i] = map_find_id(ngram_map, "</s>", -1);
 
 		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
 		sent_store_int[i].length = sent_length;
@@ -444,7 +445,6 @@ void build_word_count_array(struct_map_word **ngram_map, char * restrict word_li
 
 void populate_word_ids(struct_map_word **ngram_map, char * restrict word_list[const], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
-		//printf("%s=%u\n", word_list[i], i);
 		map_set_word_id(ngram_map, word_list[i], i);
 	}
 }
@@ -513,47 +513,16 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 }
 
 void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry word_bigrams[const], const wclass_t word2class[const], count_arrays_t count_arrays) { // Right now it's a drop-in replacement for tally_class_counts_in_store(), but it's not the best way of doing things (eg. for unigram counts, tallying & querying in two separate steps, etc).  So this will need to be modified after getting rid of the sent-store
-	long sum = 0;
 	for (word_id_t word_id = 0; word_id < model_metadata.type_count; word_id++) {
 		const wclass_t headword_class = word2class[word_id];
-		sum += word_bigrams[word_id].headword_count;
-		//printf("tally_class_ngram_counts: word_id=%u, type_count=%u, headword_class=%hu\n", word_id, model_metadata.type_count, headword_class); fflush(stdout);
 		count_arrays[0][headword_class] += word_bigrams[word_id].headword_count;
+		//printf("tally_class_ngram_counts: word=??, word_id=%u, type_count=%u, headword_class=%hu, headword_count=%u, class_count=%lu\n", word_id, model_metadata.type_count, headword_class, word_bigrams[word_id].headword_count, (unsigned long)count_arrays[0][headword_class]); fflush(stdout);
 		for (unsigned int i = 0; i < word_bigrams[word_id].length; i++) {
 			const word_id_t prev_word = word_bigrams[word_id].predecessors[i];
 			wclass_t prev_class = word2class[prev_word];
 			const size_t offset = prev_class + cmd_args.num_classes * headword_class;
 			//printf("  tally_class_ngram_counts: prev_word=%u, prev_class=%hu, offset=%zu\n", prev_word, prev_class, offset); fflush(stdout);
 			count_arrays[1][offset] += word_bigrams[word_id].bigram_counts[i];
-			sum += word_bigrams[word_id].bigram_counts[i];
-		}
-	}
-	//printf("count_arrays[1] new: sum=%li  [", sum); fflush(stdout);
-	//for (unsigned long i = 0; i < (cmd_args.num_classes * cmd_args.num_classes); i++) {
-	//	printf("%u\n", count_arrays[1][i]);
-	//}
-	//printf("]\n"); fflush(stdout);
-}
-
-void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays) { // this is a stripped-down version of tally_int_sents_in_store; no temp_class either
-	wclass_t class_sent[STDIN_SENT_MAX_WORDS];
-
-	for (unsigned long current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) { // loop over sentences
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-
-		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
-			class_sent[i] = word2class[ sent_store_int[current_sent_num].sent[i] ];
-			//printf("class_sent[%u]=%hu\n", i, class_sent[i]);
-			count_arrays[0][  class_sent[i] ]++;
-			if (cmd_args.max_array > 1  &&  i > 0) {
-				const size_t offset = array_offset(&class_sent[i-1], 2, cmd_args.num_classes);
-				count_arrays[1][offset]++;
-				//printf("[%hu,%hu]=%u now; offset=%zu\n", class_sent[i-1], class_sent[i], count_arrays[1][offset], offset); fflush(stdout);
-				if (cmd_args.max_array > 2  &&  i > 1) {
-					const size_t offset = array_offset(&class_sent[i-2], 3, cmd_args.num_classes);
-					count_arrays[2][offset]++;
-				}
-			}
 		}
 	}
 }
