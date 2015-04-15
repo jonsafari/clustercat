@@ -510,29 +510,6 @@ void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model
 	}
 }
 
-void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays) { // this is a stripped-down version of tally_int_sents_in_store; no temp_class either
-	wclass_t class_sent[STDIN_SENT_MAX_WORDS];
-
-	for (unsigned long current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) { // loop over sentences
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-
-		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
-			class_sent[i] = word2class[ sent_store_int[current_sent_num].sent[i] ];
-			count_arrays[0][ class_sent[i] ]++;
-			//printf("class_sent[i=%u,w=??] word id=%hu class count now:%lu\n", i, class_sent[i], (long unsigned) count_arrays[0][ class_sent[i] ]);
-			if (cmd_args.max_array > 1  &&  i > 0) {
-				const size_t offset = array_offset(&class_sent[i-1], 2, cmd_args.num_classes);
-				count_arrays[1][offset]++;
-				//printf("[%hu,%hu]=%u now; offset=%zu\n", class_sent[i-1], class_sent[i], count_arrays[1][offset], offset); fflush(stdout);
-				if (cmd_args.max_array > 2  &&  i > 1) {
-					const size_t offset = array_offset(&class_sent[i-2], 3, cmd_args.num_classes);
-					count_arrays[2][offset]++;
-				}
-			}
-		}
-	}
-}
-
 unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer) {
 	unsigned long token_count = 0;
 	char local_sent_copy[STDIN_SENT_MAX_CHARS];
