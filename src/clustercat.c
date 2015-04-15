@@ -495,6 +495,29 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 	}
 }
 
+void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry word_bigrams[const], const wclass_t word2class[const], count_arrays_t count_arrays) { // Right now it's a drop-in replacement for tally_class_counts_in_store(), but it's not the best way of doing things (eg. for unigram counts, tallying & querying in two separate steps, etc).  So this will need to be modified after getting rid of the sent-store
+	long sum = 0;
+	for (word_id_t word_id = 0; word_id < model_metadata.type_count; word_id++) {
+		const wclass_t headword_class = word2class[word_id];
+		sum += word_bigrams[word_id].headword_count;
+		//printf("tally_class_ngram_counts: word_id=%u, type_count=%u, headword_class=%hu\n", word_id, model_metadata.type_count, headword_class); fflush(stdout);
+		count_arrays[0][headword_class] += word_bigrams[word_id].headword_count;
+		for (unsigned int i = 0; i < word_bigrams[word_id].length; i++) {
+			const word_id_t prev_word = word_bigrams[word_id].predecessors[i];
+			wclass_t prev_class = word2class[prev_word];
+			const size_t offset = prev_class + cmd_args.num_classes * headword_class;
+			//printf("  tally_class_ngram_counts: prev_word=%u, prev_class=%hu, offset=%zu\n", prev_word, prev_class, offset); fflush(stdout);
+			count_arrays[1][offset] += word_bigrams[word_id].bigram_counts[i];
+			sum += word_bigrams[word_id].bigram_counts[i];
+		}
+	}
+	//printf("count_arrays[1] new: sum=%li  [", sum); fflush(stdout);
+	//for (unsigned long i = 0; i < (cmd_args.num_classes * cmd_args.num_classes); i++) {
+	//	printf("%u\n", count_arrays[1][i]);
+	//}
+	//printf("]\n"); fflush(stdout);
+}
+
 void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays) { // this is a stripped-down version of tally_int_sents_in_store; no temp_class either
 	wclass_t class_sent[STDIN_SENT_MAX_WORDS];
 
