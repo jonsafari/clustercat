@@ -3,8 +3,8 @@
 #include "clustercat-array.h"
 
 float entropy_term(const float entropy_terms[const], const unsigned int i);
-double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const word_count_t word_count, const wclass_t from_class, wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
-double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
+double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const word_count_t word_count, const wclass_t from_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
+double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
 
 inline float entropy_term(const float entropy_terms[const], const unsigned int i) {
 	if (i < ENTROPY_TERMS_MAX)
@@ -13,7 +13,7 @@ inline float entropy_term(const float entropy_terms[const], const unsigned int i
 		return i * log2f(i);
 }
 
-inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const word_count_t word_count, const wclass_t from_class, wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
+inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_id_t word, const word_count_t word_count, const wclass_t from_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	register double delta = 0.0;
 	const unsigned int count_class = count_array[from_class];
@@ -56,7 +56,7 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const struct_model
 	return delta;
 }
 
-inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
+inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
 	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 	unsigned int count_class = count_array[to_class];
 	if (!count_class) // class is empty
@@ -191,7 +191,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				const word_count_t word_i_count = word_bigrams[word_i].headword_count;
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
-				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
+				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
 				//const double delta_remove_word = 0.0;  // Not really necessary
 				//const double delta_remove_word_rev = 0.0;  // Not really necessary
 
@@ -203,9 +203,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
 				for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
 					if (is_nonreversed_cycle) {
-						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
+						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 					} else { // This is the reversed one
-						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, true);
+						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, true);
 					}
 					steps++;
 				}
@@ -237,11 +237,11 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					}
 
 					if (is_nonreversed_cycle) {
-						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, false);
 					} else { // This is the reversed one
-						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word2class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, false);
-						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word2class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, false);
+						pex_remove_word(cmd_args, model_metadata, word_i, word_i_count, old_class, word_bigrams_rev, word_bigrams, word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, false);
+						pex_move_word(cmd_args, word_i, word_i_count, best_hypothesis_class, word_bigrams_rev, word_bigrams,  word_class_rev_counts, word_class_counts, count_arrays[0], entropy_terms, false);
 					}
 				}
 			}
@@ -298,7 +298,7 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 
 		#pragma omp parallel for num_threads(cmd_args.num_threads)
 		for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
-			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
+			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 		}
 
 		fprintf(out_file, "%s ", word_list[word_i]);
@@ -341,7 +341,7 @@ void post_exchange_brown_cluster(const struct cmd_args cmd_args, const struct_mo
 			for (wclass_t class_2 = class_1+1; class_2 < cmd_args.num_classes; class_2++) {
 				for (size_t word_offset = 0; word_offset < class2words[class_2].length; word_offset++) { // Sum of all words
 					const word_id_t word = class2words[class_2].words[word_offset];
-					scores_2[class_2] += pex_move_word(cmd_args, word, word_bigrams[word].headword_count, class_1, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
+					scores_2[class_2] += pex_move_word(cmd_args, word, word_bigrams[word].headword_count, class_1, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 				}
 				scores_1_which[class_1] = which_max(scores_2, scores_2_length);
 				scores_1_val[class_1]   = max(scores_2, scores_2_length);

@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
 	memusage += sizeof(wclass_t) * global_metadata.type_count;
 	init_clusters(cmd_args, global_metadata.type_count, word2class, word_counts, word_list);
 	if (initial_class_file != NULL)
-		import_class_file(&ngram_map, global_metadata.type_count, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
+		import_class_file(&ngram_map, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 	delete_all(&ngram_map);
 
 
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
 		{
 			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-			bigram_memusage = set_bigram_counts(cmd_args, word_bigrams, sent_store_int, global_metadata.line_count, false);
+			bigram_memusage = set_bigram_counts(word_bigrams, sent_store_int, global_metadata.line_count, false);
 			// Copy entries in word_counts to struct_word_bigram_entry.headword_count since that struct entry is already loaded when clustering
 			for (word_id_t word = 0; word < global_metadata.type_count; word++)
 				word_bigrams[word].headword_count = word_counts[word];
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 			if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
 				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-				bigram_rev_memusage = set_bigram_counts(cmd_args, word_bigrams_rev, sent_store_int, global_metadata.line_count, true);
+				bigram_rev_memusage = set_bigram_counts(word_bigrams_rev, sent_store_int, global_metadata.line_count, true);
 				// Copy entries in word_counts to struct_word_bigram_entry.headword_count since that struct entry is already loaded when clustering
 				for (word_id_t word = 0; word < global_metadata.type_count; word++)
 					word_bigrams_rev[word].headword_count = word_counts[word];
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "in %'.2f CPU secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
 
-	//print_word_bigrams(cmd_args, global_metadata, word_bigrams, word_list);
+	//print_word_bigrams(global_metadata, word_bigrams, word_list);
 
 	// Build <v,c> counts, which consists of a word followed by a given class
 	word_class_count_t * restrict word_class_counts = calloc(1 + cmd_args.num_classes * global_metadata.type_count , sizeof(word_class_count_t));
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
 	}
 	memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
 	fprintf(stderr, "%s: Allocating %'.1f MB for word_class_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
-	build_word_class_counts(cmd_args, word_class_counts, word2class, word_bigrams, word_counts, global_metadata.type_count, word_list);
+	build_word_class_counts(cmd_args, word_class_counts, word2class, word_bigrams, global_metadata.type_count/*, word_list*/);
 	//print_word_class_counts(cmd_args, global_metadata, word_class_counts);
 
 	// Build reverse: <c,v> counts: class followed by word.  This and the normal one are both pretty fast, so no need to parallelize this
@@ -216,7 +216,7 @@ int main(int argc, char **argv) {
 		} else {
 			memusage += cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t);
 			fprintf(stderr, "%s: Allocating %'.1f MB for word_class_rev_counts: num_classes=%u x type_count=%u x sizeof(w-cl-count_t)=%zu\n", argv_0_basename, (double)(cmd_args.num_classes * global_metadata.type_count * sizeof(word_class_count_t)) / 1048576 , cmd_args.num_classes, global_metadata.type_count, sizeof(word_class_count_t)); fflush(stderr);
-			build_word_class_counts(cmd_args, word_class_rev_counts, word2class, word_bigrams_rev, word_counts, global_metadata.type_count, word_list);
+			build_word_class_counts(cmd_args, word_class_rev_counts, word2class, word_bigrams_rev, global_metadata.type_count/*, word_list*/);
 		}
 
 	}
@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
 			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset, cmd_args.print_freqs);
 		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
-			print_words_and_vectors(out_file, cmd_args, global_metadata, sent_store_int, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
+			print_words_and_vectors(out_file, cmd_args, global_metadata, sent_store_int, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 		}
 		fclose(out_file);
 	}
@@ -633,7 +633,8 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 		for (; word_i < vocab_size; word_i++, class++) {
 			if (class == cmd_args.num_classes) // reset
 				class = 0;
-			//printf("cls=%-4u w_i=%-8lu #(w)=%-8u str(w)=%-20s vocab_size=%u\n", class, word_i, word_counts[word_i], word_list[word_i], vocab_size);
+			if (cmd_args.verbose > 3)
+				printf("cls=%-4u w_i=%-8lu #(w)=%-8u str(w)=%-20s vocab_size=%u\n", class, word_i, word_counts[word_i], word_list[word_i], vocab_size);
 			word2class[word_i] = class;
 		}
 
@@ -643,7 +644,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
+size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
 
 	// Build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
@@ -721,7 +722,7 @@ size_t set_bigram_counts(const struct cmd_args cmd_args, struct_word_bigram_entr
 	return memusage;
 }
 
-void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_word_bigram_entry * const word_bigrams, const word_count_t word_counts[const], const word_id_t type_count, char ** restrict word_list) {
+void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_word_bigram_entry * const word_bigrams, const word_id_t type_count/*, char ** restrict word_list*/) {
 	//long sum = 0;
 	// set <v,c> counts
 	for (word_id_t word = 0; word < type_count; word++) {
@@ -799,7 +800,7 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			float sum_weights = weights_class[2]; // unigram prob will always occur
 			float sum_probs = weights_class[2] * order_probs[2]; // unigram prob will always occur
 
-			//const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
+			//const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
 			if ((cmd_args.max_array > 2) && (i > 1)) { // Need at least "<s> w_1" in history
 				order_probs[0] = count_arrays[2][ array_offset(&class_sent[i-2], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ]; // trigram probs
 				order_probs[0] = isnan(order_probs[0]) ? 0.0f : order_probs[0]; // If the bigram history is 0, result will be a -nan

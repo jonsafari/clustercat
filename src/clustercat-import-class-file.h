@@ -3,6 +3,6 @@
 
 #include "clustercat.h" // wclass_t
 
-void import_class_file(struct_map_word **word_map, word_id_t vocab_size, wclass_t word2class[restrict], const char * restrict class_file_name, const wclass_t num_classes);
+void import_class_file(struct_map_word **word_map, wclass_t word2class[restrict], const char * restrict class_file_name, const wclass_t num_classes);
 
 #endif // INCLUDE_HEADER
