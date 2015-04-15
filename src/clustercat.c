@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
 			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset, cmd_args.print_freqs);
 		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
-			print_words_and_vectors(out_file, cmd_args, global_metadata, sent_store_int, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
+			print_words_and_vectors(out_file, cmd_args, global_metadata, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 		}
 		fclose(out_file);
 	}
@@ -496,26 +496,18 @@ void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t 
 }
 
 void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry word_bigrams[const], const wclass_t word2class[const], count_arrays_t count_arrays) { // Right now it's a drop-in replacement for tally_class_counts_in_store(), but it's not the best way of doing things (eg. for unigram counts, tallying & querying in two separate steps, etc).  So this will need to be modified after getting rid of the sent-store
-	long sum = 0;
 	for (word_id_t word_id = 0; word_id < model_metadata.type_count; word_id++) {
 		const wclass_t headword_class = word2class[word_id];
-		sum += word_bigrams[word_id].headword_count;
-		//printf("tally_class_ngram_counts: word_id=%u, type_count=%u, headword_class=%hu\n", word_id, model_metadata.type_count, headword_class); fflush(stdout);
 		count_arrays[0][headword_class] += word_bigrams[word_id].headword_count;
+		//printf("tally_class_ngram_counts: word=??, word_id=%u, type_count=%u, headword_class=%hu, headword_count=%u, class_count=%lu\n", word_id, model_metadata.type_count, headword_class, word_bigrams[word_id].headword_count, (unsigned long)count_arrays[0][headword_class]); fflush(stdout);
 		for (unsigned int i = 0; i < word_bigrams[word_id].length; i++) {
 			const word_id_t prev_word = word_bigrams[word_id].predecessors[i];
 			wclass_t prev_class = word2class[prev_word];
 			const size_t offset = prev_class + cmd_args.num_classes * headword_class;
 			//printf("  tally_class_ngram_counts: prev_word=%u, prev_class=%hu, offset=%zu\n", prev_word, prev_class, offset); fflush(stdout);
 			count_arrays[1][offset] += word_bigrams[word_id].bigram_counts[i];
-			sum += word_bigrams[word_id].bigram_counts[i];
 		}
 	}
-	//printf("count_arrays[1] new: sum=%li  [", sum); fflush(stdout);
-	//for (unsigned long i = 0; i < (cmd_args.num_classes * cmd_args.num_classes); i++) {
-	//	printf("%u\n", count_arrays[1][i]);
-	//}
-	//printf("]\n"); fflush(stdout);
 }
 
 void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const wclass_t word2class[const], count_arrays_t count_arrays) { // this is a stripped-down version of tally_int_sents_in_store; no temp_class either
@@ -526,8 +518,8 @@ void tally_class_counts_in_store(const struct cmd_args cmd_args, const struct_se
 
 		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
 			class_sent[i] = word2class[ sent_store_int[current_sent_num].sent[i] ];
-			//printf("class_sent[%u]=%hu\n", i, class_sent[i]);
-			count_arrays[0][  class_sent[i] ]++;
+			count_arrays[0][ class_sent[i] ]++;
+			//printf("class_sent[i=%u,w=??] word id=%hu class count now:%lu\n", i, class_sent[i], (long unsigned) count_arrays[0][ class_sent[i] ]);
 			if (cmd_args.max_array > 1  &&  i > 0) {
 				const size_t offset = array_offset(&class_sent[i-1], 2, cmd_args.num_classes);
 				count_arrays[1][offset]++;
