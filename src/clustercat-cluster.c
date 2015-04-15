@@ -281,7 +281,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 	}
 }
 
-void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const word_count_t word_counts[const], char * word_list[restrict], wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
+void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, char * word_list[restrict], wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 	init_count_arrays(cmd_args, count_arrays);
 	tally_class_counts_in_store(cmd_args, sent_store_int, model_metadata, word2class, count_arrays);
