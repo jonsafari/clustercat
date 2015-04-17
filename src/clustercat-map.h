@@ -17,7 +17,8 @@ typedef unsigned short wclass_t;            // Max number of word classes
 typedef unsigned int   wclass_count_t;      // Max count of a given word class
 typedef unsigned int   word_id_t;           // Max number of words
 typedef unsigned int   word_count_t;        // Max count of a given word class
-typedef unsigned int   word_bigram_count_t; // Max count of a given bigram
+typedef unsigned int   word_bigram_count_t; // Max count of a given word bigram
+typedef unsigned int   class_bigram_count_t; // Max count of a given class bigram
 typedef unsigned int   word_class_count_t;  // Max count of a given <word, class> tuple
 
 typedef struct {

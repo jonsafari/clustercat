@@ -730,17 +730,16 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 
 	// Transition Probs
 	double transition_logprob = 0;
-	// Base case of unigrams
-	//for (word_class_count_t unigram = 0; unigram < cmd_args.num_classes; unigram++) {
-	//	;
-	//}
-
-	// Higher-order n-grams
-	for (unsigned char i = 2; i <= cmd_args.max_array; i++) {
-		for (word_bigram_count_t ngram = 0; ngram < (powi(cmd_args.num_classes, i)); ngram++) {
-			;
-		}
-		//count_arrays[i-1] = calloc(powi(cmd_args.num_classes, i), sizeof(wclass_count_t)); // powi() is in clustercat-math.c
+	// Bigrams
+	for (word_bigram_count_t ngram = 0; ngram < (powi(cmd_args.num_classes, 2)); ngram++) {
+		const class_bigram_count_t bigram_count = count_arrays[1][ngram];
+		if (!bigram_count)
+			continue;
+		const wclass_t c_1 = ngram % cmd_args.num_classes;
+		//const wclass_t c_2 = ngram / cmd_args.num_classes;
+		const wclass_count_t history_count = count_arrays[0][c_1];
+		transition_logprob += log2(bigram_count / (double)history_count) * bigram_count;
+		printf("ngram=%u, c_1=%u, #(c_1)=%lu, #(c_1,c_2)=%lu, transition_prob=%g\n", ngram, c_1, (unsigned long)history_count, (unsigned long)bigram_count, transition_logprob); fflush(stdout);
 	}
 
 	// Emission Probs
