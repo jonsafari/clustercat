@@ -12,8 +12,8 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 	map_update_count(initial_word_map, UNKNOWN_WORD, 0, 0); // initialize entry for <unk>, <s>, and </s>
 	map_update_count(initial_word_map, "<s>", 0, 1);
 	map_update_count(initial_word_map, "</s>", 0, 2);
-	const word_id_t start_id = map_find_id(initial_word_map, "<s>");
-	const word_id_t end_id = map_find_id(initial_word_map, "</s>");
+	const word_id_t start_id = map_find_id(initial_word_map, "<s>", 1);
+	const word_id_t end_id = map_find_id(initial_word_map, "</s>", 2);
 	unsigned int prev_word_id = start_id;
 	model_metadata.type_count = 3; // start with <unk>, <s>, and </s>, and <unk>.
 

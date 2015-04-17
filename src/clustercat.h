@@ -54,6 +54,8 @@ typedef struct {
 	unsigned long token_count;
 	unsigned long line_count;
 	word_id_t     type_count;
+	word_id_t     start_sent_id; // need this for tallying emission probs
+	word_id_t     end_sent_id; // need this for tallying emission probs
 } struct_model_metadata;
 
 // typedef {...} struct_word_bigram; // see clustercat-map.h
@@ -96,6 +98,7 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struct_map_bigram * bigram_map);
 void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_word_bigram_entry * const word_bigrams, const word_id_t type_count/*, char ** restrict word_list*/);
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const word_count_t word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class);
+double training_data_log_likelihood(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const count_arrays_t count_arrays, const word_count_t word_counts[const], const wclass_t word2class[const]);
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 void clear_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);

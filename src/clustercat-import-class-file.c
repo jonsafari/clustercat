@@ -7,7 +7,7 @@
 void import_class_file(struct_map_word **word_map, wclass_t word2class[restrict], const char * restrict class_file_name, const wclass_t num_classes) {
 	char * restrict line_end;
 	char * restrict line = calloc(MAX_WORD_LEN + 9, 1);
-	const word_id_t unk_id = map_find_int(word_map, UNKNOWN_WORD, -1);
+	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD, -1);
 
 	FILE *file = fopen(class_file_name, "r");
 	if (!file) {

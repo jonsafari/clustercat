@@ -105,6 +105,8 @@ int main(int argc, char **argv) {
 	get_ids(&word_map, word_id_remap);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
 	word_id_remap[0] = 0; word_id_remap[1] = 1; word_id_remap[2] = 2; // Keep ID for <unk>, <s>, and </s>
+	global_metadata.start_sent_id = 1; // need this for tallying emission probs
+	global_metadata.start_sent_id = 2; // need this for tallying emission probs
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
@@ -386,7 +388,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 
 size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
 	size_t local_memusage = 0;
-	const word_id_t unk_id = map_find_int(ngram_map, UNKNOWN_WORD, -1);
+	const word_id_t unk_id = map_find_id(ngram_map, UNKNOWN_WORD, -1);
 
 	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
 		if (sent_buffer[i] == NULL) // No more sentences in buffer
@@ -453,7 +455,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
-	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD);
+	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD, -1);
 
 	// Get keys
 	// Iterate over keys
@@ -482,7 +484,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 			number_of_deleted_words++;
 			if (cmd_args.verbose > 3)
 				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%lu\n", word, word_i, (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
-			word_id_remap[map_find_id(word_map, word)] = unk_id; // set value of dud word in remap to unk
+			word_id_remap[map_find_id(word_map, word, unk_id)] = unk_id; // set value of dud word in remap to unk
 			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			model_metadata->type_count--;
 			struct_map_word *local_s;
@@ -724,6 +726,40 @@ void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t 
 	//printf("<w,c>: sum: %lu; [%u,%u,%u,%u,%u,%u,%u,%u,%u,%u...]\n", sum, word_class_counts[0], word_class_counts[1], word_class_counts[2], word_class_counts[3], word_class_counts[4], word_class_counts[5], word_class_counts[6], word_class_counts[7], word_class_counts[8], word_class_counts[9]);
 }
 
+double training_data_log_likelihood(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const count_arrays_t count_arrays, const word_count_t word_counts[const], const wclass_t word2class[const]) {
+
+	// Transition Probs
+	double transition_logprob = 0;
+	// Base case of unigrams
+	//for (word_class_count_t unigram = 0; unigram < cmd_args.num_classes; unigram++) {
+	//	;
+	//}
+
+	// Higher-order n-grams
+	for (unsigned char i = 2; i <= cmd_args.max_array; i++) {
+		for (word_bigram_count_t ngram = 0; ngram < (powi(cmd_args.num_classes, i)); ngram++) {
+			;
+		}
+		//count_arrays[i-1] = calloc(powi(cmd_args.num_classes, i), sizeof(wclass_count_t)); // powi() is in clustercat-math.c
+	}
+
+	// Emission Probs
+	//long double emission_prob = 0;
+	double emission_logprob = 0;
+	//#pragma omp parallel for reduce(+:emission_logprob)
+	for (word_id_t word = 0; word < model_metadata.type_count; word++) {
+		if (word == model_metadata.start_sent_id) // Don't tally emission prob for <s>
+			continue;
+		const word_count_t word_count = word_counts[word];
+		const wclass_t class = word2class[word];
+		const wclass_count_t class_count = count_arrays[0][class];
+		emission_logprob += log2(word_count / (double)class_count) * word_count;
+		printf("word=%u, class=%u, emission_logprob=%g after += %g = log2(word_count=%lu / class_count=%u) * word_count=%lu\n", word, (unsigned int)class, emission_logprob, log2(word_count / (double)class_count) * word_count, (unsigned long)word_count, class_count, (unsigned long)word_count); fflush(stdout);
+	}
+
+	printf("emission_logprob=%g, transition_logprob=%g, LL=%g\n", emission_logprob, transition_logprob, emission_logprob + transition_logprob);
+	return emission_logprob + transition_logprob;
+}
 
 double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const word_count_t word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
 	double sum_log_probs = 0.0; // For perplexity calculation
