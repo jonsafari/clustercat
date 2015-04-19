@@ -21,6 +21,7 @@
 #include "clustercat-ngram-prob.h"			// class_ngram_prob()
 
 #define USAGE_LEN 10000
+#define LOG2ADD(a,b) (log2(a) + log2(1 + (b) / (a) ))
 
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
@@ -30,7 +31,6 @@ char * restrict class_algo           = NULL;
 char * restrict in_train_file_string = NULL;
 char * restrict out_file_string      = NULL;
 char * restrict initial_class_file   = NULL;
-char * restrict weights_string       = NULL;
 
 struct_map_word *word_map = NULL; // Must initialize to NULL
 struct_map_bigram *initial_bigram_map = NULL; // Must initialize to NULL
@@ -45,6 +45,7 @@ size_t memusage_max = 0;
 struct cmd_args cmd_args = {
 	.class_algo         = EXCHANGE,
 	.class_offset       = 0,
+	.forward_lambda     = 0.6,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
 	.max_array          = 2,
 	.num_threads        = 8,
@@ -65,10 +66,9 @@ int main(int argc, char **argv) {
 	time_t time_t_start;
 	time(&time_t_start);
 	argv_0_basename = basename(argv[0]);
-	weights_string = "0.3 0.175 0.05 0.175 0.3";
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
 
-	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
+	printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
 	parse_cmd_args(argc, argv, usage, &cmd_args);
 
 	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN)
@@ -287,6 +287,7 @@ Options:\n\
      --class-file <file>  Initialize exchange word classes from an existing clustering tsv file (default: pseudo-random initialization\n\
                           for exchange). If you use this option, you probably can set --tune-cycles to 3 or so\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
+	 --forward-lambda <f> Set interpolation weight for forward bigram class model (default: %g)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
@@ -303,7 +304,7 @@ Options:\n\
      --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.\n\
                           Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
 \n\
-", cmd_args.class_offset, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.tune_cycles);
+", cmd_args.class_offset, cmd_args.forward_lambda, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.tune_cycles);
 }
 //     --class-algo <s>     Set class-induction algorithm {brown,exchange,exchange-then-brown} (default: exchange)\n\
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
@@ -329,6 +330,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--class-offset")) {
 			cmd_args->class_offset = (signed char)atoi(argv[arg_i+1]);
+			arg_i++;
+		} else if (!strcmp(argv[arg_i], "--forward-lambda")) {
+			cmd_args->forward_lambda = (float)atof(argv[arg_i+1]);
 			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--in")) {
 			in_train_file_string = argv[arg_i+1];
@@ -367,9 +371,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			cmd_args->unidirectional = true;
 		} else if (!(strcmp(argv[arg_i], "-v") && strcmp(argv[arg_i], "--verbose"))) {
 			cmd_args->verbose++;
-		} else if (!(strcmp(argv[arg_i], "-w") && strcmp(argv[arg_i], "--weights"))) {
-			weights_string = argv[arg_i+1];
-			arg_i++;
 		} else if (!(strcmp(argv[arg_i], "--word-vectors"))) {
 			char * restrict print_word_vectors_string = argv[arg_i+1];
 			arg_i++;
@@ -727,6 +728,7 @@ void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t 
 }
 
 double training_data_log_likelihood(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const count_arrays_t count_arrays, const word_count_t word_counts[const], const wclass_t word2class[const]) {
+	const double backward_lambda = 1 - cmd_args.forward_lambda;
 
 	// Transition Probs
 	double transition_logprob = 0;
@@ -736,10 +738,20 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 		if (!bigram_count)
 			continue;
 		const wclass_t c_1 = ngram % cmd_args.num_classes;
-		//const wclass_t c_2 = ngram / cmd_args.num_classes;
-		const wclass_count_t history_count = count_arrays[0][c_1];
-		transition_logprob += log2(bigram_count / (double)history_count) * bigram_count;
-		printf("ngram=%u, c_1=%u, #(c_1)=%lu, #(c_1,c_2)=%lu, transition_prob=%g\n", ngram, c_1, (unsigned long)history_count, (unsigned long)bigram_count, transition_logprob); fflush(stdout);
+		const wclass_t c_2 = ngram / cmd_args.num_classes;
+		const wclass_count_t c_1_count = count_arrays[0][c_1];
+		const wclass_count_t c_2_count = count_arrays[0][c_2];
+		//forward_transition_logprob  += log2(bigram_count / (double)c_1_count) * bigram_count;
+		//backward_transition_logprob += log2(bigram_count / (double)c_2_count) * bigram_count;
+		//const double forward_transition_prob  = pow((bigram_count / (double)c_1_count), bigram_count);
+		//const double backward_transition_prob = pow((bigram_count / (double)c_2_count), bigram_count);
+		//transition_logprob += log2(cmd_args.forward_lambda * forward_transition_prob + (1 - cmd_args.forward_lambda) * backward_transition_prob);
+		//transition_logprob += log2(((bigram_count / (double)c_1_count) * bigram_count) + ((bigram_count / (double)c_2_count) * bigram_count) ) - 1; // arithmetic mean of forward and backward probs
+		const double a = cmd_args.forward_lambda  * (bigram_count / (double)c_1_count);
+		const double b = backward_lambda * (bigram_count / (double)c_2_count);
+		transition_logprob += LOG2ADD(a,b) * bigram_count;
+		//printf("a=%g, b=%g, logadd(a,b)*bigram_count=%g\n", a, b, LOG2ADD(a,b) * bigram_count);
+		//printf("ngram=%u, c_1=%u, #(c_1)=%lu, c_2=%u, #(c_2)=%lu, #(c_1,c_2)=%lu, trans_prob=%g\n", ngram, c_1, (unsigned long)c_1_count, c_2, (unsigned long)c_2_count, (unsigned long)bigram_count, transition_logprob); fflush(stdout);
 	}
 
 	// Emission Probs
@@ -747,16 +759,18 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 	double emission_logprob = 0;
 	//#pragma omp parallel for reduce(+:emission_logprob)
 	for (word_id_t word = 0; word < model_metadata.type_count; word++) {
-		if (word == model_metadata.start_sent_id) // Don't tally emission prob for <s>
-			continue;
+		//if (word == model_metadata.start_sent_id) // Don't tally emission prob for <s>
+		//	continue;
 		const word_count_t word_count = word_counts[word];
 		const wclass_t class = word2class[word];
 		const wclass_count_t class_count = count_arrays[0][class];
 		emission_logprob += log2(word_count / (double)class_count) * word_count;
-		printf("word=%u, class=%u, emission_logprob=%g after += %g = log2(word_count=%lu / class_count=%u) * word_count=%lu\n", word, (unsigned int)class, emission_logprob, log2(word_count / (double)class_count) * word_count, (unsigned long)word_count, class_count, (unsigned long)word_count); fflush(stdout);
+		//printf("word=%u, class=%u, emission_logprob=%g after += %g = log2(word_count=%lu / class_count=%u) * word_count=%lu\n", word, (unsigned int)class, emission_logprob, log2(word_count / (double)class_count) * word_count, (unsigned long)word_count, class_count, (unsigned long)word_count); fflush(stdout);
 	}
 
+	//printf("emission_logprob=%g, forward_transition_logprob=%g, backward_transition_logprob=%g, LL=%g\n", emission_logprob, forward_transition_logprob, backward_transition_logprob, emission_logprob + (cmd_args.forward_lambda * forward_transition_logprob + (1 - cmd_args.forward_lambda) * backward_transition_logprob));
 	printf("emission_logprob=%g, transition_logprob=%g, LL=%g\n", emission_logprob, transition_logprob, emission_logprob + transition_logprob);
+	//return emission_logprob + (cmd_args.forward_lambda * forward_transition_logprob + (1 - cmd_args.forward_lambda) * backward_transition_logprob);
 	return emission_logprob + transition_logprob;
 }
 
@@ -811,9 +825,10 @@ double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sen
 			// Calculate transition probs
 			// The array for probs/weights is:  w_{i-2}  w_{i-1}  w_i  w_{i+1}  w_{i+2}
 			//float weights_class[] = {0.4, 0.16, 0.01, 0.1, 0.33};
-			float weights_class[] = {1.5, 0.59, 0.01, 0.4, 1.25}; // scaled so that the default bigram calculations sum to one. Hence faster for default usage.
+			//float weights_class[] = {1.5, 0.59, 0.01, 0.4, 1.25}; // scaled so that the default bigram calculations sum to one. Hence faster for default usage.
 			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
-			//float weights_class[] = {0.0, 0.99, 0.01, 0.0, 0.0};
+			//float weights_class[] = {0.0, 1.0, 0.0, 0.0, 0.0};
+			float weights_class[] = {0.0, 0.6, 0.0, 0.4, 0.0};
 			//float weights_class[] = {0.8, 0.19, 0.01, 0.0, 0.0};
 			//float weights_class[] = {0.69, 0.15, 0.01, 0.15, 0.0};
 			float order_probs[5] = {0};

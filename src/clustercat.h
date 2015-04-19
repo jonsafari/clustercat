@@ -70,6 +70,7 @@ typedef struct { // This is for an array pointing to this struct having a pointe
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
+	float           forward_lambda;
 	wclass_t        num_classes;
 	unsigned short  min_count : 12;
 	signed char     verbose : 4;      // Negative values increasingly suppress normal output
