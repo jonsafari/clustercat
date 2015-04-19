@@ -71,6 +71,7 @@ char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
 	unsigned long   max_tune_sents;
+	float           forward_lambda;
 	wclass_t        num_classes;
 	unsigned short  min_count : 12;
 	signed char     verbose : 4;      // Negative values increasingly suppress normal output
