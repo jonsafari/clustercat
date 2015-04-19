@@ -169,7 +169,7 @@ inline wclass_count_t map_find_count_fixed_width(struct_map_class *map[const], c
 	return local_count;
 }
 
-inline word_count_t map_update_count(struct_map_word **map, const char * restrict entry_key, const word_count_t count) { // Based on uthash's docs
+inline word_id_t map_update_count(struct_map_word **map, const char * restrict entry_key, const word_count_t count, const word_id_t word_id) { // Based on uthash's docs
 	struct_map_word *local_s;
 
 	#pragma omp critical
@@ -178,6 +178,7 @@ inline word_count_t map_update_count(struct_map_word **map, const char * restric
 		if (local_s == NULL) {
 			local_s = (struct_map_word *)malloc(sizeof(struct_map_word));
 			local_s->count = count;
+			local_s->word_id = word_id;
 			unsigned short strlen_entry_key = strlen(entry_key);
 			local_s->key = malloc(strlen_entry_key + 1);
 			strcpy(local_s->key, entry_key);
@@ -186,7 +187,7 @@ inline word_count_t map_update_count(struct_map_word **map, const char * restric
 			local_s->count += count;
 		}
 	}
-	return local_s->count;
+	return local_s->word_id;
 }
 
 inline word_count_t map_find_count(struct_map_word *map[const], const char * restrict entry_key) { // Based on uthash's docs
