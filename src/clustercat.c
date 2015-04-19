@@ -199,6 +199,8 @@ int main(int argc, char **argv) {
 	delete_all_bigram(&new_bigram_map);
 	delete_all_bigram(&new_bigram_map_rev);
 	memusage += bigram_memusage + bigram_rev_memusage;
+	free(sent_store_int);
+	memusage -= sizeof(struct_sent_int_info) * global_metadata.line_count;
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "in %'.2f CPU secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
@@ -243,7 +245,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Approximate mem usage at clustering: %'.1fMB (max was: %'.1fMB)\n", argv_0_basename, (double)memusage / 1048576, (double)memusage_max / 1048576); fflush(stderr);
 
-	cluster(cmd_args, global_metadata, sent_store_int, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
+	cluster(cmd_args, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
 	// Now print the final word2class mapping
 	if (cmd_args.verbose >= 0) {
@@ -269,7 +271,6 @@ int main(int argc, char **argv) {
 	free(word_bigrams);
 	free(word_list);
 	free(word_counts);
-	free(sent_store_int);
 	exit(0);
 }
 
@@ -733,31 +734,25 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 	// Transition Probs
 	double transition_logprob = 0;
 	// Bigrams
+	#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:transition_logprob)
 	for (word_bigram_count_t ngram = 0; ngram < (powi(cmd_args.num_classes, 2)); ngram++) {
 		const class_bigram_count_t bigram_count = count_arrays[1][ngram];
-		if (!bigram_count)
+		if (!bigram_count) // bigram doesn't exist in training set
 			continue;
 		const wclass_t c_1 = ngram % cmd_args.num_classes;
 		const wclass_t c_2 = ngram / cmd_args.num_classes;
 		const wclass_count_t c_1_count = count_arrays[0][c_1];
 		const wclass_count_t c_2_count = count_arrays[0][c_2];
-		//forward_transition_logprob  += log2(bigram_count / (double)c_1_count) * bigram_count;
-		//backward_transition_logprob += log2(bigram_count / (double)c_2_count) * bigram_count;
-		//const double forward_transition_prob  = pow((bigram_count / (double)c_1_count), bigram_count);
-		//const double backward_transition_prob = pow((bigram_count / (double)c_2_count), bigram_count);
-		//transition_logprob += log2(cmd_args.forward_lambda * forward_transition_prob + (1 - cmd_args.forward_lambda) * backward_transition_prob);
-		//transition_logprob += log2(((bigram_count / (double)c_1_count) * bigram_count) + ((bigram_count / (double)c_2_count) * bigram_count) ) - 1; // arithmetic mean of forward and backward probs
 		const double a = cmd_args.forward_lambda  * (bigram_count / (double)c_1_count);
 		const double b = backward_lambda * (bigram_count / (double)c_2_count);
 		transition_logprob += LOG2ADD(a,b) * bigram_count;
-		//printf("a=%g, b=%g, logadd(a,b)*bigram_count=%g\n", a, b, LOG2ADD(a,b) * bigram_count);
 		//printf("ngram=%u, c_1=%u, #(c_1)=%lu, c_2=%u, #(c_2)=%lu, #(c_1,c_2)=%lu, trans_prob=%g\n", ngram, c_1, (unsigned long)c_1_count, c_2, (unsigned long)c_2_count, (unsigned long)bigram_count, transition_logprob); fflush(stdout);
 	}
 
 	// Emission Probs
 	//long double emission_prob = 0;
 	double emission_logprob = 0;
-	//#pragma omp parallel for reduce(+:emission_logprob)
+	//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:emission_logprob)
 	for (word_id_t word = 0; word < model_metadata.type_count; word++) {
 		//if (word == model_metadata.start_sent_id) // Don't tally emission prob for <s>
 		//	continue;
@@ -768,130 +763,8 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 		//printf("word=%u, class=%u, emission_logprob=%g after += %g = log2(word_count=%lu / class_count=%u) * word_count=%lu\n", word, (unsigned int)class, emission_logprob, log2(word_count / (double)class_count) * word_count, (unsigned long)word_count, class_count, (unsigned long)word_count); fflush(stdout);
 	}
 
-	//printf("emission_logprob=%g, forward_transition_logprob=%g, backward_transition_logprob=%g, LL=%g\n", emission_logprob, forward_transition_logprob, backward_transition_logprob, emission_logprob + (cmd_args.forward_lambda * forward_transition_logprob + (1 - cmd_args.forward_lambda) * backward_transition_logprob));
-	printf("emission_logprob=%g, transition_logprob=%g, LL=%g\n", emission_logprob, transition_logprob, emission_logprob + transition_logprob);
-	//return emission_logprob + (cmd_args.forward_lambda * forward_transition_logprob + (1 - cmd_args.forward_lambda) * backward_transition_logprob);
+	//printf("emission_logprob=%g, transition_logprob=%g, LL=%g\n", emission_logprob, transition_logprob, emission_logprob + transition_logprob);
 	return emission_logprob + transition_logprob;
-}
-
-double query_int_sents_in_store(const struct cmd_args cmd_args, const struct_sent_int_info * const sent_store_int, const struct_model_metadata model_metadata, const word_count_t word_counts[const], const wclass_t word2class[const], char * word_list[restrict], const count_arrays_t count_arrays, const word_id_t temp_word, const wclass_t temp_class) {
-	double sum_log_probs = 0.0; // For perplexity calculation
-
-	unsigned long current_sent_num;
-	#pragma omp parallel for private(current_sent_num) num_threads(cmd_args.num_threads) reduction(+:sum_log_probs)
-	for (current_sent_num = 0; current_sent_num < model_metadata.line_count; current_sent_num++) {
-
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-		register word_id_t word_id;
-		wclass_t class_sent[STDIN_SENT_MAX_WORDS];
-
-		// Build array of classes
-		for (sentlen_t i = 0; i < sent_length; i++) { // loop over words
-			word_id = sent_store_int[current_sent_num].sent[i];
-			if (word_id == temp_word) { // This word matches the temp word
-				class_sent[i] = temp_class;
-			} else { // This word doesn't match temp word
-				class_sent[i] = word2class[word_id];
-			}
-		}
-
-		float sent_score = 0.0; // Initialize with identity element
-
-		const struct_sent_int_info * const sent_info = &sent_store_int[current_sent_num];
-
-
-		for (sentlen_t i = 1; i < sent_length; i++) {
-			const word_id_t word_i = sent_info->sent[i];
-			const wclass_t class_i = class_sent[i];
-			//wclass_t class_i_entry[CLASSLEN] = {0};
-			//class_i_entry[0] = class_i;
-			const word_count_t word_i_count = word_counts[word_i];
-			//const wclass_count_t class_i_count = map_find_count_fixed_width(class_map, class_i_entry);
-			const wclass_count_t class_i_count = count_arrays[0][class_i];
-			//float word_i_count_for_next_freq_score = word_i_count ? word_i_count : 0.2; // Using a very small value for unknown words messes up distribution
-			if (cmd_args.verbose > 3) {
-				printf("qry_snts_n_stor: i=%d\tcnt=%lu\tcls=%u\tcls_cnt=%d\tw_id=%u\tw=%s\n", i, (unsigned long)word_i_count, class_i, class_i_count, word_i, word_list[word_i]);
-				fflush(stdout);
-				if (class_i_count < word_i_count) { // Shouldn't happen
-					printf("Error: class_%hu_count=%u < word_id[%u]_count=%lu\n", class_i, class_i_count, word_i, (unsigned long)word_i_count); fflush(stderr);
-					exit(5);
-				}
-			}
-
-			// Class prob is transition prob * emission prob
-			const float emission_prob = word_i_count ? (float)word_i_count / (float)class_i_count :  1 / (float)class_i_count;
-
-
-			// Calculate transition probs
-			// The array for probs/weights is:  w_{i-2}  w_{i-1}  w_i  w_{i+1}  w_{i+2}
-			//float weights_class[] = {0.4, 0.16, 0.01, 0.1, 0.33};
-			//float weights_class[] = {1.5, 0.59, 0.01, 0.4, 1.25}; // scaled so that the default bigram calculations sum to one. Hence faster for default usage.
-			//float weights_class[] = {0.0, 0.0, 1.0, 0.0, 0.0};
-			//float weights_class[] = {0.0, 1.0, 0.0, 0.0, 0.0};
-			float weights_class[] = {0.0, 0.6, 0.0, 0.4, 0.0};
-			//float weights_class[] = {0.8, 0.19, 0.01, 0.0, 0.0};
-			//float weights_class[] = {0.69, 0.15, 0.01, 0.15, 0.0};
-			float order_probs[5] = {0};
-			order_probs[2] = class_i_count / (float)model_metadata.token_count; // unigram probs
-			float sum_weights = weights_class[2]; // unigram prob will always occur
-			float sum_probs = weights_class[2] * order_probs[2]; // unigram prob will always occur
-
-			//const float transition_prob = class_ngram_prob(cmd_args, count_arrays, class_map, i, class_i_count, class_sent, CLASSLEN, model_metadata, weights_class);
-			if ((cmd_args.max_array > 2) && (i > 1)) { // Need at least "<s> w_1" in history
-				order_probs[0] = count_arrays[2][ array_offset(&class_sent[i-2], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ]; // trigram probs
-				order_probs[0] = isnan(order_probs[0]) ? 0.0f : order_probs[0]; // If the bigram history is 0, result will be a -nan
-				sum_weights += weights_class[0];
-				sum_probs += weights_class[0] * order_probs[0];
-			} else {
-				weights_class[0] = 0.0;
-			}
-
-			// We'll always have at least "<s>" in history.  And we'll always have Vienna.
-			order_probs[1] = count_arrays[1][ array_offset(&class_sent[i-1], 2, cmd_args.num_classes) ] / (float)count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes) ]; // bigram probs
-			//printf("order_probs[1] = %u / %u; [%hu,%hu] \n", count_arrays[1][ array_offset(&class_sent[i], 2, cmd_args.num_classes) ], count_arrays[0][ array_offset(&class_sent[i], 1, cmd_args.num_classes)], class_sent[i-1], class_sent[i]);
-			sum_weights += weights_class[1];
-			sum_probs += weights_class[1] * order_probs[1];
-
-			if (i < sent_length-1) { // Need at least "</s>" to the right
-				order_probs[3] = count_arrays[1][ array_offset(&class_sent[i], 2, cmd_args.num_classes) ] / (float)count_arrays[0][ array_offset(&class_sent[i+1], 1, cmd_args.num_classes) ]; // future bigram probs
-				sum_weights += weights_class[3];
-				sum_probs += weights_class[3] * order_probs[3];
-			}
-
-			if ((cmd_args.max_array > 2) && (i < sent_length-2)) { // Need at least "w </s>" to the right
-			order_probs[4] = count_arrays[2][ array_offset(&class_sent[i], 3, cmd_args.num_classes) ] / (float)count_arrays[1][ array_offset(&class_sent[i+1], 2, cmd_args.num_classes) ]; // future trigram probs
-			order_probs[4] = isnan(order_probs[4]) ? 0.0f : order_probs[4]; // If the bigram history is 0, result will be a -nan
-				sum_weights += weights_class[4];
-				sum_probs += weights_class[4] * order_probs[4];
-			} else {
-				weights_class[4] = 0.0;
-			}
-
-			const float transition_prob = sum_probs / sum_weights;
-			const float class_prob = emission_prob * transition_prob;
-
-
-			if (cmd_args.verbose > 2) {
-				printf(" w_id=%u, w_i_cnt=%g, class_i=%u, class_i_count=%i, emission_prob=%g, transition_prob=%g, class_prob=%g, log2=%g, sum_probs=%g, sum_weights=%g\n", word_i, (float)word_i_count, class_i, class_i_count, emission_prob, transition_prob, class_prob, log2f(class_prob), sum_probs, sum_weights);
-				printf("transition_probs:\t");
-				fprint_arrayf(stdout, order_probs, 5, ","); fflush(stdout);
-				if (class_i_count > model_metadata.token_count) { // Shouldn't happen
-					printf("Error: prob of order max_ngram_used > 1;  %u/%lu\n", class_i_count, model_metadata.token_count); fflush(stderr);
-					exit(6);
-				}
-				if (! ((class_prob >= 0) && (class_prob <= 1))) {
-					printf("Error: prob is not within [0,1]  %g\n", class_prob); fflush(stderr);
-					exit(11);
-				}
-			}
-
-			sent_score += log2((double)class_prob); // Increment running sentence total;  we can use doubles for global-level scores
-
-		} // for i loop
-
-		sum_log_probs += sent_score; // Increment running test set total, for perplexity
-	} // Done querying current sentence
-	return sum_log_probs;
 }
 
 void print_sent_info(struct_sent_info * restrict sent_info) {

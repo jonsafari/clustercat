@@ -115,7 +115,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 	return delta;
 }
 
-void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_sent_int_info * const sent_store_int, const word_count_t word_counts[const], char * word_list[restrict], wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
+void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_count_t word_counts[const], char * word_list[restrict], wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	unsigned long steps = 0;
 
 	if (cmd_args.class_algo == EXCHANGE  ||  cmd_args.class_algo == EXCHANGE_BROWN) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
@@ -134,8 +134,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				class_sum += count_arrays[0][i];
 			} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
 		}
-		double best_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, count_arrays, -1, 1);
-		//double best_log_prob = training_data_log_likelihood(cmd_args, model_metadata, count_arrays, word_counts, word2class);
+		double best_log_prob = training_data_log_likelihood(cmd_args, model_metadata, count_arrays, word_counts, word2class);
 
 		if (cmd_args.verbose >= -1)
 			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
@@ -153,8 +152,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			double queried_log_prob = 0.0;
 			if (model_metadata.token_count < 1e8  || cycle == cmd_args.tune_cycles || cycle == 2 || cycle == 3) { // For large training sets, only calculate PP on the interesting iterations
 				tally_class_ngram_counts(cmd_args, model_metadata, word_bigrams, word2class, temp_count_arrays);
-				queried_log_prob = query_int_sents_in_store(cmd_args, sent_store_int, model_metadata, word_counts, word2class, word_list, temp_count_arrays, -1, 1);
-				//queried_log_prob = training_data_log_likelihood(cmd_args, model_metadata, temp_count_arrays, word_counts, word2class);
+				queried_log_prob = training_data_log_likelihood(cmd_args, model_metadata, temp_count_arrays, word_counts, word2class);
 			}
 
 			// ETA stuff
