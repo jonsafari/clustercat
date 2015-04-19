@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	//sort_by_count(&word_map); // Speeds up lots of stuff later
+	sort_by_count(&word_map); // Speeds up lots of stuff later??
 	get_keys(&word_map, word_list);
 
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * global_metadata.line_count);
@@ -469,7 +469,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 	char **local_word_list = (char **)malloc(model_metadata->type_count * sizeof(char*));
 	//char * local_word_list[model_metadata->type_count];
 	if (vocab_size != get_keys(word_map, local_word_list)) {
-		printf("Error: model_metadata->type_count != get_keys()\n"); fflush(stderr);
+		printf("Error: model_metadata->type_count (%lu) != get_keys() (%lu)\n", (long unsigned) vocab_size, (long unsigned) get_keys(word_map, local_word_list) ); fflush(stderr);
 		exit(4);
 	}
 
