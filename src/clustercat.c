@@ -117,8 +117,8 @@ int main(int argc, char **argv) {
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
 	populate_word_ids(&ngram_map, word_list, global_metadata.type_count);
-	global_metadata.start_sent_id = map_find_int(&ngram_map, "<s>", -1); // need this for tallying emission probs
-	global_metadata.start_sent_id = map_find_int(&ngram_map, "</s>", -1); // need this for tallying emission probs
+	global_metadata.start_sent_id = map_find_id(&ngram_map, "<s>", -1); // need this for tallying emission probs
+	global_metadata.start_sent_id = map_find_id(&ngram_map, "</s>", -1); // need this for tallying emission probs
 
 	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * global_metadata.line_count);
 	if (sent_store_int == NULL) {
@@ -386,7 +386,7 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 
 size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
 	size_t local_memusage = 0;
-	const word_id_t unk_id = map_find_int(ngram_map, UNKNOWN_WORD, -1);
+	const word_id_t unk_id = map_find_id(ngram_map, UNKNOWN_WORD, -1);
 
 	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
 		if (sent_buffer[i] == NULL) // No more sentences in buffer
@@ -402,7 +402,7 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 		pch = strtok(sent_i, TOK_CHARS);
 
 		// Initialize first element in sentence to <s>
-		sent_int_temp[0] = map_find_int(ngram_map, "<s>", -1);
+		sent_int_temp[0] = map_find_id(ngram_map, "<s>", -1);
 
 		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
 
@@ -412,14 +412,14 @@ size_t  sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict 
 				break;
 			}
 
-			sent_int_temp[w_i] = map_find_int(ngram_map, pch, unk_id);
+			sent_int_temp[w_i] = map_find_id(ngram_map, pch, unk_id);
 			//printf("pch=%s, int=%u\n", pch, sent_int_temp[w_i]);
 
 			pch = strtok(NULL, TOK_CHARS);
 		}
 
 		// Initialize first element in sentence to </s>
-		sent_int_temp[w_i] = map_find_int(ngram_map, "</s>", -1);
+		sent_int_temp[w_i] = map_find_id(ngram_map, "</s>", -1);
 
 		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
 		sent_store_int[i].length = sent_length;
@@ -464,7 +464,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 	char **local_word_list = (char **)malloc(model_metadata->type_count * sizeof(char*));
 	//char * local_word_list[model_metadata->type_count];
 	if (vocab_size != get_keys(ngram_map, local_word_list)) {
-		printf("Error: model_metadata->type_count != get_keys()\n"); fflush(stderr);
+		printf("Error: model_metadata->type_count (%lu) != get_keys() (%lu)\n", (long unsigned) vocab_size, (long unsigned) get_keys(ngram_map, local_word_list) ); fflush(stderr);
 		exit(4);
 	}
 
