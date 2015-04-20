@@ -266,13 +266,13 @@ word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 
 word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]) { // most useful if map is already sorted by count; then you can directly map from old id to new id.
 	struct_map_word *entry, *tmp;
-	word_id_t number_of_keys = 3; // 0-2 are reserved for <unk>, <s>, and </s>
+	word_id_t number_of_keys = 0; // 0-2 are reserved for <unk>, <s>, and </s>
 
 	HASH_ITER(hh, *map, entry, tmp) {
 		//word_ids[number_of_keys] = entry->word_id; // Build-up array of word_id's, from new id to old one
 		const word_id_t word_id = entry->word_id;
-		if (word_id < 3) // don't change id's for <unk>, <s>, or </s>
-			continue;
+		//if (word_id < 3) // don't change id's for <unk>, <s>, or </s>
+		//	continue;
 		word_ids[word_id] = number_of_keys; // Build-up array of word_id's, from old id to new one
 		//printf("get_ids: old_id=%u, new_id=%u\n", word_id, number_of_keys); fflush(stdout);
 		number_of_keys++;

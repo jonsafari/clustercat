@@ -104,15 +104,14 @@ int main(int argc, char **argv) {
 	word_id_t * restrict word_id_remap = malloc(sizeof(word_id_t) * input_model_metadata.type_count);
 	get_ids(&word_map, word_id_remap);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
-	word_id_remap[0] = 0; word_id_remap[1] = 1; word_id_remap[2] = 2; // Keep ID for <unk>, <s>, and </s>
-	global_metadata.start_sent_id = 1; // need this for tallying emission probs
-	global_metadata.start_sent_id = 2; // need this for tallying emission probs
+	//word_id_remap[0] = 0; word_id_remap[1] = 1; word_id_remap[2] = 2; // Keep ID for <unk>, <s>, and </s>
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	sort_by_id(&word_map);
+	reassign_word_ids(&word_map, word_list, word_id_remap);
 	get_keys(&word_map, word_list);
+	sort_by_id(&word_map);
 
 
 	// Check or set number of classes
@@ -134,12 +133,13 @@ int main(int argc, char **argv) {
 	init_clusters(cmd_args, global_metadata.type_count, word2class, word_counts, word_list);
 	if (initial_class_file != NULL)
 		import_class_file(&word_map, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
-	delete_all(&word_map);
-
 
 	// Remap word_id's in initial_bigram_map
 	printf("remap_and_rev_bigram_map() ... "); fflush(stdout);
 	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap);
+	global_metadata.start_sent_id = map_find_id(&word_map, "<s>", -1);; // need this for tallying emission probs
+	global_metadata.end_sent_id   = map_find_id(&word_map, "</s>", -1);; // need this for tallying emission probs
+	delete_all(&word_map);
 	printf("done\n"); fflush(stdout);
 	printf("6: init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
 	printf("6: new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
@@ -422,16 +422,16 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		exit(4);
 	}
 
-	unsigned long new_id = 3;
+	unsigned long new_id = 0;
 	for (unsigned long word_i = 0; word_i < vocab_size; word_i++, new_id++) {
 		char * word = local_word_list[word_i];
-		if ((!strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) || (!strncmp(word, "<s>", MAX_WORD_LEN)) || (!strncmp(word, "</s>", MAX_WORD_LEN))) { // Deal with <unk>, <s>, and </s>
-			new_id--;
-			continue;
-		}
+		//if ((!strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) || (!strncmp(word, "<s>", MAX_WORD_LEN)) || (!strncmp(word, "</s>", MAX_WORD_LEN))) { // Deal with <unk>, <s>, and </s>
+		//	//new_id--;
+		//	continue;
+		//}
 
 		unsigned long word_i_count = map_find_count(word_map, word);  // We'll use this a couple times
-		if ((word_i_count < cmd_args.min_count) && (strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
+		if ((word_i_count < cmd_args.min_count) && (strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) && (strncmp(word, "<s>", MAX_WORD_LEN)) &&  (strncmp(word, "</s>", MAX_WORD_LEN))) { // Don't delete <unk>
 			number_of_deleted_words++;
 			if (cmd_args.verbose > 3)
 				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%lu\n", word, word_i, (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
@@ -442,13 +442,14 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 			HASH_FIND_STR(*word_map, word, local_s);
 			delete_entry(word_map, local_s);
 		} else { // Keep word
-			//printf("Keeping word: %s (old id=%u, new id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", word, map_find_id(word_map, word), new_id, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
-			map_set_word_id(word_map, word, new_id); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+			//printf("Keeping word: %s (old id=%u, new id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", word, map_find_id(word_map, word, -1), new_id, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
+			//map_set_word_id(word_map, word, new_id); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+			//printf("  Kept word: %s (new map id=%u, new_id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", word, map_find_id(word_map, word, -1), new_id, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
 		}
 	}
-	map_set_word_id(word_map, UNKNOWN_WORD, 0); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
-	map_set_word_id(word_map, "<s>", 1); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
-	map_set_word_id(word_map, "</s>", 2); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	//map_set_word_id(word_map, UNKNOWN_WORD, 0); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	//map_set_word_id(word_map, "<s>", 1); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	//map_set_word_id(word_map, "</s>", 2); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
 
 	free(local_word_list);
 	return number_of_deleted_words;
@@ -605,7 +606,7 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struc
 	struct_map_bigram *entry, *tmp;
 	HASH_ITER(hh, bigram_map, entry, tmp) {
 		word_2 = (entry->key).word_2;
-		//printf("[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
+		//printf("\n[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
 		if (word_2 == word_2_last) { // Within successive entry; ie. 2nd entry or greater
 			word_buffer[length]  = (entry->key).word_1;
 			count_buffer[length] = entry->count;
@@ -623,7 +624,7 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struc
 			word_bigrams[word_2_last].bigram_counts = malloc(length * sizeof(word_bigram_count_t));
 			memcpy(word_bigrams[word_2_last].bigram_counts, count_buffer , length * sizeof(word_bigram_count_t));
 			memusage += length * sizeof(word_bigram_count_t);
-			//printf("\nword_2_last=%u, length=%u word_1s: ", word_2_last, length);
+			//printf("word_2_last=%u, length=%u word_1s: ", word_2_last, length);
 			//for (unsigned int i = 0; i < length; i++) {
 			//	printf("<%u,%u> ", word_bigrams[word_2_last].predecessors[i], word_bigrams[word_2_last].bigram_counts[i]);
 			//}
