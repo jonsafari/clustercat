@@ -4,6 +4,68 @@
 #include "clustercat-array.h"
 #include "clustercat-io.h"
 
+struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_map, struct_map_bigram ** initial_bigram_map, size_t *memusage) {
+	struct_model_metadata model_metadata = {0};
+	char curr_word[MAX_WORD_LEN + 1]; curr_word[MAX_WORD_LEN] = '\0';
+	int ch, prev_ch = 0;
+	unsigned int curr_word_pos = 0;
+	map_update_count(initial_word_map, UNKNOWN_WORD, 0, 0); // initialize entry for <unk>, <s>, and </s>
+	map_update_count(initial_word_map, "<s>", 0, 1);
+	map_update_count(initial_word_map, "</s>", 0, 2);
+	const word_id_t start_id = map_find_id(initial_word_map, "<s>", 1);
+	const word_id_t end_id = map_find_id(initial_word_map, "</s>", 2);
+	unsigned int prev_word_id = start_id;
+	model_metadata.type_count = 3; // start with <unk>, <s>, and </s>, and <unk>.
+
+	while (!feof(file)) {
+		ch = getc(file);
+		if (ch == ' ' || ch == '\t' || ch == '\n') { // end of a word
+			if (prev_ch == ' ' || prev_ch == 0) { // ignore multiple spaces or leading spaces
+				prev_ch = ' ';
+				continue;
+			} else { // Finished reading a word
+				model_metadata.token_count++;
+
+				// increment current word in word map
+				curr_word[curr_word_pos] = '\0'; // terminate word
+				curr_word_pos = 0;
+				const word_id_t curr_word_id = map_increment_count(initial_word_map, curr_word, model_metadata.type_count); // <unk>'s word_id is set to 0.
+
+				if (curr_word_id == model_metadata.type_count) // previous call to map_increment_count() had a new word
+					model_metadata.type_count++;
+
+				// increment previous+current bigram in bigram map
+				const struct_word_bigram bigram = {prev_word_id, curr_word_id};
+				map_increment_bigram(initial_bigram_map, &bigram);
+
+				//printf("process_input(): curr_word=<<%s>>; curr_word_id=%u, prev_word_id=%u\n", curr_word, curr_word_id, prev_word_id); fflush(stdout);
+				if (ch == '\n') { // end of line
+					const struct_word_bigram bigram = {curr_word_id, end_id};
+					map_increment_bigram(initial_bigram_map, &bigram); // increment previous+</s> bigram in bigram map
+					prev_ch = 0;
+					prev_word_id = start_id;
+					model_metadata.line_count++;
+				} else {
+					prev_word_id = curr_word_id;
+				}
+
+			}
+		} else { // normal character;  within a word
+			if (curr_word_pos > MAX_WORD_LEN) { // word is too long; do nothing until space or newline
+				continue;
+			} else {
+				curr_word[curr_word_pos++] = ch;
+				prev_ch = ch;
+			}
+		}
+	}
+
+	// Set counts of <s> and </s> once, based on line_count
+	map_update_count(initial_word_map, "<s>", model_metadata.line_count, 1);
+	map_update_count(initial_word_map, "</s>", model_metadata.line_count, 2);
+	return model_metadata;
+}
+
 long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_sents_in_buffer, size_t * memusage) {
 	char line_in[STDIN_SENT_MAX_CHARS];
 	long sent_buffer_num = 0;
