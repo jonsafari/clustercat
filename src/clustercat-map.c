@@ -1,6 +1,7 @@
 #include "clustercat-map.h"
 
-inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
+inline bool map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
+	bool is_new = 0;
 	struct_map_bigram *local_s;
 	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
 	if (local_s == NULL) {
@@ -11,7 +12,9 @@ inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigr
 		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
 	} else {
 		(local_s->count)++;
+		is_new = false;
 	}
+	return is_new;
 }
 
 inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram * bigram, const word_bigram_count_t count) {
@@ -43,6 +46,7 @@ void map_print_bigrams(struct_map_bigram **bigram_map, char **word_list) {
 		if (w_1 == (word_id_t)-1 || w_2 == (word_id_t)-1) // Don't print dummy values
 			continue;
 		printf(" {%s=%u, %s=%u}: #=%u\n", word_list[w_1], w_1, word_list[w_2], w_2, count);
+		//printf(" {%u, %u}: #=%u\n", w_1, w_2, count); fflush(stdout);
 	}
 	printf("\n"); fflush(stdout);
 }
@@ -259,6 +263,7 @@ word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 		unsigned short wlen = strlen(entry->key);
 		keys[number_of_keys] = (char *) malloc(wlen + 1);
 		strcpy(keys[number_of_keys], entry->key);
+		//printf("key=%s, i=%lu, count=%u\n", entry->key, (unsigned long)number_of_keys, entry->count);
 		number_of_keys++;
 	}
 	return number_of_keys;

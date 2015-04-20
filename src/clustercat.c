@@ -16,7 +16,7 @@
 #include "clustercat-cluster.h"				// cluster()
 #include "clustercat-dbg.h"					// for printing out various complex data structures
 #include "clustercat-import-class-file.h"	// import_class_file()
-#include "clustercat-io.h"					// fill_sent_buffer()
+#include "clustercat-io.h"					// process_input()
 #include "clustercat-math.h"				// perplexity(), powi()
 #include "clustercat-ngram-prob.h"			// class_ngram_prob()
 
@@ -85,10 +85,9 @@ int main(int argc, char **argv) {
 	FILE *in_train_file = stdin;
 	if (in_train_file_string)
 		in_train_file = fopen(in_train_file_string, "r");
-	size_t sent_buffer_memusage = 0;
-	const struct_model_metadata input_model_metadata = process_input(in_train_file, &word_map, &initial_bigram_map, &sent_buffer_memusage);
-	//const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
-	memusage += sent_buffer_memusage;
+	size_t input_memusage = 0;
+	const struct_model_metadata input_model_metadata = process_input(in_train_file, &word_map, &initial_bigram_map, &input_memusage);
+	memusage += input_memusage;
 	fclose(in_train_file);
 
 	clock_t time_input_processed = clock();
@@ -135,17 +134,17 @@ int main(int argc, char **argv) {
 		import_class_file(&word_map, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 
 	// Remap word_id's in initial_bigram_map
-	printf("remap_and_rev_bigram_map() ... "); fflush(stdout);
 	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap);
 	global_metadata.start_sent_id = map_find_id(&word_map, "<s>", -1);; // need this for tallying emission probs
 	global_metadata.end_sent_id   = map_find_id(&word_map, "</s>", -1);; // need this for tallying emission probs
-	delete_all(&word_map);
-	printf("done\n"); fflush(stdout);
-	printf("6: init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
-	printf("6: new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
-	printf("6: new_bigram_map_rev hash_count=%u\n", HASH_COUNT(new_bigram_map_rev)); fflush(stdout);
+
+	//printf("init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
+	//printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
 	free(word_id_remap);
-	delete_all_bigram(&initial_bigram_map);
+	memusage -= sizeof(word_id_t) * input_model_metadata.type_count;
+	delete_all(&word_map); // static
+	delete_all_bigram(&initial_bigram_map); // static
+	memusage -= input_memusage;
 
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
