@@ -387,6 +387,21 @@ void populate_word_ids(struct_map_word **word_map, char * restrict word_list[con
 	}
 }
 
+void reassign_word_ids(struct_map_word **word_map, char * restrict word_list[restrict], word_id_t * restrict word_id_remap) {
+	sort_by_count(word_map);
+	struct_map_word *entry, *tmp;
+	word_id_t i = 0;
+
+	HASH_ITER(hh, *word_map, entry, tmp) {
+		const word_id_t word_id = entry->word_id;
+		char * word = entry->key;
+		word_id_remap[word_id] = i; // set remap
+		word_list[i] = entry->key;
+		map_set_word_id(word_map, word, i); // reset word_id in word_map
+		i++;
+	}
+}
+
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** word_map, word_id_t * restrict word_id_remap) { // word_map must already be sorted by word frequency!
 
 	unsigned long number_of_deleted_words = 0;

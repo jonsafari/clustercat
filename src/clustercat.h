@@ -87,6 +87,7 @@ struct cmd_args {
 
 size_t sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], const word_id_t type_count);
+void reassign_word_ids(struct_map_word **word_map, char * restrict word_list[restrict], word_id_t * restrict word_id_remap);
 void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], word_count_t word_counts[restrict], const word_id_t type_count);
 
 void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t class_sent[const], short start_position, const sentlen_t i);
