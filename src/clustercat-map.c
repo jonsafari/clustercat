@@ -40,6 +40,8 @@ void map_print_bigrams(struct_map_bigram **bigram_map, char **word_list) {
 		bigram_key     = entry->key;
 		w_1            = bigram_key.word_1;
 		w_2            = bigram_key.word_2;
+		if (w_1 == (word_id_t)-1 || w_2 == (word_id_t)-1) // Don't print dummy values
+			continue;
 		printf(" {%s=%u, %s=%u}: #=%u\n", word_list[w_1], w_1, word_list[w_2], w_2, count);
 	}
 	printf("\n"); fflush(stdout);
