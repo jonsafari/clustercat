@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
 
-	printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
+	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
 	parse_cmd_args(argc, argv, usage, &cmd_args);
 
 	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN)
