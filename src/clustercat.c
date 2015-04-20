@@ -673,6 +673,8 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 		//if (word == model_metadata.start_sent_id) // Don't tally emission prob for <s>
 		//	continue;
 		const word_count_t word_count = word_counts[word];
+		if (!word_count) // Don't tally emission prob for <unk> if min-count is 1
+			continue;
 		const wclass_t class = word2class[word];
 		const wclass_count_t class_count = count_arrays[0][class];
 		emission_logprob += log2(word_count / (double)class_count) * word_count;
