@@ -26,7 +26,6 @@
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
 void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
-void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo           = NULL;
 char * restrict in_train_file_string = NULL;
 char * restrict out_file_string      = NULL;
@@ -480,89 +479,6 @@ void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model
 	}
 }
 
-unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer) {
-	unsigned long token_count = 0;
-	char local_sent_copy[STDIN_SENT_MAX_CHARS];
-	local_sent_copy[STDIN_SENT_MAX_CHARS-1] = '\0'; // Ensure at least last element of array is terminating character
-
-	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_CHARS-2); // Strtok, which is used later, is destructive
-		token_count += process_str_sent(local_sent_copy);
-	}
-
-	return token_count;
-}
-
-unsigned long process_str_sent(char * restrict sent_str) { // Uses global word_map
-	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
-		return 0;
-
-	struct_sent_info sent_info = {0};
-	sent_info.sent = malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
-
-	// We could have built up the word n-gram counts directly from sent_str, but it's
-	// the only one out of the three models we're building that we can do this way, and
-	// it's simpler to have a more uniform way of building these up.
-
-	tokenize_sent(sent_str, &sent_info);
-	const unsigned long token_count = sent_info.length;
-	//if (cmd_args.verbose > 2) {
-	//	print_sent_info(&sent_info);
-	//	fflush(stdout);
-	//}
-
-	register sentlen_t i;
-	for (i = 0; i < sent_info.length; i++)
-		map_increment_count(&word_map, sent_info.sent[i], 0);
-
-	free(sent_info.sent);
-	return token_count;
-}
-
-
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
-	// Stupid strtok is destructive
-	char * restrict pch = NULL;
-	pch = strtok(sent_str, TOK_CHARS);
-
-	// Initialize first element in sentence to <s>
-	sent_info->sent[0] = "<s>";
-	sent_info->word_lengths[0]  = strlen("<s>");
-
-	sentlen_t w_i = 1; // Word 0 is <s>
-
-	for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
-		if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-			fprintf(stderr, "%s: Notice: Truncating pathologically-long line starting with: \"%s %s %s %s %s %s ...\"\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
-			break;
-		}
-
-		sent_info->sent[w_i] = pch;
-		sent_info->word_lengths[w_i] = strlen(pch);
-		//printf("pch=%s; len=%u\n", pch, sent_info->word_lengths[w_i]);
-
-		if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
-			pch[MAX_WORD_LEN] = '\0';
-			sent_info->word_lengths[w_i] = MAX_WORD_LEN;
-			fprintf(stderr, "%s: Notice: Truncating pathologically-long word '%s'\n", argv_0_basename, pch);
-		}
-
-		pch = strtok(NULL, TOK_CHARS);
-	}
-
-	// Initialize last element in sentence to </s>
-	sent_info->sent[w_i] = "</s>";
-	sent_info->word_lengths[w_i]  = strlen("</s>");
-	sent_info->length = w_i + 1; // Include <s>
-}
-
-// Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
-void free_sent_info(struct_sent_info sent_info) {
-	for (sentlen_t i = 1; i < sent_info.length-1; ++i) // Assumes word_0 is <s> and word_sentlen is </s>, which weren't malloc'd
-		free(sent_info.sent[i]);
-
-	free(sent_info.sent);
-}
 
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]) {
 	register unsigned long word_i = 0;
@@ -698,14 +614,6 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 
 	//printf("emission_logprob=%g, transition_logprob=%g, LL=%g\n", emission_logprob, transition_logprob, emission_logprob + transition_logprob);
 	return emission_logprob + transition_logprob;
-}
-
-void print_sent_info(struct_sent_info * restrict sent_info) {
-	printf("struct sent_info { length = %u\n", sent_info->length);
-	for (sentlen_t i = 0; i < sent_info->length; i++) {
-		printf(" i=%u\twlen=%i\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent[i]);
-	}
-	printf("}\n");
 }
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays) {
