@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	sort_by_count(&word_map); // Speeds up lots of stuff later??
+	sort_by_id(&word_map);
 	get_keys(&word_map, word_list);
 
 
