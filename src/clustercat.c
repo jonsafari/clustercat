@@ -573,7 +573,7 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struc
 	// Build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
 
-	//sort_bigrams(&map_bigram); // really speeds up the next step
+	sort_bigrams(&bigram_map);
 
 	register size_t memusage = 0;
 	register word_id_t word_2;
