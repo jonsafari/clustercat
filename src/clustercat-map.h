@@ -85,6 +85,7 @@ word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]);
 
 void sort_by_class(struct_map_word_class **map);
 void sort_by_key(struct_map_word_class **map);
+void sort_by_id(struct_map_word **map);
 void sort_by_count(struct_map_word **map);
 void word_class_sort_by_count(struct_map_word_class **map);
 void sort_bigrams(struct_map_bigram **map);

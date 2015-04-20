@@ -345,6 +345,14 @@ void sort_by_count(struct_map_word **map) { // Based on uthash's docs
 	HASH_SORT(*map, count_sort);
 }
 
+int id_sort(struct_map_word *a, struct_map_word *b) {
+	return (a->word_id - b->word_id); // sort ascending
+}
+
+void sort_by_id(struct_map_word **map) {
+	HASH_SORT(*map, id_sort);
+}
+
 int word_class_count_sort(struct_map_word_class *a, struct_map_word_class *b) {
 	return (b->word_count - a->word_count); // sort descending: most frequent to least frequent
 }

@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	sort_by_count(&word_map); // Speeds up lots of stuff later
+	sort_by_id(&word_map);
 	get_keys(&word_map, word_list);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
