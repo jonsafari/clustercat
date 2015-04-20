@@ -114,18 +114,6 @@ int main(int argc, char **argv) {
 	sort_by_count(&word_map); // Speeds up lots of stuff later??
 	get_keys(&word_map, word_list);
 
-	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * global_metadata.line_count);
-	if (sent_store_int == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents\n", argv_0_basename); fflush(stderr);
-		exit(8);
-	}
-	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
-	//const size_t memusage_max = memusage;
-	////memusage += sent_buffer2sent_store_int(&word_map, sent_buffer, sent_store_int, global_metadata.line_count);
-	//// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
-	////memusage -= sent_buffer_memusage;
-	//memusage -= sizeof(void *) * cmd_args.max_tune_sents;
-
 
 	// Check or set number of classes
 	if (cmd_args.num_classes >= global_metadata.type_count) { // User manually set number of classes is too low
@@ -199,7 +187,6 @@ int main(int argc, char **argv) {
 	delete_all_bigram(&new_bigram_map);
 	delete_all_bigram(&new_bigram_map_rev);
 	memusage += bigram_memusage + bigram_rev_memusage;
-	free(sent_store_int);
 	memusage -= sizeof(struct_sent_int_info) * global_metadata.line_count;
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= -1)
@@ -386,59 +373,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			exit(2);
 		}
 	}
-}
-
-size_t  sent_buffer2sent_store_int(struct_map_word **word_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
-	size_t local_memusage = 0;
-	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD, -1);
-
-	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
-		if (sent_buffer[i] == NULL) // No more sentences in buffer
-			break;
-
-		char * restrict sent_i = sent_buffer[i];
-		//printf("sent[%lu]=<<%s>>\n", i, sent_buffer[i]); fflush(stdout);
-
-		word_id_t sent_int_temp[SENT_LEN_MAX];
-
-		// Stupid strtok is destructive
-		char * restrict pch = NULL;
-		pch = strtok(sent_i, TOK_CHARS);
-
-		// Initialize first element in sentence to <s>
-		sent_int_temp[0] = map_find_id(word_map, "<s>", -1);
-
-		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
-
-		for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
-			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-				//fprintf(stderr, "%s: Warning: Line %lu length at %u. Truncating pathologically-long line starting with: \"%s ...\"\n", argv_0_basename, i+1, w_i, sent_i);
-				break;
-			}
-
-			sent_int_temp[w_i] = map_find_id(word_map, pch, unk_id);
-			//printf("pch=%s, int=%u\n", pch, sent_int_temp[w_i]);
-
-			pch = strtok(NULL, TOK_CHARS);
-		}
-
-		// Initialize first element in sentence to </s>
-		sent_int_temp[w_i] = map_find_id(word_map, "</s>", -1);
-
-		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
-		sent_store_int[i].length = sent_length;
-
-		// Now that we know the actual sentence length, we can allocate the right amount for the sentence
-		sent_store_int[i].sent = malloc(sizeof(word_id_t) * sent_length);
-
-		local_memusage += sizeof(word_id_t) * sent_length;
-
-		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
-		memcpy(sent_store_int[i].sent, sent_int_temp, sizeof(word_id_t) * sent_length);
-
-		free(sent_i); // Free-up string-based sentence
-	}
-	return local_memusage;
 }
 
 void build_word_count_array(struct_map_word **word_map, char * restrict word_list[const], word_count_t word_counts[restrict], const word_id_t type_count) {
@@ -638,24 +572,6 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struc
 
 	// Build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
-
-	//struct_map_bigram *map_bigram = NULL;
-	//struct_word_bigram bigram;
-
-	//for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
-	//	register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-
-	//	for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
-	//		if (reverse) {
-	//			bigram.word_2 = sent_store_int[current_sent_num].sent[i-1];
-	//			bigram.word_1 = sent_store_int[current_sent_num].sent[i];
-	//		} else { // Normal direction
-	//			bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
-	//			bigram.word_2 = sent_store_int[current_sent_num].sent[i];
-	//		}
-	//		map_increment_bigram(&map_bigram, &bigram);
-	//	}
-	//}
 
 	//sort_bigrams(&map_bigram); // really speeds up the next step
 
