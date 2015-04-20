@@ -28,6 +28,23 @@ inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram 
 	}
 }
 
+void map_print_bigrams(struct_map_bigram **bigram_map, char **word_list) {
+	struct_map_bigram *entry, *tmp;
+	struct_word_bigram bigram_key;
+	word_id_t w_1, w_2;
+	word_bigram_count_t count;
+
+	printf("bigram_map:\n");
+	HASH_ITER(hh, *bigram_map, entry, tmp) {
+		count          = entry->count;
+		bigram_key     = entry->key;
+		w_1            = bigram_key.word_1;
+		w_2            = bigram_key.word_2;
+		printf(" {%s=%u, %s=%u}: #=%u\n", word_list[w_1], w_1, word_list[w_2], w_2, count);
+	}
+	printf("\n"); fflush(stdout);
+}
+
 void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram ** new_bigram_map, struct_map_bigram ** new_bigram_map_rev, word_id_t * restrict word_id_remap) {
 	// Iterates through initial bigram hash map and builds a new hash map based on the mapping of old word id's to new ids.  Alongside this, it also builds a reversed counterpart.
 	struct_map_bigram *entry, *tmp;
@@ -44,7 +61,7 @@ void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_ma
 		w_2            = word_id_remap[orig_bigram.word_2];
 		new_bigram     = (struct_word_bigram) {w_1, w_2};
 		new_bigram_rev = (struct_word_bigram) {w_2, w_1};
-		//printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, org_bigram.word_1, w_1, orig_bigram.word_2, w_2); fflush(stdout);
+		//printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, orig_bigram.word_1, w_1, orig_bigram.word_2, w_2); fflush(stdout);
 
 		//#pragma omp parallel sections // Both bigram listing and reverse bigram listing can be done in parallel
 		{
