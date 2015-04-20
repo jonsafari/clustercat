@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
 	argv_0_basename = basename(argv[0]);
 	get_usage_string(usage, USAGE_LEN); // This is a big scary string, so build it elsewhere
 
-	printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
+	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
 	parse_cmd_args(argc, argv, usage, &cmd_args);
 
 	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN)
@@ -115,7 +115,8 @@ int main(int argc, char **argv) {
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	sort_by_id(&word_map);
+	//sort_by_id(&word_map);
+	sort_by_count(&word_map);
 	get_keys(&word_map, word_list);
 
 	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
