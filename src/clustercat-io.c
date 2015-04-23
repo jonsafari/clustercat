@@ -22,17 +22,32 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 
 	while (!feof(file)) {
 		ch = getc(file);
-		//printf("ch='%c; prev_ch='%c'\n", ch, prev_ch); fflush(stdout);
+		//printf("«%c» ", ch); fflush(stdout);
 		if (ch == ' ' || ch == '\t' || ch == '\n') { // end of a word
-			if (prev_ch == ' ' || prev_ch == 0) { // ignore multiple spaces or leading spaces
+			//if (prev_ch == ' ' || prev_ch == 0) { // ignore multiple spaces or leading spaces
+			if (0) {
 				prev_ch = ' ';
 				continue;
 			} else { // Finished reading a word
-				model_metadata.token_count++;
 
-				// increment current word in word map
 				curr_word[curr_word_pos] = '\0'; // terminate word
+				if (!strncmp(curr_word, "", 1)) { // ignore empty words, due to leading, trailing, and multiple spaces
+					//printf("skipping empty word; ch=«%c»\n", ch); fflush(stdout);
+					if (ch == '\n') { // trailing spaces require more stuff to do
+						const struct_word_bigram bigram = {prev_word_id, end_id};
+						if (map_increment_bigram(initial_bigram_map, &bigram)) // increment previous+</s> bigram in bigram map
+							*memusage += sizeof_struct_map_bigram;
+						prev_ch = 0;
+						chars_in_sent = 0;
+						prev_word_id = start_id;
+						model_metadata.line_count++;
+					}
+					continue;
+				}
+				//printf("curr_word=%s, prev_id=%u\n", curr_word, prev_word_id); fflush(stdout);
+				model_metadata.token_count++;
 				curr_word_pos = 0;
+				// increment current word in word map
 				const word_id_t curr_word_id = map_increment_count(initial_word_map, curr_word, model_metadata.type_count); // <unk>'s word_id is set to 0.
 
 				if (curr_word_id == model_metadata.type_count) { // previous call to map_increment_count() had a new word
