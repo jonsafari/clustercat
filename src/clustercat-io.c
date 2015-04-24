@@ -22,10 +22,19 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 
 	while (!feof(file)) {
 		ch = getc(file);
+		chars_in_sent++;
 		//printf("«%c» ", ch); fflush(stdout);
 		if (ch == ' ' || ch == '\t' || ch == '\n') { // end of a word
 
-			curr_word[curr_word_pos] = '\0'; // terminate word
+			if (chars_in_sent > STDIN_SENT_MAX_CHARS) { // Line too long
+				curr_word_pos = 0;
+				curr_word[0] = '\0'; // truncate word
+			} else {
+				curr_word[curr_word_pos] = '\0'; // terminate word
+			}
+
+			//printf("chars_in_sent=%u; max_chars=%u; curr_word=%s\n", chars_in_sent, STDIN_SENT_MAX_CHARS, curr_word); fflush(stdout);
+
 			if (!strncmp(curr_word, "", 1)) { // ignore empty words, due to leading, trailing, and multiple spaces
 				//printf("skipping empty word; ch=«%c»\n", ch); fflush(stdout);
 				if (ch == '\n') { // trailing spaces require more stuff to do
