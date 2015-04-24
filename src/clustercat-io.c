@@ -8,7 +8,7 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 	struct_model_metadata model_metadata = {0};
 	char curr_word[MAX_WORD_LEN + 1]; curr_word[MAX_WORD_LEN] = '\0';
 	register unsigned int chars_in_sent = 0;
-	register int ch, prev_ch = 0;
+	register int ch = 0;
 	unsigned int curr_word_pos = 0;
 	map_update_count(initial_word_map, UNKNOWN_WORD, 0, 0); // initialize entry for <unk>, <s>, and </s>
 	map_update_count(initial_word_map, "<s>", 0, 1);
@@ -32,7 +32,6 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 					const struct_word_bigram bigram = {prev_word_id, end_id};
 					if (map_increment_bigram(initial_bigram_map, &bigram)) // increment previous+</s> bigram in bigram map
 						*memusage += sizeof_struct_map_bigram;
-					prev_ch = 0;
 					chars_in_sent = 0;
 					prev_word_id = start_id;
 					model_metadata.line_count++;
@@ -61,7 +60,6 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 				const struct_word_bigram bigram = {curr_word_id, end_id};
 				if (map_increment_bigram(initial_bigram_map, &bigram)) // increment previous+</s> bigram in bigram map
 					*memusage += sizeof_struct_map_bigram;
-				prev_ch = 0;
 				chars_in_sent = 0;
 				prev_word_id = start_id;
 				model_metadata.line_count++;
@@ -70,12 +68,10 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 			}
 
 		} else { // normal character;  within a word
-			if (curr_word_pos > MAX_WORD_LEN) { // word is too long; do nothing until space or newline
+			if (curr_word_pos > MAX_WORD_LEN) // word is too long; do nothing until space or newline
 				continue;
-			} else {
+			else
 				curr_word[curr_word_pos++] = ch;
-				prev_ch = ch;
-			}
 		}
 	}
 
