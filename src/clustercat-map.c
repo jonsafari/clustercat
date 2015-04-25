@@ -51,7 +51,7 @@ void map_print_bigrams(struct_map_bigram **bigram_map, char **word_list) {
 	printf("\n"); fflush(stdout);
 }
 
-void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram ** new_bigram_map, struct_map_bigram ** new_bigram_map_rev, word_id_t * restrict word_id_remap) {
+void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram ** new_bigram_map, struct_map_bigram ** new_bigram_map_rev, word_id_t * restrict word_id_remap, const word_id_t real_unk_id) {
 	// Iterates through initial bigram hash map and builds a new hash map based on the mapping of old word id's to new ids.  Alongside this, it also builds a reversed counterpart.
 	struct_map_bigram *entry, *tmp;
 	struct_word_bigram orig_bigram, new_bigram, new_bigram_rev;
@@ -65,6 +65,10 @@ void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_ma
 		orig_bigram    = entry->key;
 		w_1            = word_id_remap[orig_bigram.word_1];
 		w_2            = word_id_remap[orig_bigram.word_2];
+		if (w_1 == (word_id_t) -1) // reassign temporary placeholder unk_id to final unk_id
+			w_1 = real_unk_id;
+		if (w_2 == (word_id_t) -1)
+			w_2 = real_unk_id;
 		new_bigram     = (struct_word_bigram) {w_1, w_2};
 		new_bigram_rev = (struct_word_bigram) {w_2, w_1};
 		//printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, orig_bigram.word_1, w_1, orig_bigram.word_2, w_2); fflush(stdout);
@@ -279,7 +283,7 @@ word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]) { /
 		//if (word_id < 3) // don't change id's for <unk>, <s>, or </s>
 		//	continue;
 		word_ids[word_id] = number_of_keys; // Build-up array of word_id's, from old id to new one
-		//printf("get_ids: old_id=%u, new_id=%u\n", word_id, number_of_keys); fflush(stdout);
+		//printf("get_ids: old_id=%u\n", word_id); fflush(stdout);
 		number_of_keys++;
 	}
 	return number_of_keys;

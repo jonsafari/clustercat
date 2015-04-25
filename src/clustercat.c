@@ -99,10 +99,9 @@ int main(int argc, char **argv) {
 
 	// Filter out infrequent words, reassign word_id's, and build a mapping from old word_id's to new word_id's
 	sort_by_count(&word_map);
-	word_id_t * restrict word_id_remap = malloc(sizeof(word_id_t) * input_model_metadata.type_count);
+	word_id_t * restrict word_id_remap = calloc(sizeof(word_id_t), input_model_metadata.type_count);
 	get_ids(&word_map, word_id_remap);
 	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
-	//word_id_remap[0] = 0; word_id_remap[1] = 1; word_id_remap[2] = 2; // Keep ID for <unk>, <s>, and </s>
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
@@ -133,7 +132,7 @@ int main(int argc, char **argv) {
 		import_class_file(&word_map, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
 
 	// Remap word_id's in initial_bigram_map
-	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap);
+	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap, map_find_id(&word_map, UNKNOWN_WORD, -1));
 	global_metadata.start_sent_id = map_find_id(&word_map, "<s>", -1);; // need this for tallying emission probs
 	global_metadata.end_sent_id   = map_find_id(&word_map, "</s>", -1);; // need this for tallying emission probs
 
@@ -395,6 +394,7 @@ void reassign_word_ids(struct_map_word **word_map, char * restrict word_list[res
 		char * word = entry->key;
 		word_id_remap[word_id] = i; // set remap
 		word_list[i] = entry->key;
+		//printf("reassigning w=%s %u -> %u; count=%u\n", entry->key, word_id, i, entry->count); fflush(stdout);
 		map_set_word_id(word_map, word, i); // reset word_id in word_map
 		i++;
 	}
@@ -404,8 +404,6 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
-	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD, -1);
-
 	// Get keys
 	// Iterate over keys
 	//   If count of key_i < threshold,
@@ -433,7 +431,7 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 			number_of_deleted_words++;
 			if (cmd_args.verbose > 3)
 				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%lu\n", word, word_i, (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
-			word_id_remap[map_find_id(word_map, word, unk_id)] = unk_id; // set value of dud word in remap to unk
+			word_id_remap[map_find_id(word_map, word, (word_id_t) -1)] = (word_id_t) -1; // set value of dud word in remap to temporary unk, which is -1.  This gets changed later
 			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			model_metadata->type_count--;
 			struct_map_word *local_s;
