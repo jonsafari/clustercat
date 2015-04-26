@@ -20,7 +20,6 @@
 #define UNKNOWN_WORD         "<unk>"
 // Number of characters to read-in for each line
 #define STDIN_SENT_MAX_CHARS 8000
-#define STDIN_SENT_MAX_WORDS 1024
 #define MAX_WORD_LEN 128
 #define MAX_WORD_PREDECESSORS 20000000
 #define ENTROPY_TERMS_MAX 10000000
@@ -36,18 +35,6 @@ typedef unsigned short sentlen_t; // Number of words in a sentence
 //typedef unsigned int   word_id_t; // Defined in clustercat-map.h
 typedef word_count_t * * restrict count_arrays_t;
 typedef word_count_t * restrict count_array_t;
-
-
-typedef struct {
-	char **sent;
-	short word_lengths[STDIN_SENT_MAX_WORDS];
-	sentlen_t length;
-} struct_sent_info;
-
-typedef struct {
-	word_id_t * restrict sent;
-	sentlen_t length;
-} struct_sent_int_info;
 
 typedef struct {
 	unsigned long token_count;
@@ -88,10 +75,8 @@ void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words
 void reassign_word_ids(struct_map_word **word_map, char * restrict word_list[restrict], word_id_t * restrict word_id_remap);
 void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], word_count_t word_counts[restrict], const word_id_t type_count);
 
-void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t class_sent[const], short start_position, const sentlen_t i);
 void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry word_bigrams[const], const wclass_t word2class[const], count_arrays_t count_arrays);
 word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map, word_id_t * restrict word_id_remap);
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]);
 size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struct_map_bigram * bigram_map);
 void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_word_bigram_entry * const word_bigrams, const word_id_t type_count/*, char ** restrict word_list*/);
@@ -100,8 +85,6 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 void clear_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
 void free_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays);
-
-void print_sent_info(struct_sent_info * restrict sent_info);
 
 // Like atoi/strtol, but doesn't interpret each char's ascii value 0..9 .  Hence [104,101] ("he") -> 26725  (ie. (104*256)+101).  [3,7,11] -> 198411 (3*256*256) + (7*256) + 11)
 // Using a class n-gram array is fast, at the expense of memory usage for lots of unattested ngrams, especially for higher-order n-grams.

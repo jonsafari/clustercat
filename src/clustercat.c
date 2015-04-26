@@ -184,7 +184,6 @@ int main(int argc, char **argv) {
 	delete_all_bigram(&new_bigram_map);
 	delete_all_bigram(&new_bigram_map_rev);
 	memusage += bigram_memusage + bigram_rev_memusage;
-	memusage -= sizeof(struct_sent_int_info) * global_metadata.line_count;
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "in %'.2f CPU secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
@@ -272,7 +271,7 @@ Options:\n\
      --class-file <file>  Initialize exchange word classes from an existing clustering tsv file (default: pseudo-random initialization\n\
                           for exchange). If you use this option, you probably can set --tune-cycles to 3 or so\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
-	 --forward-lambda <f> Set interpolation weight for forward bigram class model (default: %g)\n\
+	 --forward-lambda <f> Set interpolation weight for forward bigram class model, in range of [0,1] (default: %g)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
@@ -449,17 +448,6 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 
 	free(local_word_list);
 	return number_of_deleted_words;
-}
-
-void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t sent[const], short start_position, const sentlen_t i) {
-
-	// n-grams handled using a dense array for each n-gram order
-	for (unsigned char ngram_len = i - start_position + 1; ngram_len > 0; ngram_len--) { // Unigrams in count_arrays[0], ...
-	//printf(" incr._ngram_fw5: sent[i-1]=%u, sent[i]=%u, ngram_len=%u, [%hu,%hu,%hu], offset=%zu\n", sent[i-1], sent[i], ngram_len, sent[i+1-ngram_len], sent[i+2-ngram_len], sent[i+3-ngram_len], array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes)); fflush(stdout);
-		//array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes);
-		count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ]++;
-		//printf(" incr._ngram_fw6: arr: start_pos=%d, i=%i, w_i=%u, ngram_len=%d, class_ngram[0]=%hu, new count=%u\n", start_position, i, sent[i], ngram_len, sent[i], count_arrays[ngram_len-1][ array_offset(&sent[i+1-ngram_len], ngram_len, cmd_args.num_classes) ] );
-	}
 }
 
 void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry word_bigrams[const], const wclass_t word2class[const], count_arrays_t count_arrays) { // Right now it's a drop-in replacement for tally_class_counts_in_store(), but it's not the best way of doing things (eg. for unigram counts, tallying & querying in two separate steps, etc).  So this will need to be modified after getting rid of the sent-store
