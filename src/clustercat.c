@@ -281,7 +281,7 @@ Options:\n\
      --class-file <file>  Initialize exchange word classes from an existing clustering tsv file (default: pseudo-random initialization\n\
                           for exchange). If you use this option, you probably can set --tune-cycles to 3 or so\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
-	 --forward-lambda <f> Set interpolation weight for forward bigram class model, in range of [0,1] (default: %g)\n\
+     --forward-lambda <f> Set interpolation weight for forward bigram class model, in range of [0,1] (default: %g)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
