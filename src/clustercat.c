@@ -80,10 +80,16 @@ int main(int argc, char **argv) {
 	map_update_count(&word_map, "<s>", 0, 1);
 	map_update_count(&word_map, "</s>", 0, 2);
 
-	// Process input sentences
+	// Open input
 	FILE *in_train_file = stdin;
 	if (in_train_file_string)
 		in_train_file = fopen(in_train_file_string, "r");
+	if (in_train_file == NULL) {
+		fprintf(stderr, "%s: Error: Unable to open input file  %s\n", argv_0_basename, in_train_file_string); fflush(stderr);
+		exit(15);
+	}
+
+	// Process input sentences
 	size_t input_memusage = 0;
 	const struct_model_metadata input_model_metadata = process_input(in_train_file, &word_map, &initial_bigram_map, &input_memusage);
 	memusage += input_memusage;
@@ -235,6 +241,10 @@ int main(int argc, char **argv) {
 		FILE *out_file = stdout;
 		if (out_file_string)
 			out_file = fopen(out_file_string, "w");
+		if (out_file == NULL) {
+			fprintf(stderr, "%s: Error: Unable to open output file  %s\n", argv_0_basename, out_file_string); fflush(stderr);
+			exit(16);
+		}
 		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
 			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset, cmd_args.print_freqs);
 		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
