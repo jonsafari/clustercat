@@ -19,7 +19,6 @@
 #define TOK_CHARS            " \t\n"
 #define UNKNOWN_WORD         "<unk>"
 // Number of characters to read-in for each line
-#define BUFLEN 8192
 #define STDIN_SENT_MAX_CHARS 15000
 #define STDIN_SENT_MAX_WORDS 1024
 #define MAX_WORD_LEN 128
@@ -70,7 +69,6 @@ typedef struct { // This is for an array pointing to this struct having a pointe
 char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
-	unsigned long   max_tune_sents;
 	float           forward_lambda;
 	wclass_t        num_classes;
 	unsigned short  min_count : 12;
@@ -86,18 +84,16 @@ struct cmd_args {
 	bool unidirectional;
 };
 
-size_t sent_buffer2sent_store_int(struct_map_word **ngram_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store);
 void populate_word_ids(struct_map_word **ngram_map, char * restrict unique_words[const], const word_id_t type_count);
+void reassign_word_ids(struct_map_word **word_map, char * restrict word_list[restrict], word_id_t * restrict word_id_remap);
 void build_word_count_array(struct_map_word **ngram_map, char * restrict unique_words[const], word_count_t word_counts[restrict], const word_id_t type_count);
 
 void increment_ngram_fixed_width(const struct cmd_args cmd_args, count_arrays_t count_arrays, wclass_t class_sent[const], short start_position, const sentlen_t i);
 void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const struct_word_bigram_entry word_bigrams[const], const wclass_t word2class[const], count_arrays_t count_arrays);
-unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer);
-unsigned long process_str_sent(char * restrict sent_str);
-word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map);
+word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** ngram_map, word_id_t * restrict word_id_remap);
 void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info);
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]);
-size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse);
+size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struct_map_bigram * bigram_map);
 void build_word_class_counts(const struct cmd_args cmd_args, word_class_count_t * restrict word_class_counts, const wclass_t word2class[const], const struct_word_bigram_entry * const word_bigrams, const word_id_t type_count/*, char ** restrict word_list*/);
 double training_data_log_likelihood(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const count_arrays_t count_arrays, const word_count_t word_counts[const], const wclass_t word2class[const]);
 

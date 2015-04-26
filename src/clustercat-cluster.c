@@ -138,7 +138,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		double best_log_prob = training_data_log_likelihood(cmd_args, model_metadata, count_arrays, word_counts, word2class);
 
 		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count + model_metadata.line_count))); fflush(stderr);
 
 		time_t time_start_cycles;
 		time(&time_start_cycles);
@@ -175,7 +175,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					strftime(eta_string, 300, "%x %X", localtime(&eta));
 					fprintf(stderr, " Time left: %lim %lis.  ETA: %s", (long)time_remaining/60, ((long)time_remaining % 60), eta_string);
 					if (queried_log_prob)
-						fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count - model_metadata.line_count)));
+						fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count + model_metadata.line_count)));
 					fprintf(stderr, "\n");
 				}
 				else

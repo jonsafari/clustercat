@@ -16,7 +16,7 @@
 #include "clustercat-cluster.h"				// cluster()
 #include "clustercat-dbg.h"					// for printing out various complex data structures
 #include "clustercat-import-class-file.h"	// import_class_file()
-#include "clustercat-io.h"					// fill_sent_buffer()
+#include "clustercat-io.h"					// process_input()
 #include "clustercat-math.h"				// perplexity(), powi()
 #include "clustercat-ngram-prob.h"			// class_ngram_prob()
 
@@ -26,7 +26,6 @@
 // Declarations
 void get_usage_string(char * restrict usage_string, int usage_len);
 void parse_cmd_args(const int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args);
-void free_sent_info(struct_sent_info sent_info);
 char * restrict class_algo           = NULL;
 char * restrict in_train_file_string = NULL;
 char * restrict out_file_string      = NULL;
@@ -46,7 +45,6 @@ struct cmd_args cmd_args = {
 	.class_algo         = EXCHANGE,
 	.class_offset       = 0,
 	.forward_lambda     = 0.6,
-	.max_tune_sents     = 10000000,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
 	.max_array          = 2,
 	.num_threads        = 8,
@@ -76,66 +74,41 @@ int main(int argc, char **argv) {
 		memusage += sizeof(float) * ENTROPY_TERMS_MAX; // We'll build the precomputed entropy terms after reporting memusage
 
 	struct_model_metadata global_metadata;
-	global_metadata.token_count = 0;
-	global_metadata.line_count  = 0;
-
 
 	// The list of unique words should always include <s>, unknown word, and </s>
 	map_update_count(&word_map, UNKNOWN_WORD, 0, 0); // Should always be first
 	map_update_count(&word_map, "<s>", 0, 1);
 	map_update_count(&word_map, "</s>", 0, 2);
 
-	char * * restrict sent_buffer = calloc(sizeof(char **), cmd_args.max_tune_sents);
-	if (sent_buffer == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for initial sentence buffer.  %'lu MB needed.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, ((sizeof(void *) * cmd_args.max_tune_sents) / 1048576 ), cmd_args.max_tune_sents); fflush(stderr);
-		exit(7);
-	}
-	memusage += sizeof(void *) * cmd_args.max_tune_sents;
-
-	// Fill sentence buffer
+	// Process input sentences
 	FILE *in_train_file = stdin;
 	if (in_train_file_string)
 		in_train_file = fopen(in_train_file_string, "r");
-	size_t sent_buffer_memusage = 0;
-	const unsigned long num_sents_in_buffer = fill_sent_buffer(in_train_file, sent_buffer, cmd_args.max_tune_sents, &sent_buffer_memusage);
-	memusage += sent_buffer_memusage;
+	size_t input_memusage = 0;
+	const struct_model_metadata input_model_metadata = process_input(in_train_file, &word_map, &initial_bigram_map, &input_memusage);
+	memusage += input_memusage;
 	fclose(in_train_file);
-	//printf("cmd_args.max_tune_sents=%lu; global_metadata.line_count=%lu; num_sents_in_buffer=%lu; memusage: %'.1fMB\n", cmd_args.max_tune_sents, global_metadata.line_count, num_sents_in_buffer, (double)memusage / 1048576);
-	global_metadata.line_count  += num_sents_in_buffer;
-	if (cmd_args.max_tune_sents <= global_metadata.line_count) { // There are more sentences in stdin than were processed
-		fprintf(stderr, "%s: Warning: Sentence buffer is full.  You probably should increase it using --tune-sents .  Current value: %lu\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
-	}
 
-	global_metadata.token_count += process_str_sents_in_buffer(sent_buffer, num_sents_in_buffer);
-	global_metadata.type_count   = map_count(&word_map);
+	clock_t time_input_processed = clock();
+	if (cmd_args.verbose >= -1)
+		fprintf(stderr, "%s: Corpus processed in %'.2f CPU secs. %'lu lines, %'u types, %'lu tokens, current memusage: %'.1fMB\n", argv_0_basename, (double)(time_input_processed - time_start)/CLOCKS_PER_SEC, input_model_metadata.line_count, input_model_metadata.type_count, input_model_metadata.token_count, (double)memusage / 1048576); fflush(stderr);
 
-	// Filter out infrequent words
-	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map);
+	global_metadata.line_count  = input_model_metadata.line_count;
+	global_metadata.token_count = input_model_metadata.token_count;
+	global_metadata.type_count  = map_count(&word_map);
+
+	// Filter out infrequent words, reassign word_id's, and build a mapping from old word_id's to new word_id's
+	sort_by_count(&word_map);
+	word_id_t * restrict word_id_remap = calloc(sizeof(word_id_t), input_model_metadata.type_count);
+	get_ids(&word_map, word_id_remap);
+	word_id_t number_of_deleted_words = filter_infrequent_words(cmd_args, &global_metadata, &word_map, word_id_remap);
 
 	// Get list of unique words
 	char * * restrict word_list = (char **)malloc(sizeof(char*) * global_metadata.type_count);
 	memusage += sizeof(char*) * global_metadata.type_count;
-	//sort_by_id(&word_map);
-	sort_by_count(&word_map);
+	reassign_word_ids(&word_map, word_list, word_id_remap);
 	get_keys(&word_map, word_list);
-
-	// Now that we have filtered-out infrequent words, we can populate values of struct_map_word->word_id values.  We could have merged this step with get_keys(), but for code clarity, we separate it out.  It's a one-time, quick operation.
-	populate_word_ids(&word_map, word_list, global_metadata.type_count);
-	global_metadata.start_sent_id = map_find_id(&word_map, "<s>", -1); // need this for tallying emission probs
-	global_metadata.start_sent_id = map_find_id(&word_map, "</s>", -1); // need this for tallying emission probs
-
-	struct_sent_int_info * restrict sent_store_int = malloc(sizeof(struct_sent_int_info) * global_metadata.line_count);
-	if (sent_store_int == NULL) {
-		fprintf(stderr,  "%s: Error: Unable to allocate enough memory for sent_store_int.  Reduce --tune-sents (current value: %lu)\n", argv_0_basename, cmd_args.max_tune_sents); fflush(stderr);
-		exit(8);
-	}
-	memusage += sizeof(struct_sent_int_info) * global_metadata.line_count;
-	const size_t memusage_max = memusage;
-	memusage += sent_buffer2sent_store_int(&word_map, sent_buffer, sent_store_int, global_metadata.line_count);
-	// Each sentence in sent_buffer was freed within sent_buffer2sent_store_int().  Now we can free the entire array
-	memusage -= sent_buffer_memusage;
-	free(sent_buffer);
-	memusage -= sizeof(void *) * cmd_args.max_tune_sents;
+	sort_by_id(&word_map);
 
 
 	// Check or set number of classes
@@ -157,14 +130,26 @@ int main(int argc, char **argv) {
 	init_clusters(cmd_args, global_metadata.type_count, word2class, word_counts, word_list);
 	if (initial_class_file != NULL)
 		import_class_file(&word_map, word2class, initial_class_file, cmd_args.num_classes); // Overwrite subset of word mappings, from user-provided initial_class_file
-	delete_all(&word_map);
 
+	// Remap word_id's in initial_bigram_map
+	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap, map_find_id(&word_map, UNKNOWN_WORD, -1));
+	global_metadata.start_sent_id = map_find_id(&word_map, "<s>", -1);; // need this for tallying emission probs
+	global_metadata.end_sent_id   = map_find_id(&word_map, "</s>", -1);; // need this for tallying emission probs
+
+	//printf("init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
+	//printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
+	free(word_id_remap);
+	memusage -= sizeof(word_id_t) * input_model_metadata.type_count;
+	delete_all(&word_map); // static
+	delete_all_bigram(&initial_bigram_map); // static
+	memusage -= input_memusage;
 
 	// Initialize and set word bigram listing
 	clock_t time_bigram_start = clock();
 	size_t bigram_memusage = 0; size_t bigram_rev_memusage = 0;
 	struct_word_bigram_entry * restrict word_bigrams = NULL;
 	struct_word_bigram_entry * restrict word_bigrams_rev = NULL;
+
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
 
@@ -172,9 +157,10 @@ int main(int argc, char **argv) {
 	{
 		#pragma omp section
 		{
+			//sort_bigrams(&new_bigram_map); // speeds things up later
 			word_bigrams = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 			memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-			bigram_memusage = set_bigram_counts(word_bigrams, sent_store_int, global_metadata.line_count, false);
+			bigram_memusage = set_bigram_counts(word_bigrams, new_bigram_map);
 			// Copy entries in word_counts to struct_word_bigram_entry.headword_count since that struct entry is already loaded when clustering
 			for (word_id_t word = 0; word < global_metadata.type_count; word++)
 				word_bigrams[word].headword_count = word_counts[word];
@@ -184,9 +170,10 @@ int main(int argc, char **argv) {
 		#pragma omp section
 		{
 			if (cmd_args.rev_alternate) { // Don't bother building this if it won't be used
+				//sort_bigrams(&new_bigram_map_rev); // speeds things up later
 				word_bigrams_rev = calloc(global_metadata.type_count, sizeof(struct_word_bigram_entry));
 				memusage += sizeof(struct_word_bigram_entry) * global_metadata.type_count;
-				bigram_rev_memusage = set_bigram_counts(word_bigrams_rev, sent_store_int, global_metadata.line_count, true);
+				bigram_rev_memusage = set_bigram_counts(word_bigrams_rev, new_bigram_map_rev);
 				// Copy entries in word_counts to struct_word_bigram_entry.headword_count since that struct entry is already loaded when clustering
 				for (word_id_t word = 0; word < global_metadata.type_count; word++)
 					word_bigrams_rev[word].headword_count = word_counts[word];
@@ -194,8 +181,9 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	delete_all_bigram(&new_bigram_map);
+	delete_all_bigram(&new_bigram_map_rev);
 	memusage += bigram_memusage + bigram_rev_memusage;
-	free(sent_store_int);
 	memusage -= sizeof(struct_sent_int_info) * global_metadata.line_count;
 	clock_t time_bigram_end = clock();
 	if (cmd_args.verbose >= -1)
@@ -232,7 +220,7 @@ int main(int argc, char **argv) {
 	// Calculate memusage for count_arrays
 	for (unsigned char i = 1; i <= cmd_args.max_array; i++) {
 		memusage += 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t));
-		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), memusage);
+		//printf("11 memusage += %zu (now=%zu) count_arrays\n", 2 * (powi(cmd_args.num_classes, i) * sizeof(wclass_count_t)), memusage); fflush(stdout);
 	}
 
 	clock_t time_model_built = clock();
@@ -294,7 +282,6 @@ Options:\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
  -j, --threads <hu>       Set number of threads to run simultaneously (default: %d threads)\n\
-     --tune-sents <lu>    Set size of sentence store to tune on (default: first %'lu lines)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
      --unidirectional     Disable simultaneous bidirectional predictive exchange. Results in faster cycles, but slower & worse convergence\n\
                           If you want to do basic predictive exchange, use:  --rev-alternate 0 --unidirectional\n\
@@ -302,7 +289,7 @@ Options:\n\
      --word-vectors <s>   Print word vectors (a.k.a. word embeddings) instead of discrete classes.\n\
                           Specify <s> as either 'text' or 'binary'.  The binary format is compatible with word2vec\n\
 \n\
-", cmd_args.class_offset, cmd_args.forward_lambda, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.max_tune_sents, cmd_args.tune_cycles);
+", cmd_args.class_offset, cmd_args.forward_lambda, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.tune_cycles);
 }
 //     --class-algo <s>     Set class-induction algorithm {brown,exchange,exchange-then-brown} (default: exchange)\n\
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
@@ -362,9 +349,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--rev-alternate")) {
 			cmd_args->rev_alternate = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;
-		} else if (!strcmp(argv[arg_i], "--tune-sents")) {
-			cmd_args->max_tune_sents = atol(argv[arg_i+1]);
-			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--tune-cycles")) {
 			cmd_args->tune_cycles = (unsigned short) atol(argv[arg_i+1]);
 			arg_i++;
@@ -388,59 +372,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 	}
 }
 
-size_t  sent_buffer2sent_store_int(struct_map_word **word_map, char * restrict sent_buffer[restrict], struct_sent_int_info sent_store_int[restrict], const unsigned long num_sents_in_store) {
-	size_t local_memusage = 0;
-	const word_id_t unk_id = map_find_id(word_map, UNKNOWN_WORD, -1);
-
-	for (unsigned long i = 0; i < num_sents_in_store; i++) { // Copy string-oriented sent_buffer[] to int-oriented sent_store_int[]
-		if (sent_buffer[i] == NULL) // No more sentences in buffer
-			break;
-
-		char * restrict sent_i = sent_buffer[i];
-		//printf("sent[%lu]=<<%s>>\n", i, sent_buffer[i]); fflush(stdout);
-
-		word_id_t sent_int_temp[SENT_LEN_MAX];
-
-		// Stupid strtok is destructive
-		char * restrict pch = NULL;
-		pch = strtok(sent_i, TOK_CHARS);
-
-		// Initialize first element in sentence to <s>
-		sent_int_temp[0] = map_find_id(word_map, "<s>", -1);
-
-		sentlen_t w_i = 1; // Word 0 is <s>; we initialize it here to be able to use it after the loop for </s>
-
-		for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
-			if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-				//fprintf(stderr, "%s: Warning: Line %lu length at %u. Truncating pathologically-long line starting with: \"%s ...\"\n", argv_0_basename, i+1, w_i, sent_i);
-				break;
-			}
-
-			sent_int_temp[w_i] = map_find_id(word_map, pch, unk_id);
-			//printf("pch=%s, int=%u\n", pch, sent_int_temp[w_i]);
-
-			pch = strtok(NULL, TOK_CHARS);
-		}
-
-		// Initialize first element in sentence to </s>
-		sent_int_temp[w_i] = map_find_id(word_map, "</s>", -1);
-
-		sentlen_t sent_length = w_i + 1; // Include <s>;  we use this local variable for perspicuity later on
-		sent_store_int[i].length = sent_length;
-
-		// Now that we know the actual sentence length, we can allocate the right amount for the sentence
-		sent_store_int[i].sent = malloc(sizeof(word_id_t) * sent_length);
-
-		local_memusage += sizeof(word_id_t) * sent_length;
-
-		// Copy the temporary fixed-width array on stack to dynamic-width array in heap
-		memcpy(sent_store_int[i].sent, sent_int_temp, sizeof(word_id_t) * sent_length);
-
-		free(sent_i); // Free-up string-based sentence
-	}
-	return local_memusage;
-}
-
 void build_word_count_array(struct_map_word **word_map, char * restrict word_list[const], word_count_t word_counts[restrict], const word_id_t type_count) {
 	for (word_id_t i = 0; i < type_count; i++) {
 		word_counts[i] = map_find_count(word_map, word_list[i]);
@@ -453,11 +384,26 @@ void populate_word_ids(struct_map_word **word_map, char * restrict word_list[con
 	}
 }
 
-word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** word_map) {
+void reassign_word_ids(struct_map_word **word_map, char * restrict word_list[restrict], word_id_t * restrict word_id_remap) {
+	sort_by_count(word_map);
+	struct_map_word *entry, *tmp;
+	word_id_t i = 0;
+
+	HASH_ITER(hh, *word_map, entry, tmp) {
+		const word_id_t word_id = entry->word_id;
+		char * word = entry->key;
+		word_id_remap[word_id] = i; // set remap
+		word_list[i] = entry->key;
+		//printf("reassigning w=%s %u -> %u; count=%u\n", entry->key, word_id, i, entry->count); fflush(stdout);
+		map_set_word_id(word_map, word, i); // reset word_id in word_map
+		i++;
+	}
+}
+
+word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_metadata * restrict model_metadata, struct_map_word ** word_map, word_id_t * restrict word_id_remap) { // word_map must already be sorted by word frequency!
 
 	unsigned long number_of_deleted_words = 0;
 	unsigned long vocab_size = model_metadata->type_count; // Save this to separate variable since we'll modify model_metadata.type_count later
-
 	// Get keys
 	// Iterate over keys
 	//   If count of key_i < threshold,
@@ -472,21 +418,34 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		exit(4);
 	}
 
-	for (unsigned long word_i = 0; word_i < vocab_size; word_i++) {
-		unsigned long word_i_count = map_find_count(word_map, local_word_list[word_i]);  // We'll use this a couple times
-		if ((word_i_count < cmd_args.min_count) && (strncmp(local_word_list[word_i], UNKNOWN_WORD, MAX_WORD_LEN)) ) { // Don't delete <unk>
+	unsigned long new_id = 0;
+	for (unsigned long word_i = 0; word_i < vocab_size; word_i++, new_id++) {
+		char * word = local_word_list[word_i];
+		//if ((!strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) || (!strncmp(word, "<s>", MAX_WORD_LEN)) || (!strncmp(word, "</s>", MAX_WORD_LEN))) { // Deal with <unk>, <s>, and </s>
+		//	//new_id--;
+		//	continue;
+		//}
+
+		unsigned long word_i_count = map_find_count(word_map, word);  // We'll use this a couple times
+		if ((word_i_count < cmd_args.min_count) && (strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) && (strncmp(word, "<s>", MAX_WORD_LEN)) &&  (strncmp(word, "</s>", MAX_WORD_LEN))) { // Don't delete <unk>
 			number_of_deleted_words++;
-			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			if (cmd_args.verbose > 3)
-				printf("Filtering-out word: %s (%lu < %hu);\tcount(%s)=%lu\n", local_word_list[word_i], (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(word_map, UNKNOWN_WORD));
+				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%lu\n", word, word_i, (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
+			word_id_remap[map_find_id(word_map, word, (word_id_t) -1)] = (word_id_t) -1; // set value of dud word in remap to temporary unk, which is -1.  This gets changed later
+			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			model_metadata->type_count--;
 			struct_map_word *local_s;
-			HASH_FIND_STR(*word_map, local_word_list[word_i], local_s);
+			HASH_FIND_STR(*word_map, word, local_s);
 			delete_entry(word_map, local_s);
+		} else { // Keep word
+			//printf("Keeping word: %s (old id=%u, new id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", word, map_find_id(word_map, word, -1), new_id, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
+			//map_set_word_id(word_map, word, new_id); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+			//printf("  Kept word: %s (new map id=%u, new_id=%lu) (%lu >= %hu);\tcount(%s)=%u\n", word, map_find_id(word_map, word, -1), new_id, word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
 		}
-		//else
-			//printf("Keeping word: %s (%lu < %hu);\tcount(%s)=%u\n", local_word_list[word_i], word_i_count, cmd_args.min_count, UNKNOWN_WORD, map_find_count(word_map, UNKNOWN_WORD));
 	}
+	//map_set_word_id(word_map, UNKNOWN_WORD, 0); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	//map_set_word_id(word_map, "<s>", 1); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
+	//map_set_word_id(word_map, "</s>", 2); // word_id's 0-2 are reserved for <unk>, <s>, and </s>
 
 	free(local_word_list);
 	return number_of_deleted_words;
@@ -518,89 +477,6 @@ void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model
 	}
 }
 
-unsigned long process_str_sents_in_buffer(char * restrict sent_buffer[], const unsigned long num_sents_in_buffer) {
-	unsigned long token_count = 0;
-	char local_sent_copy[STDIN_SENT_MAX_CHARS];
-	local_sent_copy[STDIN_SENT_MAX_CHARS-1] = '\0'; // Ensure at least last element of array is terminating character
-
-	for (unsigned long current_sent_num = 0; current_sent_num < num_sents_in_buffer; current_sent_num++) {
-		strncpy(local_sent_copy, sent_buffer[current_sent_num], STDIN_SENT_MAX_CHARS-2); // Strtok, which is used later, is destructive
-		token_count += process_str_sent(local_sent_copy);
-	}
-
-	return token_count;
-}
-
-unsigned long process_str_sent(char * restrict sent_str) { // Uses global word_map
-	if (!strncmp(sent_str, "\n", 1)) // Ignore empty lines
-		return 0;
-
-	struct_sent_info sent_info = {0};
-	sent_info.sent = malloc(STDIN_SENT_MAX_WORDS * sizeof(char*));
-
-	// We could have built up the word n-gram counts directly from sent_str, but it's
-	// the only one out of the three models we're building that we can do this way, and
-	// it's simpler to have a more uniform way of building these up.
-
-	tokenize_sent(sent_str, &sent_info);
-	const unsigned long token_count = sent_info.length;
-	//if (cmd_args.verbose > 2) {
-	//	print_sent_info(&sent_info);
-	//	fflush(stdout);
-	//}
-
-	register sentlen_t i;
-	for (i = 0; i < sent_info.length; i++)
-		map_increment_count(&word_map, sent_info.sent[i], 0);
-
-	free(sent_info.sent);
-	return token_count;
-}
-
-
-void tokenize_sent(char * restrict sent_str, struct_sent_info *sent_info) {
-	// Stupid strtok is destructive
-	char * restrict pch = NULL;
-	pch = strtok(sent_str, TOK_CHARS);
-
-	// Initialize first element in sentence to <s>
-	sent_info->sent[0] = "<s>";
-	sent_info->word_lengths[0]  = strlen("<s>");
-
-	sentlen_t w_i = 1; // Word 0 is <s>
-
-	for (; pch != NULL  &&  w_i < SENT_LEN_MAX; w_i++) {
-		if (w_i == STDIN_SENT_MAX_WORDS - 1) { // Deal with pathologically-long lines
-			fprintf(stderr, "%s: Notice: Truncating pathologically-long line starting with: \"%s %s %s %s %s %s ...\"\n", argv_0_basename, sent_info->sent[1], sent_info->sent[2], sent_info->sent[3], sent_info->sent[4], sent_info->sent[5], sent_info->sent[6]);
-			break;
-		}
-
-		sent_info->sent[w_i] = pch;
-		sent_info->word_lengths[w_i] = strlen(pch);
-		//printf("pch=%s; len=%u\n", pch, sent_info->word_lengths[w_i]);
-
-		if (sent_info->word_lengths[w_i] > MAX_WORD_LEN) { // Deal with pathologically-long words
-			pch[MAX_WORD_LEN] = '\0';
-			sent_info->word_lengths[w_i] = MAX_WORD_LEN;
-			fprintf(stderr, "%s: Notice: Truncating pathologically-long word '%s'\n", argv_0_basename, pch);
-		}
-
-		pch = strtok(NULL, TOK_CHARS);
-	}
-
-	// Initialize last element in sentence to </s>
-	sent_info->sent[w_i] = "</s>";
-	sent_info->word_lengths[w_i]  = strlen("</s>");
-	sent_info->length = w_i + 1; // Include <s>
-}
-
-// Slightly different from free_sent_info() since we don't free the individual words in sent_info.sent here
-void free_sent_info(struct_sent_info sent_info) {
-	for (sentlen_t i = 1; i < sent_info.length-1; ++i) // Assumes word_0 is <s> and word_sentlen is </s>, which weren't malloc'd
-		free(sent_info.sent[i]);
-
-	free(sent_info.sent);
-}
 
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]) {
 	register unsigned long word_i = 0;
@@ -621,30 +497,12 @@ void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_
 	}
 }
 
-size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, const struct_sent_int_info * const sent_store_int, const unsigned long line_count, const bool reverse) {
+size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, struct_map_bigram * bigram_map) {
 
 	// Build a hash map of bigrams, since we need random access when traversing the corpus.
 	// Then we convert that to an array of linked lists, since we'll need sequential access during the clustering phase of predictive exchange clustering.
 
-	struct_map_bigram *map_bigram = NULL;
-	struct_word_bigram bigram;
-
-	for (unsigned long current_sent_num = 0; current_sent_num < line_count; current_sent_num++) { // loop over sentences
-		register sentlen_t sent_length = sent_store_int[current_sent_num].length;
-
-		for (sentlen_t i = 1; i < sent_length; i++) { // loop over words in a sentence, starting with the first word after <s>
-			if (reverse) {
-				bigram.word_2 = sent_store_int[current_sent_num].sent[i-1];
-				bigram.word_1 = sent_store_int[current_sent_num].sent[i];
-			} else { // Normal direction
-				bigram.word_1 = sent_store_int[current_sent_num].sent[i-1];
-				bigram.word_2 = sent_store_int[current_sent_num].sent[i];
-			}
-			map_increment_bigram(&map_bigram, &bigram);
-		}
-	}
-
-	sort_bigrams(&map_bigram); // really speeds up the next step
+	sort_bigrams(&bigram_map);
 
 	register size_t memusage = 0;
 	register word_id_t word_2;
@@ -655,13 +513,13 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, const
 
 	// Add a dummy entry at the end of the hash map in order to simplify iterating through it, since it must track changes in head words.
 	struct_word_bigram dummy = {-1, -1}; // Make sure this bigram is new, so that it's appended to end
-	map_update_bigram(&map_bigram, &dummy, 0);
+	map_update_bigram(&bigram_map, &dummy, 0);
 
 	// Iterate through bigram map to get counts of word_2's, so we know how much to allocate for each predecessor list
 	struct_map_bigram *entry, *tmp;
-	HASH_ITER(hh, map_bigram, entry, tmp) {
+	HASH_ITER(hh, bigram_map, entry, tmp) {
 		word_2 = (entry->key).word_2;
-		//printf("[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
+		//printf("\n[%u,%u]=%u, w2_last=%u, length=%u\n", (entry->key).word_1, (entry->key).word_2, entry->count, word_2_last, length); fflush(stdout);
 		if (word_2 == word_2_last) { // Within successive entry; ie. 2nd entry or greater
 			word_buffer[length]  = (entry->key).word_1;
 			count_buffer[length] = entry->count;
@@ -679,7 +537,7 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, const
 			word_bigrams[word_2_last].bigram_counts = malloc(length * sizeof(word_bigram_count_t));
 			memcpy(word_bigrams[word_2_last].bigram_counts, count_buffer , length * sizeof(word_bigram_count_t));
 			memusage += length * sizeof(word_bigram_count_t);
-			//printf("\nword_2_last=%u, length=%u word_1s: ", word_2_last, length);
+			//printf("word_2_last=%u, length=%u word_1s: ", word_2_last, length);
 			//for (unsigned int i = 0; i < length; i++) {
 			//	printf("<%u,%u> ", word_bigrams[word_2_last].predecessors[i], word_bigrams[word_2_last].bigram_counts[i]);
 			//}
@@ -694,7 +552,7 @@ size_t set_bigram_counts(struct_word_bigram_entry * restrict word_bigrams, const
 
 	free(word_buffer);
 	free(count_buffer);
-	delete_all_bigram(&map_bigram);
+	//delete_all_bigram(&map_bigram);
 
 	return memusage;
 }
@@ -754,14 +612,6 @@ double training_data_log_likelihood(const struct cmd_args cmd_args, const struct
 
 	//printf("emission_logprob=%g, transition_logprob=%g, LL=%g\n", emission_logprob, transition_logprob, emission_logprob + transition_logprob);
 	return emission_logprob + transition_logprob;
-}
-
-void print_sent_info(struct_sent_info * restrict sent_info) {
-	printf("struct sent_info { length = %u\n", sent_info->length);
-	for (sentlen_t i = 0; i < sent_info->length; i++) {
-		printf(" i=%u\twlen=%i\tw=%s\n", i, sent_info->word_lengths[i], sent_info->sent[i]);
-	}
-	printf("}\n");
 }
 
 void init_count_arrays(const struct cmd_args cmd_args, count_arrays_t count_arrays) {

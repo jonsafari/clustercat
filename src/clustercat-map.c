@@ -1,6 +1,7 @@
 #include "clustercat-map.h"
 
-inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
+inline bool map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
+	bool is_new = 0;
 	struct_map_bigram *local_s;
 	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
 	if (local_s == NULL) {
@@ -11,7 +12,9 @@ inline void map_increment_bigram(struct_map_bigram **map, const struct_word_bigr
 		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
 	} else {
 		(local_s->count)++;
+		is_new = false;
 	}
+	return is_new;
 }
 
 inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram * bigram, const word_bigram_count_t count) {
@@ -43,11 +46,12 @@ void map_print_bigrams(struct_map_bigram **bigram_map, char **word_list) {
 		if (w_1 == (word_id_t)-1 || w_2 == (word_id_t)-1) // Don't print dummy values
 			continue;
 		printf(" {%s=%u, %s=%u}: #=%u\n", word_list[w_1], w_1, word_list[w_2], w_2, count);
+		//printf(" {%u, %u}: #=%u\n", w_1, w_2, count); fflush(stdout);
 	}
 	printf("\n"); fflush(stdout);
 }
 
-void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram ** new_bigram_map, struct_map_bigram ** new_bigram_map_rev, word_id_t * restrict word_id_remap) {
+void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_map_bigram ** new_bigram_map, struct_map_bigram ** new_bigram_map_rev, word_id_t * restrict word_id_remap, const word_id_t real_unk_id) {
 	// Iterates through initial bigram hash map and builds a new hash map based on the mapping of old word id's to new ids.  Alongside this, it also builds a reversed counterpart.
 	struct_map_bigram *entry, *tmp;
 	struct_word_bigram orig_bigram, new_bigram, new_bigram_rev;
@@ -61,6 +65,10 @@ void remap_and_rev_bigram_map(struct_map_bigram ** initial_bigram_map, struct_ma
 		orig_bigram    = entry->key;
 		w_1            = word_id_remap[orig_bigram.word_1];
 		w_2            = word_id_remap[orig_bigram.word_2];
+		if (w_1 == (word_id_t) -1) // reassign temporary placeholder unk_id to final unk_id
+			w_1 = real_unk_id;
+		if (w_2 == (word_id_t) -1)
+			w_2 = real_unk_id;
 		new_bigram     = (struct_word_bigram) {w_1, w_2};
 		new_bigram_rev = (struct_word_bigram) {w_2, w_1};
 		//printf("remap_and_rev_bigram_map: count=%u, orig_w_1=%u, new_w_1=%u, orig_w_2=%u, new_w_2=%u\n", count, orig_bigram.word_1, w_1, orig_bigram.word_2, w_2); fflush(stdout);
@@ -124,7 +132,7 @@ inline void map_set_word_id(struct_map_word **map, const char * restrict entry_k
 		HASH_FIND_STR(*map, entry_key, local_s); // id already in the hash?
 	}
 	if (local_s == NULL) {
-		printf("Error: word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
+		printf("Error: map_set_word_id(): word '%s' should already be in word_map\n", entry_key); // Shouldn't happen
 		exit(5);
 	}
 	#pragma omp critical (map_set_word_id_assignment)
@@ -259,6 +267,7 @@ word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 		unsigned short wlen = strlen(entry->key);
 		keys[number_of_keys] = (char *) malloc(wlen + 1);
 		strcpy(keys[number_of_keys], entry->key);
+		//printf("key=%s, i=%lu, count=%u\n", entry->key, (unsigned long)number_of_keys, entry->count);
 		number_of_keys++;
 	}
 	return number_of_keys;
@@ -266,15 +275,15 @@ word_id_t get_keys(struct_map_word *map[const], char *keys[]) {
 
 word_id_t get_ids(struct_map_word *map[const], word_id_t word_ids[restrict]) { // most useful if map is already sorted by count; then you can directly map from old id to new id.
 	struct_map_word *entry, *tmp;
-	word_id_t number_of_keys = 3; // 0-2 are reserved for <unk>, <s>, and </s>
+	word_id_t number_of_keys = 0; // 0-2 are reserved for <unk>, <s>, and </s>
 
 	HASH_ITER(hh, *map, entry, tmp) {
 		//word_ids[number_of_keys] = entry->word_id; // Build-up array of word_id's, from new id to old one
 		const word_id_t word_id = entry->word_id;
-		if (word_id < 3) // don't change id's for <unk>, <s>, or </s>
-			continue;
+		//if (word_id < 3) // don't change id's for <unk>, <s>, or </s>
+		//	continue;
 		word_ids[word_id] = number_of_keys; // Build-up array of word_id's, from old id to new one
-		//printf("get_ids: old_id=%u, new_id=%u\n", word_id, number_of_keys); fflush(stdout);
+		//printf("get_ids: old_id=%u\n", word_id); fflush(stdout);
 		number_of_keys++;
 	}
 	return number_of_keys;
