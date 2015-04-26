@@ -19,7 +19,7 @@
 #define TOK_CHARS            " \t\n"
 #define UNKNOWN_WORD         "<unk>"
 // Number of characters to read-in for each line
-#define STDIN_SENT_MAX_CHARS 15000
+#define STDIN_SENT_MAX_CHARS 8000
 #define STDIN_SENT_MAX_WORDS 1024
 #define MAX_WORD_LEN 128
 #define MAX_WORD_PREDECESSORS 20000000
