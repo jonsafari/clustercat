@@ -37,7 +37,6 @@ struct_map_bigram *new_bigram_map     = NULL; // Must initialize to NULL
 struct_map_bigram *new_bigram_map_rev = NULL; // Must initialize to NULL
 char usage[USAGE_LEN];
 size_t memusage = 0;
-size_t memusage_max = 0;
 
 
 // Defaults
@@ -232,7 +231,7 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f CPU secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
 	if (cmd_args.verbose >= -1)
-		fprintf(stderr, "%s: Approximate mem usage at clustering: %'.1fMB (max was: %'.1fMB)\n", argv_0_basename, (double)memusage / 1048576, (double)memusage_max / 1048576); fflush(stderr);
+		fprintf(stderr, "%s: Approximate memory usage at clustering: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
 
 	cluster(cmd_args, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
