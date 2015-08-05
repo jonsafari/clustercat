@@ -124,6 +124,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
 		tally_class_ngram_counts(cmd_args, model_metadata, word_bigrams, word2class, count_arrays);
+		wclass_t num_classes_current = (cmd_args.num_classes > 15) && (!cmd_args.disable_refinement) ? (int)log2(cmd_args.num_classes) : cmd_args.num_classes; // Don't bother with class refinement if the number of classes is really small
 
 		// Build precomputed entropy terms
 		float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
@@ -147,6 +148,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		count_arrays_t temp_count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, temp_count_arrays);
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
+			if (cycle > 3)
+				num_classes_current = cmd_args.num_classes;
+
 			const bool is_nonreversed_cycle = (cmd_args.rev_alternate == 0) || (cycle % (cmd_args.rev_alternate+1)); // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles; if rev_alternate==0 then always do this part.
 
 			clear_count_arrays(cmd_args, temp_count_arrays);
@@ -178,6 +182,8 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 						fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count + model_metadata.line_count)));
 					fprintf(stderr, "\n");
 				}
+				else if ( ! cmd_args.disable_refinement)
+					fprintf(stderr, " Starting with %u coarse classes, for the first 3 cycles\n", num_classes_current);
 				else
 					fprintf(stderr, "\n");
 				fflush(stderr);
@@ -187,11 +193,12 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			//#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps) // non-determinism
 			for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 			//for (word_id_t word_i = model_metadata.type_count-1; word_i != -1; word_i--) {
-				if (cycle < 3 && word_i < cmd_args.num_classes) // don't move high-frequency words in the first (few) iteration(s)
+				if (cycle < 3 && word_i < num_classes_current) // don't move high-frequency words in the first (few) iteration(s)
 					continue;
 				const word_count_t word_i_count = word_bigrams[word_i].headword_count;
 				const wclass_t old_class = word2class[word_i];
 				double scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array
+				memset(scores, 0, sizeof(double) * cmd_args.num_classes);
 				//const double delta_remove_word = pex_remove_word(cmd_args, word_i, word_i_count, old_class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays, true);
 				//const double delta_remove_word = 0.0;  // Not really necessary
 				//const double delta_remove_word_rev = 0.0;  // Not really necessary
@@ -202,7 +209,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				//} printf("\nClass Sum=%lu; Corpus Tokens=%lu\n", class_sum, model_metadata.token_count); fflush(stdout);
 
 				#pragma omp parallel for num_threads(cmd_args.num_threads) reduction(+:steps)
-				for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
+				for (wclass_t class = 0; class < num_classes_current; class++) { // class values range from 0 to num_classes_current-1
 					if (is_nonreversed_cycle) {
 						scores[class] = pex_move_word(cmd_args, word_i, word_i_count, class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 					} else { // This is the reversed one
@@ -211,12 +218,12 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					steps++;
 				}
 
-				const wclass_t best_hypothesis_class = which_max(scores, cmd_args.num_classes);
-				const double best_hypothesis_score = max(scores, cmd_args.num_classes);
+				const wclass_t best_hypothesis_class = which_max(scores, num_classes_current);
+				const double best_hypothesis_score = max(scores, num_classes_current);
 
 				if (cmd_args.verbose > 1) {
-					printf("Orig score for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, scores[old_class], 1, cmd_args.num_classes);
-					fprint_array(stdout, scores, cmd_args.num_classes, ","); fflush(stdout);
+					printf("Orig score for word w_«%u» using class «%hu» is %g;  Hypos %u-%u: ", word_i, old_class, scores[old_class], 1, num_classes_current);
+					fprint_array(stdout, scores, num_classes_current, ","); fflush(stdout);
 					//if (best_hypothesis_score > 0) { // Shouldn't happen
 					//	fprintf(stderr, "Error: best_hypothesis_score=%g for class %hu > 0\n", best_hypothesis_score, best_hypothesis_class); fflush(stderr);
 					//	exit(9);
@@ -253,8 +260,8 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		}
 
 		if (cmd_args.verbose >= -1)
-			fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1); fflush(stderr);
-			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, cmd_args.num_classes, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
+			fprintf(stderr, "%s: Completed steps: %'lu\n", argv_0_basename, steps); fflush(stderr);
+			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, num_classes_current, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		if (cmd_args.class_algo == EXCHANGE_BROWN)
 			post_exchange_brown_cluster(cmd_args, model_metadata, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays);

@@ -67,6 +67,7 @@ struct cmd_args {
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;   // enum class_algos
 	unsigned char   print_word_vectors : 2; // enum print_word_vectors
+	bool disable_refinement;
 	bool print_freqs;
 	bool unidirectional;
 };
