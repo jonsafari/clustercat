@@ -155,7 +155,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 
 			clear_count_arrays(cmd_args, temp_count_arrays);
 			double queried_log_prob = 0.0;
-			if (model_metadata.token_count < 1e8  || cycle == cmd_args.tune_cycles || cycle == 2 || cycle == 3) { // For large training sets, only calculate PP on the interesting iterations
+			if (model_metadata.token_count < 5e8  || cycle == cmd_args.tune_cycles || cycle == 2 || cycle == 3) { // For large training sets, only calculate PP on the interesting iterations
 				tally_class_ngram_counts(cmd_args, model_metadata, word_bigrams, word2class, temp_count_arrays);
 				queried_log_prob = training_data_log_likelihood(cmd_args, model_metadata, temp_count_arrays, word_counts, word2class);
 			}
