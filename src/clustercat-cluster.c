@@ -1,6 +1,7 @@
 #include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC, etc.
 #include "clustercat-cluster.h"
 #include "clustercat-array.h"
+#include "clustercat-math.h"
 
 float entropy_term(const float entropy_terms[const], const unsigned int i);
 double pex_remove_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t from_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move);
@@ -124,7 +125,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
 		tally_class_ngram_counts(cmd_args, model_metadata, word_bigrams, word2class, count_arrays);
-		wclass_t num_classes_current = (cmd_args.num_classes > 15) && (!cmd_args.disable_refinement) ? (int)log2(cmd_args.num_classes) : cmd_args.num_classes; // Don't bother with class refinement if the number of classes is really small
+		unsigned int num_classes_current = (cmd_args.num_classes > 15) && (cmd_args.refine) ? powi(2,cmd_args.refine) : cmd_args.num_classes; // Don't bother with class refinement if the number of classes is really small.  powi() is declared in clustercat-math.h
 
 		// Build precomputed entropy terms
 		float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
@@ -148,7 +149,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		count_arrays_t temp_count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, temp_count_arrays);
 		for (; cycle <= cmd_args.tune_cycles; cycle++) {
-			if (cycle > 3)
+			if (cmd_args.refine && (! (cycle % 4))) // Current setting forces bump to full cluster size after 3 iterations, but you can change this line and the next for a different schedule
+				num_classes_current *= 4000;
+			if (num_classes_current > (cmd_args.num_classes / 4.0)) // If the coarse cluster size is close to the final size, just go do the final size
 				num_classes_current = cmd_args.num_classes;
 
 			const bool is_nonreversed_cycle = (cmd_args.rev_alternate == 0) || (cycle % (cmd_args.rev_alternate+1)); // Only do a reverse predictive exchange (using <c,v>) after every cmd_arg.rev_alternate cycles; if rev_alternate==0 then always do this part.
@@ -173,6 +176,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					fprintf(stderr, "ccat: Normal cycle %-2u", cycle);
 				else
 					fprintf(stderr, "ccat: Rev cycle    %-2u", cycle);
+				fprintf(stderr, " C=%-3u", num_classes_current);
 				if (cycle > 1) {
 					fprintf(stderr, " Words moved last cycle: %.2g%% (%u/%u).", (100 * (moved_count / (float)model_metadata.type_count)), moved_count, model_metadata.type_count);
 					char eta_string[300];
@@ -182,7 +186,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 						fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count + model_metadata.line_count)));
 					fprintf(stderr, "\n");
 				}
-				else if ( ! cmd_args.disable_refinement)
+				else if ( cmd_args.refine)
 					fprintf(stderr, " Starting with %u coarse classes, for the first 3 cycles\n", num_classes_current);
 				else
 					fprintf(stderr, "\n");

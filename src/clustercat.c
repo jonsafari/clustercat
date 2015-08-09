@@ -43,7 +43,6 @@ size_t memusage = 0;
 struct cmd_args cmd_args = {
 	.class_algo         = EXCHANGE,
 	.class_offset       = 0,
-	.disable_refinement = 0,
 	.forward_lambda     = 0.6,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
 	.max_array          = 2,
@@ -51,6 +50,7 @@ struct cmd_args cmd_args = {
 	.num_classes        = 0,
 	.print_freqs        = false,
 	.print_word_vectors = NO_VEC,
+	.refine             = 2,
 	.rev_alternate      = 3,
 	.tune_cycles        = 15,
 	.unidirectional     = false,
@@ -281,7 +281,6 @@ Options:\n\
      --class-file <file>  Initialize exchange word classes from an existing clustering tsv file (default: pseudo-random initialization\n\
                           for exchange). If you use this option, you probably can set --tune-cycles to 3 or so\n\
      --class-offset <c>   Print final word classes starting at a given number (default: %d)\n\
-     --disable-refinement Disable class refinement (not recommended: slower and worse clusters)\n\
      --forward-lambda <f> Set interpolation weight for forward bigram class model, in range of [0,1] (default: %g)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\
@@ -290,6 +289,7 @@ Options:\n\
      --out <file>         Specify output file (default: stdout)\n\
      --print-freqs        Print word frequencies after words and classes in final clustering output (useful for visualization)\n\
  -q, --quiet              Print less output.  Use additional -q for even less output\n\
+     --refine <c>         Set initial class refinement value (c==0 -> no refinement; otherwise 2^n.  Default:c==2 -> 4 initial clusters)\n\
      --rev-alternate <u>  How often to alternate using reverse predictive exchange. 0==never, 1==after every normal cycle (default: %u)\n\
  -j, --threads <hu>       Set number of threads to run simultaneously (default: %d threads)\n\
      --tune-cycles <hu>   Set max number of cycles to tune on (default: %d cycles)\n\
@@ -326,8 +326,6 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 		} else if (!strcmp(argv[arg_i], "--class-offset")) {
 			cmd_args->class_offset = (signed char)atoi(argv[arg_i+1]);
 			arg_i++;
-		} else if (!(strcmp(argv[arg_i], "--disable-refinement"))) {
-			cmd_args->disable_refinement = true;
 		} else if (!strcmp(argv[arg_i], "--forward-lambda")) {
 			cmd_args->forward_lambda = (float)atof(argv[arg_i+1]);
 			arg_i++;
@@ -358,6 +356,9 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			cmd_args->print_freqs = true;
 		} else if (!(strcmp(argv[arg_i], "-q") && strcmp(argv[arg_i], "--quiet"))) {
 			cmd_args->verbose--;
+		} else if (!(strcmp(argv[arg_i], "--refine"))) {
+			cmd_args->refine = (unsigned char) atol(argv[arg_i+1]);
+			arg_i++;
 		} else if (!strcmp(argv[arg_i], "--rev-alternate")) {
 			cmd_args->rev_alternate = (unsigned char) atoi(argv[arg_i+1]);
 			arg_i++;

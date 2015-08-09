@@ -61,13 +61,13 @@ struct cmd_args {
 	unsigned short  min_count : 12;
 	signed char     verbose : 4;      // Negative values increasingly suppress normal output
 	unsigned short  tune_cycles : 8;
+	unsigned char   refine; // 0=no refinement; otherwise 2^n
 	signed char     class_offset: 4;
 	unsigned short  num_threads : 8;
 	unsigned char   rev_alternate: 3; // How often to alternate using reverse pex.  0 == never, 1 == after every one normal pex cycles, ...
 	unsigned char   max_array : 2;
 	unsigned char   class_algo : 2;   // enum class_algos
 	unsigned char   print_word_vectors : 2; // enum print_word_vectors
-	bool disable_refinement;
 	bool print_freqs;
 	bool unidirectional;
 };
