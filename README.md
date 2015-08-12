@@ -28,8 +28,8 @@ The binary program `clustercat` gets compiled into the `bin` directory.
       bin/clustercat [options] < train.tok.txt > clusters.tsv
 
 The word-classes are induced from a bidirectional [predictive][] [exchange algorithm][].
-Future work includes support for [Brown clustering][].
-The format of the class file has each line consisting of `word`*TAB*`class` (a word type, then tab, then class).
+Future work includes support for hierarchical clusters.
+The format of the output class file has each line consisting of `word`*TAB*`class` (a word type, then tab, then class).
 
 Command-line argument usage may be obtained by running with program with the **`--help`** flag:
 
@@ -70,8 +70,6 @@ If you want to directly compare the quality of clusters with a different program
 3. Evaluate on a downstream task.
 
 
-## Citation
-...
 
 [lgpl3]: https://www.gnu.org/copyleft/lesser.html
 [mpl2]: https://www.mozilla.org/MPL/2.0
@@ -79,7 +77,6 @@ If you want to directly compare the quality of clusters with a different program
 [openmp]: https://en.wikipedia.org/wiki/OpenMP
 [predictive]: https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
-[brown clustering]: https://en.wikipedia.org/wiki/Brown_clustering
 [word vectors]: https://en.wikipedia.org/wiki/Word_embedding
 [bl.ocks.org]: http://bl.ocks.org/jonsafari
 [JSON]: https://en.wikipedia.org/wiki/JSON
