@@ -1,4 +1,5 @@
 #include <time.h>				// clock_t, clock(), CLOCKS_PER_SEC, etc.
+#include <float.h>				// FLT_MAX, etc.
 #include "clustercat-cluster.h"
 #include "clustercat-array.h"
 #include "clustercat-math.h"
@@ -308,10 +309,18 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 		const word_count_t word_i_count = word_bigrams[word_i].headword_count;
 		float scores[cmd_args.num_classes]; // This doesn't need to be private in the OMP parallelization since each thead is writing to different element in the array.  We use a float here to be compatible with word2vec
+		float score_min = FLT_MAX; // use this later for rescaling
 
 		#pragma omp parallel for num_threads(cmd_args.num_threads)
 		for (wclass_t class = 0; class < cmd_args.num_classes; class++) { // class values range from 0 to cmd_args.num_classes-1
 			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
+			if (scores[class] < score_min)
+				score_min = scores[class];
+		}
+
+		// Rescale vectors
+		for (wclass_t class = 0; class < cmd_args.num_classes; class++) {
+			scores[class] -= score_min;
 		}
 
 		if (cmd_args.print_freqs) // greedo compatible
