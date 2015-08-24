@@ -302,7 +302,8 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 	float * restrict entropy_terms = malloc(ENTROPY_TERMS_MAX * sizeof(float));
 	build_entropy_terms(cmd_args, entropy_terms, ENTROPY_TERMS_MAX);
 
-	fprintf(out_file, "%lu %u\n", (long unsigned)model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
+	if ( ! cmd_args.print_freqs) // greedo compatible
+		fprintf(out_file, "%lu %u\n", (long unsigned)model_metadata.type_count, cmd_args.num_classes); // Like output in word2vec
 
 	for (word_id_t word_i = 0; word_i < model_metadata.type_count; word_i++) {
 		const word_count_t word_i_count = word_bigrams[word_i].headword_count;
@@ -313,7 +314,11 @@ void print_words_and_vectors(FILE * out_file, const struct cmd_args cmd_args, co
 			scores[class] = -(float)pex_move_word(cmd_args, word_i, word_i_count, class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts, count_arrays[0], entropy_terms, true);
 		}
 
-		fprintf(out_file, "%s ", word_list[word_i]);
+		if (cmd_args.print_freqs) // greedo compatible
+			fprintf(out_file, "%lu %s ", (long unsigned) word_i_count, word_list[word_i]);
+		else // word2vec compatible
+			fprintf(out_file, "%s ", word_list[word_i]);
+
 		if (cmd_args.print_word_vectors == TEXT_VEC)
 			fprint_arrayf(out_file, scores, cmd_args.num_classes, " ");
 		else
