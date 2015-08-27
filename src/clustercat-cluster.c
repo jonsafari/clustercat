@@ -259,9 +259,8 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				}
 			}
 
-			// In principle if there's no improvement in the determinitistic exchange algo, we can stop cycling; there will be no more gains
-			if (!moved_count) // Nothing moved in last cycle, so that's it
-				break;
+			//if (!moved_count) // Nothing moved in last cycle, so that's it
+			//	break;
 		}
 
 		if (cmd_args.verbose >= -1)
