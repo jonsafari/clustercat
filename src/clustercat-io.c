@@ -89,26 +89,3 @@ struct_model_metadata process_input(FILE *file, struct_map_word ** initial_word_
 	map_update_count(initial_word_map, "</s>", model_metadata.line_count, 2);
 	return model_metadata;
 }
-
-long fill_sent_buffer(FILE *file, char * restrict sent_buffer[], const long max_sents_in_buffer, size_t * memusage) {
-	char line_in[STDIN_SENT_MAX_CHARS];
-	long sent_buffer_num = 0;
-	unsigned int strlen_line_in = 0;
-
-	while (sent_buffer_num < max_sents_in_buffer) {
-		if (! fgets(line_in, STDIN_SENT_MAX_CHARS, file))
-			break;
-		else {
-			strlen_line_in = strlen(line_in); // We'll need this a couple times;  strnlen isn't in C standard :-(
-			if (strlen_line_in == STDIN_SENT_MAX_CHARS-1)
-				fprintf(stderr, "\n%s: Notice: Input line too long (> %lu chars), at buffer line %li. The line started with:    %.250s ...\n", argv_0_basename, (long unsigned int) STDIN_SENT_MAX_CHARS, sent_buffer_num+1, line_in);
-			sent_buffer[sent_buffer_num] = (char *)malloc(1+ strlen_line_in * sizeof(char *));
-			*memusage += 1+ strlen_line_in * sizeof(char *);
-			strncpy(sent_buffer[sent_buffer_num], line_in, 1+strlen_line_in);
-			//printf("fill_sent_buffer 7: sent_buffer_num=%li, line_in=<<%s>>, strlen_line_in=%u, sent_in=<<%s>>\n", sent_buffer_num, line_in, strlen_line_in, sent_buffer[sent_buffer_num]); fflush(stdout);
-			sent_buffer_num++;
-		}
-	}
-	//printf("fill_sent_buffer 99: sent_buffer_num=%li\n", sent_buffer_num);
-	return sent_buffer_num;
-}
