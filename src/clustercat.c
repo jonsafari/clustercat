@@ -99,7 +99,6 @@ int main(int argc, char **argv) {
 	if (cmd_args.verbose >= -1)
 		fprintf(stderr, "%s: Corpus processed in %'.2f CPU secs. %'lu lines, %'u types, %'lu tokens, current memusage: %'.1fMB\n", argv_0_basename, (double)(time_input_processed - time_start)/CLOCKS_PER_SEC, input_model_metadata.line_count, input_model_metadata.type_count, input_model_metadata.token_count, (double)memusage / 1048576); fflush(stderr);
 
-	global_metadata.line_count  = input_model_metadata.line_count;
 	global_metadata.token_count = input_model_metadata.token_count;
 	global_metadata.type_count  = map_count(&word_map);
 
@@ -141,6 +140,11 @@ int main(int argc, char **argv) {
 	remap_and_rev_bigram_map(&initial_bigram_map, &new_bigram_map, &new_bigram_map_rev, word_id_remap, map_find_id(&word_map, UNKNOWN_WORD, -1));
 	global_metadata.start_sent_id = map_find_id(&word_map, "<s>", -1);; // need this for tallying emission probs
 	global_metadata.end_sent_id   = map_find_id(&word_map, "</s>", -1);; // need this for tallying emission probs
+	global_metadata.line_count    = map_find_count(&word_map, "</s>"); // Used for calculating perplexity
+
+	if (global_metadata.line_count == 0) {
+		fprintf(stderr, "%s: Warning: Number of lines is 0.  Include <s> and </s> in your ngram counts, or perplexity values will be unreliable.\n", argv_0_basename); fflush(stderr);
+	}
 
 	//printf("init_bigram_map hash_count=%u\n", HASH_COUNT(initial_bigram_map)); fflush(stdout);
 	//printf("new_bigram_map hash_count=%u\n", HASH_COUNT(new_bigram_map)); fflush(stdout);
