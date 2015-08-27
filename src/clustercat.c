@@ -18,7 +18,6 @@
 #include "clustercat-import-class-file.h"	// import_class_file()
 #include "clustercat-io.h"					// process_input()
 #include "clustercat-math.h"				// perplexity(), powi()
-#include "clustercat-ngram-prob.h"			// class_ngram_prob()
 
 #define USAGE_LEN 10000
 #define LOG2ADD(a,b) (log2(a) + log2(1 + (b) / (a) ))
