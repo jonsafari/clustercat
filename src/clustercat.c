@@ -46,6 +46,7 @@ struct cmd_args cmd_args = {
 	.forward_lambda     = 0.55,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
 	.max_array          = 2,
+	.ngram_input        = false,
 	.num_threads        = 8,
 	.num_classes        = 0,
 	.print_freqs        = false,
@@ -91,7 +92,7 @@ int main(int argc, char **argv) {
 
 	// Process input sentences
 	size_t input_memusage = 0;
-	const struct_model_metadata input_model_metadata = process_input(in_train_file, &word_map, &initial_bigram_map, &input_memusage);
+	const struct_model_metadata input_model_metadata = process_input(cmd_args, in_train_file, &word_map, &initial_bigram_map, &input_memusage);
 	memusage += input_memusage;
 	fclose(in_train_file);
 
@@ -346,6 +347,8 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 				exit(10);
 			}
 			arg_i++;
+		} else if (!(strcmp(argv[arg_i], "--ngram-input"))) {
+			cmd_args->ngram_input = true;
 		} else if (!(strcmp(argv[arg_i], "-c") && strcmp(argv[arg_i], "-n") && strcmp(argv[arg_i], "--classes") && strcmp(argv[arg_i], "--num-classes"))) {
 			cmd_args->num_classes = (wclass_t) atol(argv[arg_i+1]);
 			arg_i++;
