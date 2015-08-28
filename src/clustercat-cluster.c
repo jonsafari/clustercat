@@ -183,8 +183,13 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					char eta_string[300];
 					strftime(eta_string, 300, "%x %X", localtime(&eta));
 					fprintf(stderr, " Time left: %lim %lis.  ETA: %s", (long)time_remaining/60, ((long)time_remaining % 60), eta_string);
-					if (queried_log_prob)
-						fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count + model_metadata.line_count)));
+					if (queried_log_prob) {
+						if (cmd_args.ngram_input) {
+							fprintf(stderr, "  LL=%g", queried_log_prob); // can't get reliable PP if input is ngram counts
+						} else {
+							fprintf(stderr, "  LL=%.3g PP=%g", queried_log_prob, perplexity(queried_log_prob,(model_metadata.token_count + model_metadata.line_count)));
+						}
+					}
 					fprintf(stderr, "\n");
 				}
 				else if ( cmd_args.refine)
