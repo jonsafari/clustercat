@@ -288,6 +288,7 @@ Options:\n\
      --forward-lambda <f> Set interpolation weight for forward bigram class model, in range of [0,1] (default: %g)\n\
  -h, --help               Print this usage\n\
      --in <file>          Specify input training file (default: stdin)\n\
+     --ngram-input        Input is a listing of n-grams and their counts. Otherwise input is a normal corpus\n\
      --min-count <hu>     Minimum count of entries in training set to consider (default: %d occurrences)\n\
      --max-array <c>      Set maximum order of n-grams for which to use an array instead of a sparse hash map (default: %d-grams)\n\
      --out <file>         Specify output file (default: stdout)\n\
