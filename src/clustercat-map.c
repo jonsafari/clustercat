@@ -1,7 +1,6 @@
 #include "clustercat-map.h"
 
 inline bool map_increment_bigram(struct_map_bigram **map, const struct_word_bigram * bigram) {
-	bool is_new = 0;
 	struct_map_bigram *local_s;
 	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
 	if (local_s == NULL) {
@@ -10,14 +9,14 @@ inline bool map_increment_bigram(struct_map_bigram **map, const struct_word_bigr
 		local_s->key = *bigram;
 		local_s->count = 1;
 		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
+		return true;
 	} else {
 		(local_s->count)++;
-		is_new = false;
+		return false;
 	}
-	return is_new;
 }
 
-inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram * bigram, const word_bigram_count_t count) {
+inline bool map_update_bigram(struct_map_bigram **map, const struct_word_bigram * bigram, const word_bigram_count_t count) {
 	struct_map_bigram *local_s;
 	HASH_FIND(hh, *map, bigram, sizeof(struct_word_bigram), local_s); // id already in the hash?
 	if (local_s == NULL) {
@@ -26,8 +25,10 @@ inline void map_update_bigram(struct_map_bigram **map, const struct_word_bigram 
 		local_s->key = *bigram;
 		local_s->count = count;
 		HASH_ADD(hh, *map, key, sizeof(struct_word_bigram), local_s);
+		return true;
 	} else {
 		local_s->count += count;
+		return false;
 	}
 }
 
