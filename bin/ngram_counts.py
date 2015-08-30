@@ -4,7 +4,7 @@
 
 import sys
 
-ngram_order = 3
+ngram_order = 4
 ngrams = []
 for i in range(ngram_order):
     ngrams.append({})
@@ -12,8 +12,8 @@ for i in range(ngram_order):
 for line in sys.stdin:
     line = line.rstrip()
     tokens = line.split()
-    tokens.insert(0, "<s>")
-    tokens.append("</s>")
+    #tokens.insert(0, "<s>")
+    #tokens.append("</s>")
     #print(tokens)
     len_tokens = len(tokens)
 
@@ -29,7 +29,7 @@ for line in sys.stdin:
         # Build-up joined ngrams
         for j in range(i+1,k+1):
             joined_ngram = '_'.join(tokens[i:j])
-            if (j < k):
+            if (j+1 < k):
                 if joined_ngram in ngrams[0]:
                     ngrams[0][joined_ngram] += 1
                 else :
@@ -40,13 +40,16 @@ for line in sys.stdin:
             # Process sub-ngrams
             num_subcuts = j - (i+1)
             while (num_subcuts >= 1):
+                if ( (j == k) and (num_subcuts % 2)): # skip imbalanced subcuts
+                    num_subcuts -= 1
+                    continue
                 subcut = ' '.join([ '_'.join(tokens[i:i+num_subcuts]), '_'.join(tokens[i+num_subcuts:j]) ])
                 if (subcut in ngrams[1]):
                     ngrams[1][subcut] +=1
                 else :
                     ngrams[1][subcut] = 1
 
-                #print("        num_subcuts=", num_subcuts, "subcut=",subcut)
+                #print("        num_subcuts=", num_subcuts, "subcut=<<",subcut, ">>")
                 num_subcuts -= 1
 
 for i in range(ngram_order):
