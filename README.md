@@ -28,10 +28,9 @@ The binary program `clustercat` gets compiled into the `bin` directory.
       bin/clustercat [options] < train.tok.txt > clusters.tsv
 
 The word-classes are induced from a bidirectional [predictive][] [exchange algorithm][].
-Future work includes support for hierarchical clusters.
 The format of the output class file has each line consisting of `word`*TAB*`class` (a word type, then tab, then class).
 
-Command-line argument usage may be obtained by running with program with the **`--help`** flag:
+Command-line argument **usage** may be obtained by running with program with the **`--help`** flag:
 
       bin/clustercat --help
 
@@ -40,11 +39,16 @@ Command-line argument usage may be obtained by running with program with the **`
 - Start training using an **existing word cluster mapping** from other clustering software (eg. mkcls) using the `--class-file` flag.
 - Adjust the number of **threads** to use with the `--threads` flag.  The default is 8.
 - Adjust the **number of clusters** or vector dimensions using the `--classes` flag. The default is approximately the square root of the vocabulary size.
-- ClusterCat prints regular updates of approximately how much time remains, and about **what time it will finish**.
 - Includes **compatibility wrapper script ` bin/mkcls `** that can be run just like mkcls.  You can use more classes now :-)
 
 ## Visualization
 See [bl.ocks.org][] for cool data visualization of the clusters for various languages, including English, German, Persian, Hindi, Czech, Catalan, Tajik, Basque, Russian, French, and Maltese.
+
+For example:
+
+ ![French Clustering Thumbnail](visualization/d3/french_cluster_thumbnail.png)
+ ![Russian Clustering Thumbnail](visualization/d3/russian_cluster_thumbnail.png)
+ ![Basque Clustering Thumbnail](visualization/d3/basque_cluster_thumbnail.png)
 
 You can generate your own graphics from ClusterCat's output.
 Add the flag  `--print-freqs`  to ClusterCat, then type the command:
