@@ -21,7 +21,7 @@ clustercat.h: ${SRC}/clustercat-array.h ${SRC}/clustercat-data.h ${SRC}/clusterc
 
 
 ${BIN}/clustercat: ${SRC}/clustercat.c ${OBJS}
-	${CC} $^ -o $@ ${CFLAGS} ${LDLIBS}
+	${CC} -Wl,-s $^ -o $@ ${CFLAGS} ${LDLIBS}
 
 clustercat.c: ${SRC}/clustercat.h ${SRC}/clustercat-cluster.h ${SRC}/clustercat-dbg.h ${SRC}/clustercat-io.h ${SRC}/clustercat-import-class-file.h ${SRC}/clustercat-math.h ${SRC}/clustercat-tokenize.h
 
