@@ -227,6 +227,7 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 					}
 					steps++;
 				}
+				//scores[old_class] -= 0.80 / cycle; // TA
 
 				const wclass_t best_hypothesis_class = which_max(scores, num_classes_current);
 				const double best_hypothesis_score = max(scores, num_classes_current);
