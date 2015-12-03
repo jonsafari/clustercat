@@ -13,7 +13,7 @@ It is programmed in modern C, with few external libraries.
 - A modern **C** compiler that supports [C99][], and preferably [OpenMP][] v3.0+ .
   The OpenMP pragmas (for multi-threaded use) may be ignored by older compilers, and will not affect the output of the program.
   - GCC 4.6+ (recommended)
-  - Clang 3.0+  current stable versions simply ignore OpenMP pragmas, which is ok. The program will give the same output, but without multithreaded support it will take longer.
+  - Clang 3.0+  -- before v3.7, Clang simply ignored OpenMP pragmas, providing single-threaded binaries.  Clang v3.7 supports multi-threaded binaries, but Clang still has linking issues.  On Linux you may need to install `libiomp5` and manually create a symlink from `/usr/lib/libiomp5.so` to `/usr/lib/libomp.so`.
   - Probably other modern C compilers that fully support C99 (not MSVC)
 - That's it!
 
