@@ -1,5 +1,5 @@
 
-# ClusterCat: Fast, Flexible, Fun Word Class Clustering Software
+# ClusterCat: Fast, Flexible Word Clustering Software
 
 
 ## Overview
@@ -12,7 +12,7 @@ It is programmed in modern C, with few external libraries.
 - A **Unix**-like system (eg. Linux, FreeBSD, Mac OS X, Cygwin) that includes `make`.
 - A modern **C** compiler that supports [C99][], and preferably [OpenMP][] v3.0+ .
   The OpenMP pragmas (for multi-threaded use) may be ignored by older compilers, and will not affect the output of the program.
-  - GCC 4.6+ (recommended)
+  - GCC 4.6+ (**recommended**)
   - Clang 3.0+  -- before v3.7, Clang simply ignored OpenMP pragmas, providing single-threaded binaries.  Clang v3.7 supports multi-threaded binaries, but Clang still has linking issues.  On Linux you may need to install `libiomp5` and manually create a symlink from `/usr/lib/libiomp5.so` to `/usr/lib/libomp.so`.
   - Probably other modern C compilers that fully support C99 (not MSVC)
 - That's it!
@@ -42,7 +42,7 @@ Command-line argument **usage** may be obtained by running with program with the
 - Includes **compatibility wrapper script ` bin/mkcls `** that can be run just like mkcls.  You can use more classes now :-)
 
 ## Visualization
-See [bl.ocks.org][] for cool data visualization of the clusters for various languages, including English, German, Persian, Hindi, Czech, Catalan, Tajik, Basque, Russian, French, and Maltese.
+See [bl.ocks.org][] for nice data visualizations of the clusters for various languages, including English, German, Persian, Hindi, Czech, Catalan, Tajik, Basque, Russian, French, and Maltese.
 
 For example:
 
