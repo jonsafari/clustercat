@@ -41,6 +41,14 @@ Command-line argument **usage** may be obtained by running with program with the
 - Adjust the **number of clusters** or vector dimensions using the `--classes` flag. The default is approximately the square root of the vocabulary size.
 - Includes **compatibility wrapper script ` bin/mkcls `** that can be run just like mkcls.  You can use more classes now :-)
 
+## Comparison
+| Training Set               | [Brown][] | ClusterCat | [mkcls][] | [Phrasal][] | [word2vec][] |
+| ------------               | --------- | ---------- | --------- | ----------- | ------------ |
+| 1B   WMT EN, 800 clusters  | 12.5 hr   | **1.4** hr | 48.8 hr   | 5.1 hr      | 20.6 hr      |
+| 1B   WMT EN, 1200 clusters | 25.5 hr   | **1.7** hr | 68.8 hr   | 6.2 hr      | 33.7 hr      |
+| 550M WMT RU, 800 clusters  | 14.6 hr   | **1.5** hr | 75.0 hr   | 5.5 hr      | 12.0 hr      |
+
+
 ## Visualization
 See [bl.ocks.org][] for nice data visualizations of the clusters for various languages, including English, German, Persian, Hindi, Czech, Catalan, Tajik, Basque, Russian, French, and Maltese.
 
@@ -81,6 +89,10 @@ If you want to directly compare the quality of clusters with a different program
 [openmp]: https://en.wikipedia.org/wiki/OpenMP
 [predictive]: https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
+[brown]: https://github.com/percyliang/brown-cluster
+[mkcls]: https://github.com/moses-smt/mgiza
+[phrasal]: http://nlp.stanford.edu/phrasal
+[word2vec]: https://code.google.com/archive/p/word2vec/
 [word vectors]: https://en.wikipedia.org/wiki/Word_embedding
 [bl.ocks.org]: http://bl.ocks.org/jonsafari
 [JSON]: https://en.wikipedia.org/wiki/JSON
