@@ -72,14 +72,16 @@ Then open a tab in your browser to [localhost:8116](http://localhost:8116) .
 The default settings are sensible for normal usage, but for visualization you probably want much fewer word types and clusters -- less than 10,000 word types and 120 clusters.
 Your browser will thank you.
 
+
 ## Perplexity
 The perplexity that ClusterCat reports uses a bidirectional bigram class language model, which is richer than the unidirectional bigram-based perplexities reported by most other software.
 Richer models provide a better evaluation of the quality of clusters, having more sensitivity (power) to detect improvements.
 If you want to directly compare the quality of clusters with a different program's output, you have a few options:
 
 1. Load another clustering using `--class-file` , and see what the other clustering's initial bidirectional bigram perplexity is before any words get exchanged.
-2. Use an external class-based language model.
-3. Evaluate on a downstream task.
+2. Use an external class-based language model.  These are usually two-sided (unlexicalized) models, so they favor two-sided clusterers.
+3. Evaluate on a downstream task.  This is best.
+
 
 
 
