@@ -40,7 +40,7 @@ size_t memusage = 0;
 
 // Defaults
 struct cmd_args cmd_args = {
-	.class_algo         = EXCHANGE,
+	.class_algo         = PRED_EX,
 	.class_offset       = 0,
 	.forward_lambda     = 0.55,
 	.min_count          = 3, // or max(2, floor(N^0.14 - 7))
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 	//printf("sizeof(cmd_args)=%zd\n", sizeof(cmd_args));
 	parse_cmd_args(argc, argv, usage, &cmd_args);
 
-	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN)
+	if (cmd_args.class_algo == PRED_EX || cmd_args.class_algo == EXCHANGE_BROWN)
 		memusage += sizeof(float) * ENTROPY_TERMS_MAX; // We'll build the precomputed entropy terms after reporting memusage
 
 	struct_model_metadata global_metadata;
@@ -249,9 +249,9 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "%s: Error: Unable to open output file  %s\n", argv_0_basename, out_file_string); fflush(stderr);
 			exit(16);
 		}
-		if (cmd_args.class_algo == EXCHANGE && (!cmd_args.print_word_vectors)) {
+		if (cmd_args.class_algo == PRED_EX && (!cmd_args.print_word_vectors)) {
 			print_words_and_classes(out_file, global_metadata.type_count, word_list, word_counts, word2class, (int)cmd_args.class_offset, cmd_args.print_freqs);
-		} else if (cmd_args.class_algo == EXCHANGE && cmd_args.print_word_vectors) {
+		} else if (cmd_args.class_algo == PRED_EX && cmd_args.print_word_vectors) {
 			print_words_and_vectors(out_file, cmd_args, global_metadata, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 		}
 		fclose(out_file);
@@ -306,7 +306,7 @@ Options:\n\
 \n\
 ", cmd_args.class_offset, cmd_args.forward_lambda, cmd_args.min_count, cmd_args.max_array, cmd_args.rev_alternate, cmd_args.num_threads, cmd_args.tune_cycles);
 }
-//     --class-algo <s>     Set class-induction algorithm {brown,exchange,exchange-then-brown} (default: exchange)\n\
+//     --class-algo <s>     Set class-induction algorithm {pred-exchange,cond-exchange,brown,exchange-then-brown} (default: pred-exchange)\n\
 // -o, --order <i>          Maximum n-gram order in training set to consider (default: %d-grams)\n\
 // -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
 
@@ -320,8 +320,10 @@ void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_arg
 			arg_i++;
 			if (!strcmp(class_algo_string, "brown"))
 				cmd_args->class_algo = BROWN;
-			else if (!strcmp(class_algo_string, "exchange"))
-				cmd_args->class_algo = EXCHANGE;
+			else if (!strcmp(class_algo_string, "pred-exchange"))
+				cmd_args->class_algo = PRED_EX;
+			else if (!strcmp(class_algo_string, "cond-exchange"))
+				cmd_args->class_algo = COND_EX;
 			else if (!strcmp(class_algo_string, "exchange-then-brown"))
 				cmd_args->class_algo = EXCHANGE_BROWN;
 			else { printf("%s", usage); exit(1); }
@@ -490,7 +492,7 @@ void tally_class_ngram_counts(const struct cmd_args cmd_args, const struct_model
 void init_clusters(const struct cmd_args cmd_args, word_id_t vocab_size, wclass_t word2class[restrict], const word_count_t word_counts[const], char * word_list[restrict]) {
 	register unsigned long word_i = 0;
 
-	if (cmd_args.class_algo == EXCHANGE || cmd_args.class_algo == EXCHANGE_BROWN) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes-1].  So it's a simple pseudo-randomized initialization.
+	if (cmd_args.class_algo == PRED_EX || cmd_args.class_algo == EXCHANGE_BROWN) { // It doesn't really matter how you initialize word classes in exchange algo.  This assigns words from the word list an incrementing class number from [0,num_classes-1].  So it's a simple pseudo-randomized initialization.
 		register wclass_t class = 0; // [0,num_classes-1]
 		for (; word_i < vocab_size; word_i++, class++) {
 			if (class == cmd_args.num_classes) // reset

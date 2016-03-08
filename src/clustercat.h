@@ -24,7 +24,7 @@
 #define MAX_WORD_PREDECESSORS 20000000
 #define ENTROPY_TERMS_MAX 10000000
 
-enum class_algos {EXCHANGE, BROWN, EXCHANGE_BROWN};
+enum class_algos {PRED_EX, COND_EX, BROWN, EXCHANGE_BROWN};
 enum print_word_vectors {NO_VEC, TEXT_VEC, BINARY_VEC};
 
 #include "clustercat-data.h" // bad. chicken-and-egg typedef deps
