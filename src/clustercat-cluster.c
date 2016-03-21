@@ -16,7 +16,7 @@ inline float entropy_term(const float entropy_terms[const], const unsigned int i
 }
 
 inline double pex_remove_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t from_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
-	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
+	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P08-1086.pdf
 	register double delta = 0.0;
 	const unsigned int count_class = count_array[from_class];
 	if (count_class > 1)
@@ -59,7 +59,7 @@ inline double pex_remove_word(const struct cmd_args cmd_args, const word_id_t wo
 }
 
 inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word, const word_count_t word_count, const wclass_t to_class, const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts, count_array_t count_array, const float entropy_terms[const], const bool is_tentative_move) {
-	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
+	// See Procedure MoveWord on page 758 of Uszkoreit & Brants (2008):  https://www.aclweb.org/anthology/P08-1086.pdf
 	unsigned int count_class = count_array[to_class];
 	if (!count_class) // class is empty
 		count_class = 1;
@@ -121,7 +121,7 @@ inline double pex_move_word(const struct cmd_args cmd_args, const word_id_t word
 void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_metadata, const word_count_t word_counts[const], char * word_list[restrict], wclass_t word2class[], const struct_word_bigram_entry word_bigrams[const], const struct_word_bigram_entry word_bigrams_rev[const], unsigned int * restrict word_class_counts, unsigned int * restrict word_class_rev_counts) {
 	unsigned long steps = 0;
 
-	if (cmd_args.class_algo == PRED_EX  ||  cmd_args.class_algo == EXCHANGE_BROWN) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
+	if (cmd_args.class_algo == PRED_EX  ||  cmd_args.class_algo == COND_EX  ||  cmd_args.class_algo == EXCHANGE_BROWN) { // Exchange algorithm: See Sven Martin, Jörg Liermann, Hermann Ney. 1998. Algorithms For Bigram And Trigram Word Clustering. Speech Communication 24. 19-37. http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 		// Get initial logprob
 		count_arrays_t count_arrays = malloc(cmd_args.max_array * sizeof(void *));
 		init_count_arrays(cmd_args, count_arrays);
