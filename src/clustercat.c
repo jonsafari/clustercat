@@ -311,6 +311,12 @@ Options:\n\
 // -w, --weights 'f f ...'  Set class interpolation weights for: 3-gram, 2-gram, 1-gram, rev 2-gram, rev 3-gram. (default: %s)\n\
 
 void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args) {
+	for (int arg_i = 0; arg_i < argc; arg_i++) // Print command-line invocation, for reproducibility
+		if (cmd_args->verbose >= -1)
+			fprintf(stderr, "%s ", argv[arg_i]); fflush(stderr);
+	if (cmd_args->verbose >= -1)
+		fprintf(stderr, "\n"); fflush(stderr);
+
 	for (int arg_i = 1; arg_i < argc; arg_i++) {
 		if (!(strcmp(argv[arg_i], "-h") && strcmp(argv[arg_i], "--help"))) {
 			printf("%s", usage);
