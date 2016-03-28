@@ -1,15 +1,20 @@
-
 # ClusterCat: Fast, Flexible Word Clustering Software
+
+[![Build Status](https://travis-ci.org/jonsafari/clustercat.svg?branch=master)](https://travis-ci.org/jonsafari/clustercat)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](http://www.gnu.org/licenses/lgpl-3.0)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
 
 ## Overview
 
 ClusterCat induces word classes from unannotated text.
-It is freely licensed under the [LGPL v3][lgpl3] or the [MPL v2][mpl2].
-It is programmed in modern C, with few external libraries.
+It is programmed in modern C, with no external libraries.
+
 
 ## Installation
 ### Linux
+You can use either GCC 4.6+ or Clang 3.7+, but GCC is recommended.
+
       sudo apt-get update  &&  sudo apt-get install gcc make
       make -j 4
 
@@ -34,12 +39,14 @@ Command-line argument **usage** may be obtained by running with program with the
 
       bin/clustercat --help
 
+
 ## Features
 - Print **[word vectors][]** (a.k.a. word embeddings) using the `--word-vectors` flag.  The binary format is compatible with word2vec's tools.
 - Start training using an **existing word cluster mapping** from other clustering software (eg. mkcls) using the `--class-file` flag.
 - Adjust the number of **threads** to use with the `--threads` flag.  The default is 8.
 - Adjust the **number of clusters** or vector dimensions using the `--classes` flag. The default is approximately the square root of the vocabulary size.
 - Includes **compatibility wrapper script ` bin/mkcls `** that can be run just like mkcls.  You can use more classes now :-)
+
 
 ## Comparison
 | Training Set               | [Brown][] | ClusterCat | [mkcls][] | [Phrasal][] | [word2vec][] |
