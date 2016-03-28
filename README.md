@@ -10,7 +10,7 @@ It is programmed in modern C, with few external libraries.
 
 ## Installation
 ### Linux
-      sudo apt-get update  &&  apt-get install gcc make
+      sudo apt-get update  &&  sudo apt-get install gcc make
       make -j 4
 
 ### OSX
