@@ -1,4 +1,5 @@
 language: c
+cache: brew
 compiler:
   - clang
   - gcc
