@@ -6,3 +6,6 @@ os:
   - linux
   - osx
 script: make
+before_install:
+  - brew update
+  - brew outdated clang || brew upgrade clang
