@@ -8,17 +8,17 @@ ClusterCat induces word classes from unannotated text.
 It is freely licensed under the [LGPL v3][lgpl3] or the [MPL v2][mpl2].
 It is programmed in modern C, with few external libraries.
 
-## System Requirements
-- A **Unix**-like system (eg. Linux, FreeBSD, Mac OS X, Cygwin) that includes `make`.
-- A modern **C** compiler that supports [C99][], and preferably [OpenMP][] v3.0+ .
-  The OpenMP pragmas (for multi-threaded use) may be ignored by older compilers, and will not affect the output of the program.
-  - GCC 4.6+ (**recommended**)
-  - Clang 3.0+  -- before v3.7, Clang simply ignored OpenMP pragmas, providing single-threaded binaries.  Clang v3.7 supports multi-threaded binaries, but Clang still has linking issues.  On Linux you may need to install `libiomp5` and manually create a symlink from `/usr/lib/libiomp5.so` to `/usr/lib/libomp.so`.
-  - Probably other modern C compilers that fully support C99 (not MSVC)
-- That's it!
-
-## Compilation
+## Installation
+### Linux
+      sudo apt-get update  &&  apt-get install gcc make
       make -j 4
+
+### OSX
+Until Xcode includes Clang 3.7+, you can use [Homebrew][] to install a version of Clang that supports [OpenMP][]:
+
+      brew update  &&  brew install clang-omp
+      make -j 4 CC=clang-omp
+
 
 ## Commands
 The binary program `clustercat` gets compiled into the `bin` directory.
@@ -102,6 +102,7 @@ In *Proceedings of the 2016 Conference of the North American Chapter of the Asso
 [lgpl3]: https://www.gnu.org/copyleft/lesser.html
 [mpl2]: https://www.mozilla.org/MPL/2.0
 [c99]: https://en.wikipedia.org/wiki/C99
+[homebrew]: http://brew.sh
 [openmp]: https://en.wikipedia.org/wiki/OpenMP
 [predictive]: https://www.aclweb.org/anthology/P/P08/P08-1086.pdf
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
