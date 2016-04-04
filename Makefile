@@ -15,7 +15,7 @@ date:=$(shell date +%F)
 machine_type:=$(shell uname -m)
 
 all: ${BIN}/clustercat
-.PHONY : all clean
+.PHONY : all install tar clean
 
 clustercat.h: ${SRC}/clustercat-array.h ${SRC}/clustercat-data.h ${SRC}/clustercat-map.h
 
@@ -24,6 +24,11 @@ ${BIN}/clustercat: ${SRC}/clustercat.c ${OBJS}
 	${CC} -Wl,-s $^ -o $@ ${CFLAGS} ${LDLIBS}
 
 clustercat.c: ${SRC}/clustercat.h ${SRC}/clustercat-cluster.h ${SRC}/clustercat-dbg.h ${SRC}/clustercat-io.h ${SRC}/clustercat-import-class-file.h ${SRC}/clustercat-math.h ${SRC}/clustercat-tokenize.h
+
+install: ${BIN}/clustercat
+	cp -p ${BIN}/clustercat /usr/bin/ 2>/dev/null || \
+	mkdir --parents ${HOME}/bin/ && \
+	cp -p ${BIN}/clustercat ${HOME}/bin/
 
 tar: ${BIN}/clustercat
 	mkdir clustercat-${date} && \

@@ -1,5 +1,5 @@
 /** Induces word categories
- *  By Jon Dehdari, 2014-2015
+ *  By Jon Dehdari, 2014-2016
  *  Usage: ./clustercat [options] < corpus.tok.txt > classes.tsv
 **/
 
@@ -274,7 +274,7 @@ int main(int argc, char **argv) {
 
 void get_usage_string(char * restrict usage_string, int usage_len) {
 
-	snprintf(usage_string, usage_len, "ClusterCat  (c) 2014-2015 Jon Dehdari - LGPL v3 or Mozilla Public License v2\n\
+	snprintf(usage_string, usage_len, "ClusterCat  (c) 2014-2016 Jon Dehdari - LGPL v3 or Mozilla Public License v2\n\
 \n\
 Usage:    clustercat [options] < corpus.tok.txt > classes.tsv \n\
 \n\
