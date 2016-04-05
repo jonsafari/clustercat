@@ -2,7 +2,8 @@
 
 
 ## Installation
-You normally don't need to install anything.  You can load the module `clustercat` using either Python 2 or 3.
+First follow the installation instructions in the README.md in the above directory.
+After that, you normally don't need to install anything here.  You can load the module `clustercat` using either Python 2 or 3.
 
     cd python
     python3
@@ -13,7 +14,7 @@ You normally don't need to install anything.  You can load the module `clusterca
 If you get an error message saying that it is unable to access clustercat binary, follow all the instructions in the error message.
 
 ## Usage
-The function `cluster()` is provided in the module `clustercat`.  There is one required argument, and many optional arguments.  The one required argument is **either** `text` **or** `in_file`.  The argument `text` is for a list of Python strings.  The argument `in_file` is a path to a text file, consisting of preprocessed (eg. tokenized) one-sentence-per-line text.  The use of `text` is probably not a good idea for large corpora.
+The function `cluster()` is provided in the module `clustercat`.  There is one required argument (the training input text), and many optional arguments.  The one required argument is **either** `text` **or** `in_file`.  The argument `text` is for a list of Python strings.  The argument `in_file` is a path to a text file, consisting of preprocessed (eg. tokenized) one-sentence-per-line text.  The use of `text` is probably not a good idea for large corpora.
 
 ```Python
     clustercat.cluster(text=['this is a test', 'that is only a test', 'bye'], min_count=1)
