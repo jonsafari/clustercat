@@ -9,6 +9,7 @@
 
 ClusterCat induces word classes from unannotated text.
 It is programmed in modern C, with no external libraries.
+A Python wrapper is also provided.
 
 
 ## Installation
@@ -38,6 +39,10 @@ The format of the output class file has each line consisting of `word`*TAB*`clas
 Command-line argument **usage** may be obtained by running with program with the **`--help`** flag:
 
       bin/clustercat --help
+
+
+## Python
+Installation and usage details for the Python module are described in a separate [Readme](python/README.md).
 
 
 ## Features
