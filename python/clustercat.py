@@ -3,17 +3,29 @@
 # MIT License
 # Simple Python wrapper for ClusterCat
 
-import sys, argparse, subprocess
+import sys, os, argparse, subprocess, distutils.spawn
 parser = argparse.ArgumentParser(description='Converts words to integers, online')
 
-parser.add_argument('-i', '--in_map', help="Load pre-existing mapping file")
-parser.add_argument('-o', '--out_map', help="Save final mapping to file")
+parser.add_argument('-i', '--in', help="Load input training file")
+parser.add_argument('-o', '--out', help="Save final mapping to file")
 args = parser.parse_args()
 
 
 def cluster(text=None, infile=None, classes=None, class_file=None, class_offset=None, forward_lambda=None, ngram_input=None, min_count=None, out=None, print_freqs=None, quiet=None, refine=None, rev_alternate=None, threads=None, tune_cycles=None, unidirectional=None, verbose=None, word_vectors=None):
-    cmd_str  = ["clustercat"]
 
+    # First check to see if we can access clustercat binary relative to this module.  If not, try $PATH.  If not, :-(
+    cc_dir = os.path.dirname(os.path.dirname(__file__))
+    cc_bin = os.path.join(cc_dir, 'bin', 'clustercat')
+    if (os.path.isfile(cc_bin)):
+        cmd_str = [cc_bin]
+    elif (distutils.spawn.find_executable("clustercat")):
+        cmd_str  = ["clustercat"]
+    else:
+        print("Error: Unable to access clustercat binary from either ", cc_dir, " or $PATH.  In the parent directory, first run 'make install', and then add $HOME/bin/ to your $PATH, by typing the following command:\necho 'PATH=$PATH:$HOME/bin' >> $HOME/.bashrc  &&  source $HOME/.bashrc")
+        exit(1)
+
+
+    # Now translate function arguments to command-line arguments
     if (infile):
         cmd_str.append("--in")
         cmd_str.append(str(infile))
