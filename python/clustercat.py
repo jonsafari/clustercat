@@ -101,7 +101,7 @@ def cluster(text=None, infile=None, classes=None, class_file=None, class_offset=
 
 
 def main():
-    cluster(infile=sys.stdin)
+    print(cluster(text=sys.stdin))
 
 if __name__ == '__main__':
     main()
