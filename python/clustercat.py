@@ -11,10 +11,10 @@ parser.add_argument('-o', '--out', help="Save final mapping to file")
 args = parser.parse_args()
 
 
-def cluster(text=None, infile=None, classes=None, class_file=None, class_offset=None, forward_lambda=None, ngram_input=None, min_count=None, out=None, print_freqs=None, quiet=None, refine=None, rev_alternate=None, threads=None, tune_cycles=None, unidirectional=None, verbose=None, word_vectors=None):
+def cluster(text=None, in_file=None, classes=None, class_file=None, class_offset=None, forward_lambda=None, ngram_input=None, min_count=None, out=None, print_freqs=None, quiet=None, refine=None, rev_alternate=None, threads=None, tune_cycles=None, unidirectional=None, verbose=None, word_vectors=None):
 
     # First check to see if we can access clustercat binary relative to this module.  If not, try $PATH.  If not, :-(
-    cc_dir = os.path.dirname(os.path.dirname(__file__))
+    cc_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Python 2 doesn't return absolute path in __file__
     cc_bin = os.path.join(cc_dir, 'bin', 'clustercat')
     if (os.path.isfile(cc_bin)):
         cmd_str = [cc_bin]
@@ -26,9 +26,9 @@ def cluster(text=None, infile=None, classes=None, class_file=None, class_offset=
 
 
     # Now translate function arguments to command-line arguments
-    if (infile):
+    if (in_file):
         cmd_str.append("--in")
-        cmd_str.append(str(infile))
+        cmd_str.append(str(in_file))
 
     if (classes):
         cmd_str.append("--classes")
@@ -92,15 +92,15 @@ def cluster(text=None, infile=None, classes=None, class_file=None, class_offset=
     #print(cmd_str, file=sys.stderr)  # Use Python 3 interpreter
 
     cmd_out = ''
-    if (text and not infile):
+    if (text and not in_file):
         p1 = subprocess.Popen(["printf", "\n".join(text)], stdout=subprocess.PIPE, universal_newlines=True)
         p2 = subprocess.Popen(cmd_str, stdin=p1.stdout, stdout=subprocess.PIPE, universal_newlines=True)
         p1.stdout.close()
         cmd_out = p2.communicate()[0]
-    elif (infile and not text):
+    elif (in_file and not text):
         cmd_out = subprocess.check_output(cmd_str, universal_newlines=True)
     else:
-        print("Error: supply either text or infile argument to clustercat.cluster(), but not both")
+        print("Error: supply either text or in_file argument to clustercat.cluster(), but not both")
 
     clusters = {}
     for line in cmd_out.split("\n"):
