@@ -3,7 +3,7 @@
 # MIT License
 # Simple Python wrapper for ClusterCat
 
-import sys, os, argparse, inspect, subprocess, distutils.spawn
+import sys, os, argparse, subprocess, distutils.spawn
 parser = argparse.ArgumentParser(description='Converts words to integers, online')
 
 parser.add_argument('-i', '--in', help="Load input training file")
