@@ -26,68 +26,31 @@ def cluster(text=None, in_file=None, classes=None, class_file=None, class_offset
 
 
     # Now translate function arguments to command-line arguments
-    if (in_file):
-        cmd_str.append("--in")
-        cmd_str.append(str(in_file))
+    clustercat_params = {"in_file": "--in", "out": "--out",
+    "classes": "--classes",
+    "class_file": "--class-file",
+    "class_offset": "--class-offset",
+    "forward_lambda": "--forward-lambda",
+    "ngram_input": "--ngram-input",
+    "min_count": "--min-count",
+    "refine": "--refine", 
+    "rev_alternate": "--rev-alternate", 
+    "threads": "--threads", 
+    "tune_cycles": "--tune-cycles",
+    "word_vectors": "--word-vectors"}
+    
+    boolean_params = {
+    "print_freqs": "--print-freqs",
+    "quiet": "--quiet",
+    "unidirectional": "--unidirectional", 
+    "verbose": "--verbose"}
 
-    if (classes):
-        cmd_str.append("--classes")
-        cmd_str.append(str(classes))
-
-    if (class_file):
-        cmd_str.append("--class-file")
-        cmd_str.append(str(class_file))
-
-    if (class_offset):
-        cmd_str.append("--class-offset")
-        cmd_str.append(str(class_offset))
-
-    if (forward_lambda):
-        cmd_str.append("--forward-lambda")
-        cmd_str.append(str(forward_lambda))
-
-    if (ngram_input):
-        cmd_str.append("--ngram-input")
-
-    if (min_count):
-        cmd_str.append("--min-count")
-        cmd_str.append(str(min_count))
-
-    if (out):
-        cmd_str.append("--out")
-        cmd_str.append(out)
-
-    if (print_freqs):
-        cmd_str.append("--print-freqs")
-
-    if (quiet):
-        cmd_str.append("--quiet")
-
-    if (refine):
-        cmd_str.append("--refine")
-        cmd_str.append(str(refine))
-
-    if (rev_alternate):
-        cmd_str.append("--rev-alternate")
-        cmd_str.append(str(rev_alternate))
-
-    if (threads):
-        cmd_str.append("--threads")
-        cmd_str.append(str(threads))
-
-    if (tune_cycles):
-        cmd_str.append("--tune-cycles")
-        cmd_str.append(str(tune_cycles))
-
-    if (unidirectional):
-        cmd_str.append("--unidirectional")
-
-    if (verbose):
-        cmd_str.append("--verbose")
-
-    if (word_vectors):
-        cmd_str.append("--word-vectors")
-        cmd_str.append(word_vectors)
+    for arg, value in locals().items():
+        if arg in boolean_params and value == True: # Check for boolean parameters
+            cmd_str.append(boolean_params[arg])
+        elif arg in clustercat_params and value is not None: # Other non-boolean parameters that are not None
+            cmd_str.append(clustercat_params[arg])
+            cmd_str.append(str(value))
 
     #print(cmd_str, file=sys.stderr)  # Use Python 3 interpreter
 
