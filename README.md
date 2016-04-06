@@ -95,6 +95,10 @@ If you want to directly compare the quality of clusters with a different program
 3. Evaluate on a downstream task.  This is best.
 
 
+## Contributions
+Contributions are welcome, via [pull requests][].
+
+
 ## Citation
 If you use this software please cite the following
 
@@ -126,3 +130,4 @@ In *Proceedings of the 2016 Conference of the North American Chapter of the Asso
 [bl.ocks.org]: http://bl.ocks.org/jonsafari
 [JSON]: https://en.wikipedia.org/wiki/JSON
 [gist.github.com]: https://gist.github.com
+[pull requests]: https://help.github.com/articles/creating-a-pull-request
