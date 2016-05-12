@@ -10,6 +10,41 @@ parser.add_argument('-i', '--in', help="Load input training file")
 parser.add_argument('-o', '--out', help="Save final mapping to file")
 args = parser.parse_args()
 
+unk = '<unk>'
+
+def load(in_file=None, format='tsv'):
+    mapping = {}
+    if (format == 'tsv'):
+        with open(in_file, 'r') as f:
+            # Primary sort by value (cluster ID), secondary sort by key (word)
+            for line in f:
+                # Keep the full split line instead of key, val to allow for counts in optional third column
+                tokens = line.split()
+                mapping[tokens[0]] = int(tokens[1])
+
+    return mapping
+
+
+def save(mapping=None, out=None, format='tsv'):
+    if (format == 'tsv'):
+        with open(out, 'w') as outfile:
+            # Primary sort by value (cluster ID), secondary sort by key (word)
+            for key in sorted(sorted(mapping), key=mapping.get):
+                line = str(key) + '\t' + str(mapping[key]) + '\n'
+                outfile.write(line)
+
+
+def tag_string(mapping=None, text=None, unk=unk):
+    newsent = ""
+    for word in text.split():
+        if word in mapping:
+            newsent += ' ' + str(mapping[word])
+        elif unk in mapping:
+            newsent += ' ' + str(mapping[unk])
+        else:
+            newsent += ' ' + "<unk>"
+    return newsent.lstrip()
+
 
 def cluster(text=None, in_file=None, classes=None, class_file=None, class_offset=None, forward_lambda=None, ngram_input=None, min_count=None, out=None, print_freqs=None, quiet=None, refine=None, rev_alternate=None, threads=None, tune_cycles=None, unidirectional=None, verbose=None, word_vectors=None):
 
