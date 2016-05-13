@@ -3,11 +3,13 @@
 # MIT License
 # Simple Python wrapper for ClusterCat
 
-import sys, os, argparse, subprocess, distutils.spawn
-parser = argparse.ArgumentParser(description='Converts words to integers, online')
+import sys, os, argparse
+import subprocess, distutils.spawn
+parser = argparse.ArgumentParser(description='Clusters words, or tags them')
 
-parser.add_argument('-i', '--in', help="Load input training file")
+parser.add_argument('-i', '--in',  help="Load input training file")
 parser.add_argument('-o', '--out', help="Save final mapping to file")
+parser.add_argument('-t', '--tag', help="Tag stdin input, using clustering in supplied argument")
 args = parser.parse_args()
 
 unk = '<unk>'
@@ -15,7 +17,7 @@ unk = '<unk>'
 def load(in_file=None, format='tsv'):
     mapping = {}
     if (format == 'tsv'):
-        with open(in_file, 'r') as f:
+        with open(in_file) as f:
             # Primary sort by value (cluster ID), secondary sort by key (word)
             for line in f:
                 # Keep the full split line instead of key, val to allow for counts in optional third column
@@ -116,7 +118,16 @@ def cluster(text=None, in_file=None, classes=None, class_file=None, class_offset
 
 
 def main():
-    print(cluster(text=sys.stdin))
+    if args.tag:
+        mapping = load(in_file=args.tag)
+        tag_stdin(mapping=mapping)
+    else:
+        mapping = cluster(text=sys.stdin)
+        if args.out:
+            save(mapping=mapping, out=args.out)
+        else:
+            print(mapping)
+
 
 if __name__ == '__main__':
     main()
