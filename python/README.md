@@ -19,7 +19,7 @@ To import this module from a different directory, you can add the module's direc
 	echo "export PYTHONPATH=\$PYTHONPATH:`pwd`" >> ~/.bashrc
 	source ~/.bashrc
 
-## Usage
+## Python ClusterCat Functions
 ### `cluster(text=None, in_file=None, ...)`
 Produce a clustering, given a textual input.  There is one required argument (the training input text), and many optional arguments.  The one required argument is **either** `text` **or** `in_file`.  The argument `text` is a list of Python strings.  The argument `in_file` is a path to a text file, consisting of preprocessed (eg. tokenized) one-sentence-per-line text.  The use of `text` is probably not a good idea for large corpora.
 
@@ -57,3 +57,6 @@ Returns a string.
 ```Python
 tagged_sent = cc.tag_string(clustering, "this is a test")
 ```
+
+### `tag_stdin(mapping=None, unk=unk)`
+This calls `tag_string()` for each line in `stdin`, and prints the result to `stdout`.
