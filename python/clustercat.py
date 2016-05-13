@@ -46,6 +46,11 @@ def tag_string(mapping=None, text=None, unk=unk):
     return newsent.lstrip()
 
 
+def tag_stdin(mapping=None, unk=unk):
+    for line in sys.stdin:
+        print(tag_string(mapping=mapping, text=line, unk=unk))
+
+
 def cluster(text=None, in_file=None, classes=None, class_file=None, class_offset=None, forward_lambda=None, ngram_input=None, min_count=None, out=None, print_freqs=None, quiet=None, refine=None, rev_alternate=None, threads=None, tune_cycles=None, unidirectional=None, verbose=None, word_vectors=None):
 
     # First check to see if we can access clustercat binary relative to this module.  If not, try $PATH.  If not, :-(
