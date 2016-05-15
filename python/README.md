@@ -33,7 +33,7 @@ The other optional arguments are described by running the compiled clustercat bi
 Returns a dictionary of the form `{ word : cluster_id }` .
 
 
-### `save(mapping=None, out=None, format='tsv')`
+### `save(mapping, out, format='tsv')`
 Save a clustering (dictionary) to file.  By default the output file is a tab-separated listing of words and their cluster ID.
 
 ```Python
@@ -41,8 +41,8 @@ cc.save(clustering, 'clusters.tsv')
 ```
 
 
-### `load(in_file=None, format='tsv')`
-Load a clustering (dictionary) from a file.  By default the input file is a tab-separated listing of words and their cluster ID.
+### `load(in_file, format="tsv")`
+Load a clustering from a file.  By default the input file is a tab-separated listing of words and their cluster ID.
 Returns a dictionary of the clustering.
 
 ```Python
@@ -50,7 +50,7 @@ clustering = cc.load('clusters.tsv')
 ```
 
 
-### `tag_string(mapping=None, text=None, unk="<unk>")`
+### `tag_string(mapping, text, unk="<unk>")`
 Tag a string with the corresponding cluster ID's.  If a word is not found in the clustering, use `unk`.
 Returns a string.
 
@@ -58,5 +58,5 @@ Returns a string.
 tagged_sent = cc.tag_string(clustering, "this is a test")
 ```
 
-### `tag_stdin(mapping=None, unk=unk)`
+### `tag_stdin(mapping, unk="<unk>")`
 This calls `tag_string()` for each line in `stdin`, and prints the result to `stdout`.
