@@ -42,7 +42,7 @@ Command-line argument **usage** may be obtained by running with program with the
 
 
 ## Python
-Installation and usage details for the Python module are described in a separate [Readme](python/README.md).
+Installation and usage details for the Python module are described in a separate [readme](python/README.md).
 
 
 ## Features
@@ -102,8 +102,8 @@ Contributions are welcome, via [pull requests][].
 ## Citation
 If you use this software please cite the following
 
-Dehdari, Jon, Liling Tan, and Josef van Genabith. 2016. BIRA: Improved Predictive Exchange Word Clustering.
-In *Proceedings of the 2016 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)*, San Diego, CA, USA.  Association for Computational Linguistics.
+Dehdari, Jon, Liling Tan, and Josef van Genabith. 2016. [BIRA: Improved Predictive Exchange Word Clustering](http://www.aclweb.org/anthology/N16-1139.pdf).
+In *Proceedings of the 2016 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (NAACL)*, pages 1169–1174, San Diego, CA, USA.  Association for Computational Linguistics.
 
     @inproceedings{dehdari-etal2016,
      author    = {Dehdari, Jon  and  Tan, Liling  and  van Genabith, Josef},
@@ -113,6 +113,8 @@ In *Proceedings of the 2016 Conference of the North American Chapter of the Asso
      year      = {2016},
      address   = {San Diego, CA, USA},
      publisher = {Association for Computational Linguistics},
+     pages     = {1169--1174},
+     url       = {http://www.aclweb.org/anthology/N16-1139.pdf}
     }
 
 [lgpl3]: https://www.gnu.org/copyleft/lesser.html
