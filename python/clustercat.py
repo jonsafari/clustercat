@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # By Jon Dehdari, 2016
 # MIT License
-# Simple Python wrapper for ClusterCat
+""" Fast, flexible word clusters """
 
 import sys, os, argparse
 import subprocess, distutils.spawn
@@ -15,6 +15,8 @@ args = parser.parse_args()
 unk = '<unk>'
 
 def load(in_file=None, format='tsv'):
+    """ Load a clustering from a file. By default the input file is a tab-separated listing of words and their cluster ID. Returns a dictionary of the clustering. """
+
     mapping = {}
     if (format == 'tsv'):
         with open(in_file) as f:
@@ -28,6 +30,8 @@ def load(in_file=None, format='tsv'):
 
 
 def save(mapping=None, out=None, format='tsv'):
+    """ Save a clustering (dictionary) to file. By default the output file is a tab-separated listing of words and their cluster ID. """
+
     if (format == 'tsv'):
         with open(out, 'w') as outfile:
             # Primary sort by value (cluster ID), secondary sort by key (word)
@@ -37,6 +41,8 @@ def save(mapping=None, out=None, format='tsv'):
 
 
 def tag_string(mapping=None, text=None, unk=unk):
+    """Tag a string with the corresponding cluster ID's. If a word is not found in the clustering, use unk. Returns a string. """
+
     newsent = ""
     for word in text.split():
         if word in mapping:
@@ -49,11 +55,20 @@ def tag_string(mapping=None, text=None, unk=unk):
 
 
 def tag_stdin(mapping=None, unk=unk):
+    """ This calls tag_string() for each line in stdin, and prints the result to stdout. """
+
     for line in sys.stdin:
         print(tag_string(mapping=mapping, text=line, unk=unk))
 
 
 def cluster(text=None, in_file=None, classes=None, class_file=None, class_offset=None, forward_lambda=None, ngram_input=None, min_count=None, out=None, print_freqs=None, quiet=None, refine=None, rev_alternate=None, threads=None, tune_cycles=None, unidirectional=None, verbose=None, word_vectors=None):
+    """
+    Produce a clustering, given a textual input. There is one required argument (the training input text), and many optional arguments. The one required argument is either text or in_file. The argument text is a list of Python strings. The argument in_file is a path to a text file, consisting of preprocessed (eg. tokenized) one-sentence-per-line text. The use of text is probably not a good idea for large corpora.
+
+    The other optional arguments are described by running the compiled clustercat binary with the --help argument, except that the leading -- from the shell argument is removed, and - is replaced with _. So for example, instead of --tune-cycles 15, the Python function argument would be tune_cycles=15 .
+
+    Returns a dictionary of the form { word : cluster_id } .
+    """
 
     # First check to see if we can access clustercat binary relative to this module.  If not, try $PATH.  If not, :-(
     cc_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Python 2 doesn't return absolute path in __file__
