@@ -11,6 +11,10 @@ ClusterCat induces word classes from unannotated text.
 It is programmed in modern C, with no external libraries.
 A Python wrapper is also provided.
 
+Word classes are unsupervised part-of-speech tags, requiring no manually-annotated corpus.
+Words are grouped together that share syntactic/semantic similarities.
+They are used in many dozens of applications within natural language processing, machine translation, neural net training, and related fields.
+
 
 ## Installation
 ### Linux
