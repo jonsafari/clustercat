@@ -13,7 +13,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install llvm38; fi
 script:
   #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make CC=clang-omp; fi
-    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make CC=/usr/local/bin/clang-3.8 CFLAGS="$CFLAGS -I/usr/local/opt/llvm38/lib/llvm-3.8/include/" LDFLAGS="$LDFLAGS -L/usr/local/opt/llvm38/lib/llvm-3.8/lib" ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make CC=/usr/local/bin/clang-3.8 CFLAGS="$CFLAGS -I/usr/local/opt/llvm38/lib/llvm-3.8/include/" LDFLAGS="$LDFLAGS -L/usr/local/opt/llvm38/lib/llvm-3.8/lib" ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make; fi
 notifications:
   email: false
