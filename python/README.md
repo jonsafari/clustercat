@@ -12,6 +12,7 @@ After that, you normally don't need to install anything here.  You can load the 
     >>> print(clustering)
 
 If you get an error message saying that it is unable to access clustercat binary, follow all the instructions in the error message.
+You'll need more text input than the toy example above to produce useful clusters.
 
 To import this module from a different directory, you can add the module's directory to `$PYTHONPATH`:
 
