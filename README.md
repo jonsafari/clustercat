@@ -130,7 +130,7 @@ In *Proceedings of the 2016 Conference of the North American Chapter of the Asso
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 [brown]: https://github.com/percyliang/brown-cluster
 [mkcls]: https://github.com/moses-smt/mgiza
-[phrasal]: http://nlp.stanford.edu/phrasal
+[phrasal]: https://github.com/stanfordnlp/phrasal
 [word2vec]: https://code.google.com/archive/p/word2vec/
 [word vectors]: https://en.wikipedia.org/wiki/Word_embedding
 [bl.ocks.org]: http://bl.ocks.org/jonsafari
