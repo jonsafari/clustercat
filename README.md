@@ -58,11 +58,11 @@ Installation and usage details for the Python module are described in a separate
 
 
 ## Comparison
-| Training Set               | [Brown][] | ClusterCat | [mkcls][] | [Phrasal][] | [word2vec][] |
-| ------------               | --------- | ---------- | --------- | ----------- | ------------ |
-| 1B   WMT EN, 800 clusters  | 12.5 hr   | **1.4** hr | 48.8 hr   | 5.1 hr      | 20.6 hr      |
-| 1B   WMT EN, 1200 clusters | 25.5 hr   | **1.7** hr | 68.8 hr   | 6.2 hr      | 33.7 hr      |
-| 550M WMT RU, 800 clusters  | 14.6 hr   | **1.5** hr | 75.0 hr   | 5.5 hr      | 12.0 hr      |
+| Training Set                                        | [Brown][] | ClusterCat | [mkcls][] | [Phrasal][] | [word2vec][] |
+| ------------                                        | --------- | ---------- | --------- | ----------- | ------------ |
+| 1 Billion English tokens,   800 clusters  | 12.5 hr   | **1.4** hr | 48.8 hr   | 5.1 hr      | 20.6 hr      |
+| 1 Billion English tokens,   1200 clusters | 25.5 hr   | **1.7** hr | 68.8 hr   | 6.2 hr      | 33.7 hr      |
+| 550 Million Russian tokens, 800 clusters  | 14.6 hr   | **1.5** hr | 75.0 hr   | 5.5 hr      | 12.0 hr      |
 
 
 ## Visualization
@@ -130,7 +130,7 @@ In *Proceedings of the 2016 Conference of the North American Chapter of the Asso
 [exchange algorithm]: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.53.2354
 [brown]: https://github.com/percyliang/brown-cluster
 [mkcls]: https://github.com/moses-smt/mgiza
-[phrasal]: https://github.com/stanfordnlp/phrasal
+[phrasal]: http://nlp.stanford.edu/phrasal
 [word2vec]: https://code.google.com/archive/p/word2vec/
 [word vectors]: https://en.wikipedia.org/wiki/Word_embedding
 [bl.ocks.org]: http://bl.ocks.org/jonsafari
