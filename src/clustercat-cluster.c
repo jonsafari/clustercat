@@ -140,8 +140,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 		}
 		double best_log_prob = training_data_log_likelihood(cmd_args, model_metadata, count_arrays, word_counts, word2class);
 
-		if (cmd_args.verbose >= -1)
+		if (cmd_args.verbose >= -1) {
 			fprintf(stderr, "%s: Expected Steps:  %'lu (%'u word types x %'u classes x %'u cycles);  initial logprob=%g, PP=%g\n", argv_0_basename, (unsigned long)model_metadata.type_count * cmd_args.num_classes * cmd_args.tune_cycles, model_metadata.type_count, cmd_args.num_classes, cmd_args.tune_cycles, best_log_prob, perplexity(best_log_prob, (model_metadata.token_count + model_metadata.line_count))); fflush(stderr);
+		}
 
 		time_t time_start_cycles;
 		time(&time_start_cycles);
@@ -248,8 +249,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 				if (old_class != best_hypothesis_class) { // We've improved
 					moved_count++;
 
-					if (cmd_args.verbose > 0)
+					if (cmd_args.verbose > 0) {
 						fprintf(stderr, " Moving id=%-7u count=%-7lu %-18s %u -> %u\t(%g -> %g)\n", word_i, (unsigned long)word_bigrams[word_i].headword_count, word_list[word_i], old_class, best_hypothesis_class, scores[old_class], best_hypothesis_score); fflush(stderr);
+					}
 					//word2class[word_i] = best_hypothesis_class;
 					word2class[word_i] = best_hypothesis_class;
 					if (isnan(best_hypothesis_score)) { // shouldn't happen
@@ -273,8 +275,9 @@ void cluster(const struct cmd_args cmd_args, const struct_model_metadata model_m
 			//	break;
 		}
 
-		if (cmd_args.verbose >= -1)
+		if (cmd_args.verbose >= -1) {
 			fprintf(stderr, "%s: Completed steps: %'lu\n", argv_0_basename, steps); fflush(stderr);
+		}
 			//fprintf(stderr, "%s: Completed steps: %'lu (%'u word types x %'u classes x %'u cycles);     best logprob=%g, PP=%g\n", argv_0_basename, steps, model_metadata.type_count, num_classes_current, cycle-1, best_log_prob, perplexity(best_log_prob,(model_metadata.token_count - model_metadata.line_count))); fflush(stderr);
 
 		if (cmd_args.class_algo == EXCHANGE_BROWN)

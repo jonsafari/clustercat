@@ -96,8 +96,9 @@ int main(int argc, char **argv) {
 	fclose(in_train_file);
 
 	clock_t time_input_processed = clock();
-	if (cmd_args.verbose >= -1)
+	if (cmd_args.verbose >= -1) {
 		fprintf(stderr, "%s: Corpus processed in %'.2f CPU secs. %'lu lines, %'u types, %'lu tokens, current memusage: %'.1fMB\n", argv_0_basename, (double)(time_input_processed - time_start)/CLOCKS_PER_SEC, input_model_metadata.line_count, input_model_metadata.type_count, input_model_metadata.token_count, (double)memusage / 1048576); fflush(stderr);
+	}
 
 	global_metadata.token_count = input_model_metadata.token_count;
 	global_metadata.type_count  = map_count(&word_map);
@@ -160,8 +161,9 @@ int main(int argc, char **argv) {
 	struct_word_bigram_entry * restrict word_bigrams = NULL;
 	struct_word_bigram_entry * restrict word_bigrams_rev = NULL;
 
-	if (cmd_args.verbose >= -1)
+	if (cmd_args.verbose >= -1) {
 		fprintf(stderr, "%s: Word bigram listing ... ", argv_0_basename); fflush(stderr);
+	}
 
 	#pragma omp parallel sections // Both bigram listing and reverse bigram listing can be done in parallel
 	{
@@ -195,8 +197,9 @@ int main(int argc, char **argv) {
 	delete_all_bigram(&new_bigram_map_rev);
 	memusage += bigram_memusage + bigram_rev_memusage;
 	clock_t time_bigram_end = clock();
-	if (cmd_args.verbose >= -1)
+	if (cmd_args.verbose >= -1) {
 		fprintf(stderr, "in %'.2f CPU secs.  Bigram memusage: %'.1f MB\n", (double)(time_bigram_end - time_bigram_start)/CLOCKS_PER_SEC, (bigram_memusage + bigram_rev_memusage)/(double)1048576); fflush(stderr);
+	}
 
 	//print_word_bigrams(global_metadata, word_bigrams, word_list);
 
@@ -233,10 +236,12 @@ int main(int argc, char **argv) {
 	}
 
 	clock_t time_model_built = clock();
-	if (cmd_args.verbose >= -1)
+	if (cmd_args.verbose >= -1) {
 		fprintf(stderr, "%s: Finished loading %'lu tokens and %'u types (%'u filtered) from %'lu lines in %'.2f CPU secs\n", argv_0_basename, global_metadata.token_count, global_metadata.type_count, number_of_deleted_words, global_metadata.line_count, (double)(time_model_built - time_start)/CLOCKS_PER_SEC); fflush(stderr);
-	if (cmd_args.verbose >= -1)
+	}
+	if (cmd_args.verbose >= -1) {
 		fprintf(stderr, "%s: Approximate memory usage at clustering: %'.1fMB\n", argv_0_basename, (double)memusage / 1048576); fflush(stderr);
+	}
 
 	cluster(cmd_args, global_metadata, word_counts, word_list, word2class, word_bigrams, word_bigrams_rev, word_class_counts, word_class_rev_counts);
 
@@ -312,10 +317,12 @@ Options:\n\
 
 void parse_cmd_args(int argc, char **argv, char * restrict usage, struct cmd_args *cmd_args) {
 	for (int arg_i = 0; arg_i < argc; arg_i++) // Print command-line invocation, for reproducibility
-		if (cmd_args->verbose >= -1)
+		if (cmd_args->verbose >= -1) {
 			fprintf(stderr, "%s ", argv[arg_i]); fflush(stderr);
-	if (cmd_args->verbose >= -1)
+		}
+	if (cmd_args->verbose >= -1) {
 		fprintf(stderr, "\n"); fflush(stderr);
+	}
 
 	for (int arg_i = 1; arg_i < argc; arg_i++) {
 		if (!(strcmp(argv[arg_i], "-h") && strcmp(argv[arg_i], "--help"))) {
@@ -455,8 +462,9 @@ word_id_t filter_infrequent_words(const struct cmd_args cmd_args, struct_model_m
 		unsigned long word_i_count = map_find_count(word_map, word);  // We'll use this a couple times
 		if ((word_i_count < cmd_args.min_count) && (strncmp(word, UNKNOWN_WORD, MAX_WORD_LEN)) && (strncmp(word, "<s>", MAX_WORD_LEN)) &&  (strncmp(word, "</s>", MAX_WORD_LEN))) { // Don't delete <unk>
 			number_of_deleted_words++;
-			if (cmd_args.verbose > 3)
+			if (cmd_args.verbose > 3) {
 				printf("Filtering-out word: %s (old id=%lu, new id=0) (%lu < %hu);\tcount(%s)=%lu\n", word, word_i, (unsigned long)word_i_count, cmd_args.min_count, UNKNOWN_WORD, (unsigned long)map_find_count(word_map, UNKNOWN_WORD)); fflush(stdout);
+			}
 			word_id_remap[map_find_id(word_map, word, (word_id_t) -1)] = (word_id_t) -1; // set value of dud word in remap to temporary unk, which is -1.  This gets changed later
 			map_update_count(word_map, UNKNOWN_WORD, word_i_count, 0);
 			model_metadata->type_count--;
