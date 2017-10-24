@@ -24,10 +24,10 @@ You can use either GCC 4.6+ or Clang 3.7+, but GCC is recommended.
       make -j 4
 
 ### macOS / OSX
-Until Xcode includes Clang 3.7+, you can use [Homebrew][] to install a version of Clang that supports [OpenMP][]:
+The current version of Clang in Xcode doesn't fully support [OpenMP][], so instead install GCC from [Homebrew][]:
 
-      brew update  &&  brew install clang-omp
-      make -j 4 CC=clang-omp
+      brew update  &&  brew install gcc
+      make -j 4 CC=/usr/local/bin/gcc-7
 
 
 ## Commands
