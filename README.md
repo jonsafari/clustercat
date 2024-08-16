@@ -20,14 +20,14 @@ They are used in many dozens of applications within natural language processing,
 ### Linux
 You can use either GCC 4.6+ or Clang 3.7+, but GCC is recommended.
 
-      sudo apt update  &&  sudo apt install gcc make libomp-dev
-      make -j
+      sudo apt update  &&  sudo apt install gcc-9 make libomp-dev
+      make -j CC=/usr/bin/gcc-9
 
 ### macOS / OSX
 The current version of Clang in Xcode doesn't fully support [OpenMP][], so instead install GCC from [Homebrew][]:
 
-      brew update  &&  brew install gcc@13 libomp  &&  xcode-select --install
-      make -j CC=/opt/homebrew/bin/gcc-13
+      brew update  &&  brew install gcc@9 libomp  &&  xcode-select --install
+      make -j CC=/opt/homebrew/bin/gcc-9
 
 
 ## Commands
