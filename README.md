@@ -18,10 +18,10 @@ They are used in many dozens of applications within natural language processing,
 
 ## Installation
 ### Linux
-You can use either GCC 4.6+ or Clang 3.7+, but GCC is recommended.
+You can use either GCC 4.6+ or Clang 3.7+, but GCC is usually faster.
 
-      sudo apt update  &&  sudo apt install gcc-9 make libomp-dev
-      make -j CC=/usr/bin/gcc-9
+      sudo apt update  &&  sudo apt install gcc make libomp-dev
+      make -j
 
 ### macOS / OSX
 The current version of Clang in Xcode doesn't fully support [OpenMP][], so instead install GCC from [Homebrew][]:
