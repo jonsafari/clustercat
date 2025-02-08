@@ -29,6 +29,7 @@ char * restrict class_algo           = NULL;
 char * restrict in_train_file_string = NULL;
 char * restrict out_file_string      = NULL;
 char * restrict initial_class_file   = NULL;
+char * argv_0_basename = NULL;
 
 struct_map_word *word_map = NULL; // Must initialize to NULL
 struct_map_bigram *initial_bigram_map = NULL; // Must initialize to NULL

@@ -53,7 +53,7 @@ typedef struct { // This is for an array pointing to this struct having a pointe
 	word_count_t headword_count;
 } struct_word_bigram_entry;
 
-char *argv_0_basename; // Allow for global access to filename
+extern char *argv_0_basename; // Allow for global access to filename
 
 struct cmd_args {
 	float           forward_lambda;
