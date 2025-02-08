@@ -6,7 +6,7 @@ INCLUDE=-I ./src/ext/uthash/src/
 ##  * We include the argument -Wno-unknown-pragmas to suppress clang's lack of support for openmp
 ##    Since we use the gnuism 'override', you don't need to modify this makefile; you can just run:  make -j4 CFLAGS=-DATA_STORE_TRIE_LCRS
 override CFLAGS += -march=native -std=c99 -O3 -fopenmp -finline-functions -fno-math-errno -fstrict-aliasing -DHASH_FUNCTION=HASH_SAX -DHASH_BLOOM=25 -Wall -Wextra -Winline -Wstrict-aliasing -Wno-unknown-pragmas -Wno-comment -Wno-missing-field-initializers ${INCLUDE}
-LDLIBS=-lm #-ltcmalloc_minimal
+LDLIBS=-lm -fopenmp #-ltcmalloc_minimal
 BIN=bin/
 SRC=src/
 OBJS=${SRC}/clustercat-array.o ${SRC}/clustercat-cluster.o ${SRC}/clustercat-dbg.o ${SRC}/clustercat-io.o ${SRC}/clustercat-import-class-file.o ${SRC}/clustercat-map.o ${SRC}/clustercat-math.o ${SRC}/clustercat-tokenize.o
